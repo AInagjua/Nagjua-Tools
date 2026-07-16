@@ -99,7 +99,7 @@
     <div id="manifestPanel" style="display:none">
       <div id="manifestEmpty" class="empty" style="display:none">No ledgers saved yet. Upload a Tally export above to get started.</div>
       <table class="manifest-table" id="manifestTable">
-        <thead><tr><th>Account</th><th>Bank / Sheet</th><th>File</th><th>Rows</th><th>Date range</th><th></th></tr></thead>
+        <thead><tr><th>Account</th><th>Bank / Sheet</th><th>File</th><th>Rows</th><th>Date range</th><th>Last Transaction</th><th></th></tr></thead>
         <tbody id="manifestBody"></tbody>
       </table>
     </div>
@@ -256,6 +256,7 @@ function renderManifest(){
       <td data-label="File" class="muted">${escapeHtml(m.filename)}</td>
       <td data-label="Rows">${m.rowCount}</td>
       <td data-label="Date range">${escapeHtml(m.dateFrom)} &rarr; ${escapeHtml(m.dateTo)}</td>
+      <td data-label="Last Transaction">${escapeHtml(m.dateTo)}</td>
       <td data-label=""><button class="remove-btn" data-id="${m.id}">Remove</button></td>
     </tr>
   `).join('');
