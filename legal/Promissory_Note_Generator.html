@@ -899,13 +899,8 @@ function buildWordDocHTML(c, chList) {
   let chequeBullets = '';
   if (chList.length > 0) {
     chList.forEach(ch => {
-      if (isTG) {
-        chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong> dated <strong>${fmtChequeDate(ch.date)}</strong> for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> in favour of <strong>${ch.favour} towards ${ch.purpose}</strong>.</p>`;
-      } else if (isTP) {
-        chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong>, dated <strong>${fmtChequeDate(ch.date)}</strong>, for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> (${ch.favour || 'M/s. Nagjua Lifespaces'})</p>`;
-      } else {
-        chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong>, dated <strong>${fmtChequeDate(ch.date)}</strong>, for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> (${ch.favour || 'M/s. Micromega Projects'})</p>`;
-      }
+      const fav = ch.favour || (isTP ? 'M/s. Nagjua Lifespaces' : 'M/s. Micromega Projects');
+      chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong> dated <strong>${fmtChequeDate(ch.date)}</strong> for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> in favour of <strong>${fav}${ch.purpose ? ' towards ' + ch.purpose : ''}</strong>.</p>`;
     });
   } else {
     chequeBullets = `<p class="body"><em>(No cheques entered)</em></p>`;
