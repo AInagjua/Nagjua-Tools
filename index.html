@@ -111,6 +111,17 @@
     color:var(--muted);
     text-align:center;
   }
+  .section-title{
+    font-size:13px;
+    font-weight:700;
+    color:var(--navy);
+    letter-spacing:1px;
+    text-transform:uppercase;
+    margin:36px 0 12px;
+    padding-bottom:8px;
+    border-bottom:2px solid var(--gold);
+  }
+  .section-title:first-child{margin-top:0;}
   footer{
     text-align:center;
     padding:20px;
@@ -128,15 +139,19 @@
 </header>
 
 <main>
+  <div class="section-title">CRM Team</div>
   <div class="grid">
-    <a class="card" href="Client_Flat_Ledger_Search.html">
+    <a class="card" href="crm/Client_Flat_Ledger_Search.html">
       <div class="name">Client &amp; Flat Ledger Search</div>
       <div class="desc">Search a client name or flat number across all uploaded bank ledgers. Shared live data for everyone.</div>
       <div class="open">Open tool →</div>
     </a>
   </div>
 
-  <div class="empty-note">More tools will appear here as they're added.</div>
+  <div class="section-title">Legal Team</div>
+  <div class="grid">
+  </div>
+  <div class="empty-note">No legal team tools yet.</div>
 </main>
 
 <footer>Nagjua Group — Finance &amp; Accounts</footer>
