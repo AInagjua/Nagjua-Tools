@@ -127,14 +127,6 @@
   .badge-ok   { background: var(--greenb); color: var(--green); }
   .badge-err  { background: var(--redb);   color: var(--red); }
 
-  /* GENERATE BAR */
-  .generate-bar {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    background: var(--navy); border-top: 3px solid var(--gold);
-    padding: 14px 40px; display: flex; align-items: center; justify-content: space-between;
-    z-index: 100;
-  }
-  .gen-info { color: #94A3B8; font-size: 13px; }
   .gen-btn {
     background: var(--gold); color: var(--navy); border: none;
     padding: 12px 32px; border-radius: var(--radius);
@@ -366,18 +358,12 @@
       </div>
     </div>
     <div class="step-body" style="text-align:center; padding:36px;">
-      <button class="gen-btn" style="display:inline-flex;" onclick="generateDoc()">
+      <button class="gen-btn" id="mainGenBtn" style="display:inline-flex;" onclick="generateDoc()">
         ⚡ Generate Promissory Note
       </button>
     </div>
   </div>
 
-</div>
-
-<!-- STICKY BAR -->
-<div class="generate-bar">
-  <div class="gen-info">Nagjua Group &nbsp;·&nbsp; Promissory Note Generator</div>
-  <button class="gen-btn" id="mainGenBtn" onclick="generateDoc()">⚡ Generate</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -791,7 +777,7 @@ async function generateDoc() {
   }
 
   btn.disabled = false;
-  btn.textContent = '⚡ Generate';
+  btn.textContent = '⚡ Generate Promissory Note';
 }
 
 function getFormData() {
