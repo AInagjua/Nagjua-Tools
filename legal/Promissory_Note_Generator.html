@@ -879,6 +879,22 @@ function buildWordDocHTML(c, chList) {
     ? `<strong>M/s. NAGJUA LIFESPACES</strong> (<strong>PAN No.: AAPFN1352H</strong>) a partnership firm registered under the Indian Partnership Act, 1932, having its principal place of business at &#8220;NAGJUA&#8221;, Shop No. 29-32, Garden City, Samarvani, Silvassa &#8211; 396230, represented by its authorized Partner <strong>SHRI SUMIT AGARWAL</strong>, Age <strong>48</strong> Years, Occupation Business, Male, Indian (Aadhar No.: <strong>779968279775</strong>) authorized vide Power of Attorney dated 12/12/2019, Notarized Serial No. 5288, hereinafter referred to as the <strong>&#8220;Lender&#8221;</strong>, which term shall include its successors, nominees, legal representatives, and assigns.`
     : `<strong>M/s. MICROMEGA PROJECTS</strong>, (<strong>PAN No. AARFM6047N</strong>) a partnership firm registered under the Indian Partnership Act, 1932, having its principal place of business at <strong>&#8220;NAGJUA&#8221;</strong> Shop No. 29-32, Garden City, Samarvani, Silvassa-396230, represented by its authorized Partner <strong>SHRI SUMIT AGARWAL</strong>, Age <strong>48</strong> Years, Occ. <strong>Business</strong>, <strong>Male</strong>, <strong>Indian</strong> (Aadhar No. <strong>7799 6827 9775</strong>) authorized vide Power of Attorney dated <strong>25/01/2020</strong>, Registration Serial No. <strong>DNH-457-2020</strong>, hereinafter referred to as the <strong>&#8220;Lender&#8221;</strong>, which term shall include its successors, nominees, legal representatives, and assigns.`;
 
+  // Grammar agreement helpers (singular "Borrower" vs plural "Borrowers")
+  const vAckAdmitConfirm  = isSingle ? 'acknowledges, admits and confirms' : 'acknowledge, admit and confirm';
+  const vAck              = isSingle ? 'acknowledges' : 'acknowledge';
+  const vFurtherAckUndertake = isSingle ? 'further acknowledges and undertakes' : 'further acknowledge and undertake';
+  const vHerebyConfirmAck = isSingle ? 'hereby confirms and acknowledges' : 'hereby confirm and acknowledge';
+  const vHaveIssued       = isSingle ? 'has issued' : 'have issued';
+  const vFurtherUndertake = isSingle ? 'further undertakes' : 'further undertake';
+  const jointlySeverally  = isSingle ? '' : ' jointly and severally';
+  const jointlySeverallyLiable = isSingle ? 'liable' : 'jointly and severally liable';
+  const vPromise          = isSingle ? 'promises' : 'promise';
+  const vAgreeUndertake   = isSingle ? 'agrees and undertakes' : 'agree and undertake';
+  const theyPronoun       = isSingle ? 'he/she' : 'they';
+  const theirPossessive   = isSingle ? 'his/her' : 'their';
+  const vWaive            = isSingle ? 'waives' : 'waive';
+  const vHaveExecuted     = isSingle ? 'has executed' : 'have executed';
+
   // Cheque bullets
   let chequeBullets = '';
   if (chList.length > 0) {
@@ -972,22 +988,22 @@ xmlns='http://www.w3.org/TR/REC-html40'>
 <ol class="numlist">
   <li class="bitem">${
     isTG
-      ? `The ${refWord} hereby acknowledge, admit and confirm that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is lawfully due towards various charges mentioned in clause 3 below in respect of <strong>Flat No. ${flatDisplay}, ${c.floor}, situated in the project "${projLabel}",</strong> constructed upon <strong>${projAddr}</strong>, payable to <strong>M/s. Micromega Projects and/or its approved vendors, consultants and agencies.</strong>`
+      ? `The ${refWord} hereby ${vAckAdmitConfirm} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is lawfully due towards various charges mentioned in clause 3 below in respect of <strong>Flat No. ${flatDisplay}, ${c.floor}, situated in the project "${projLabel}",</strong> constructed upon <strong>${projAddr}</strong>, payable to <strong>M/s. Micromega Projects and/or its approved vendors, consultants and agencies.</strong>`
       : isTP
-        ? `The ${refWord} hereby acknowledge that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only.)</strong> is due towards the additional/ alteration work mentioned in clause 3 below in <strong>Flat no. ${flatDisplay},</strong> situated on <strong>${c.floor}</strong> of <strong>A Building ${c.bldName}, ${projLabel}, ${projAddr}</strong> by ${mCompany}.`
-        : `The ${refWord} hereby acknowledge that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is due towards the Price Consideration mentioned in clause 3 below against the <strong>Flat No. ${flatDisplay} on ${c.floor},</strong> <strong>${projAddr}</strong> by ${mCompany}.`
+        ? `The ${refWord} hereby ${vAck} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only.)</strong> is due towards the additional/ alteration work mentioned in clause 3 below in <strong>Flat no. ${flatDisplay},</strong> situated on <strong>${c.floor}</strong> of <strong>A Building ${c.bldName}, ${projLabel}, ${projAddr}</strong> by ${mCompany}.`
+        : `The ${refWord} hereby ${vAck} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is due towards the Price Consideration mentioned in clause 3 below against the <strong>Flat No. ${flatDisplay} on ${c.floor},</strong> <strong>${projAddr}</strong> by ${mCompany}.`
   }</li>
   <li class="bitem">${
     isTG
-      ? `The ${refWord} further acknowledge and undertake that the aforesaid amount of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender <strong>on or before ${dueDate}</strong>.`
+      ? `The ${refWord} ${vFurtherAckUndertake} that the aforesaid amount of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender <strong>on or before ${dueDate}</strong>.`
       : isTP
-        ? `The ${refWord} hereby confirm and acknowledge that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
-        : `The ${refWord} hereby confirm and acknowledge that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender in full and final settlement immediately upon the completion of the registration (registry) of the concerned property, or in any event, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
+        ? `The ${refWord} ${vHerebyConfirmAck} that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
+        : `The ${refWord} ${vHerebyConfirmAck} that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender in full and final settlement immediately upon the completion of the registration (registry) of the concerned property, or in any event, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
   }</li>
-  <li class="bitem">As security and assurance for the repayment of the aforesaid amount, the ${refWord} have issued the following <strong>Post-Dated Cheques (PDCs)</strong>, drawn on HDFC Bank.${
+  <li class="bitem">As security and assurance for the repayment of the aforesaid amount, the ${refWord} ${vHaveIssued} the following <strong>Post-Dated Cheques (PDCs)</strong>, drawn on HDFC Bank.${
     isTG
-      ? ` The ${refWord} acknowledge that the amounts represented by the said cheques are payable towards various charges and dues payable to the <strong>Lender and/or its approved vendors, consultants and agencies in relation to the aforesaid flat</strong>. The ${refWord} further undertake that they shall remain jointly and severally liable for payment of the entire outstanding amount irrespective of the presentation, encashment or dishonor of the said cheques.`
-      : ` The ${refWord} acknowledge that the amounts represented by the said cheques are payable towards various charges and dues payable to the <strong>Lender and/or its approved vendors, consultants and agencies in relation to the aforesaid flat</strong>. The ${refWord} further undertake that they shall remain jointly and severally liable for payment of the entire outstanding amount irrespective of the presentation, encashment or dishonor of the said cheques.`
+      ? ` The ${refWord} ${vAck} that the amounts represented by the said cheques are payable towards various charges and dues payable to the <strong>Lender and/or its approved vendors, consultants and agencies in relation to the aforesaid flat</strong>. The ${refWord} ${vFurtherUndertake} that ${theyPronoun} shall remain ${jointlySeverallyLiable} for payment of the entire outstanding amount irrespective of the presentation, encashment or dishonor of the said cheques.`
+      : ` The ${refWord} ${vAck} that the amounts represented by the said cheques are payable towards various charges and dues payable to the <strong>Lender and/or its approved vendors, consultants and agencies in relation to the aforesaid flat</strong>. The ${refWord} ${vFurtherUndertake} that ${theyPronoun} shall remain ${jointlySeverallyLiable} for payment of the entire outstanding amount irrespective of the presentation, encashment or dishonor of the said cheques.`
   }
   ${chequeBullets}
   </li>
@@ -998,17 +1014,17 @@ xmlns='http://www.w3.org/TR/REC-html40'>
 <ol class="numlist">
   <li class="bitem">
     <p class="clause-title">Promise to Pay</p>
-    <p class="body" style="margin-top:4pt;">The ${refWord} hereby jointly and severally promise to pay to the Lender the sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> on or before <strong>${isTG ? dueDateUpper : (isTP ? dueDateUpper : dueDate)}</strong>${isTG || isTP ? ',' : ', or upon completion of the property registry, whichever is earlier,'} without any further demand, protest, or notice.</p>
+    <p class="body" style="margin-top:4pt;">The ${refWord} hereby${jointlySeverally} ${vPromise} to pay to the Lender the sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> on or before <strong>${isTG ? dueDateUpper : (isTP ? dueDateUpper : dueDate)}</strong>${isTG || isTP ? ',' : ', or upon completion of the property registry, whichever is earlier,'} without any further demand, protest, or notice.</p>
   </li>
   <li class="bitem">
     <p class="clause-title">Interest on Delayed Payment</p>
-    <p class="body" style="margin-top:4pt;">In the event of failure to make payment of the aforesaid amount on or before the stipulated date, the <strong>${refWord}</strong> agree and undertake to pay <strong>simple interest at the rate of 2% (two percent) per month</strong>, on the outstanding amount, calculated from the due date until the actual date of payment.</p>
+    <p class="body" style="margin-top:4pt;">In the event of failure to make payment of the aforesaid amount on or before the stipulated date, the <strong>${refWord}</strong> ${vAgreeUndertake} to pay <strong>simple interest at the rate of 2% (two percent) per month</strong>, on the outstanding amount, calculated from the due date until the actual date of payment.</p>
     <p class="body">The monthly interest on the outstanding principal shall amount to <strong>&#8377;${interestFmt}/- (Rupees: ${interestWords} only.)</strong> per month, until the entire amount is repaid in full.</p>
   </li>
   <li class="bitem">
     <p class="clause-title">Restriction on Possession</p>
-    <p class="body" style="margin-top:4pt;">It is expressly agreed by the ${refWord} that they <strong>shall not claim or take possession</strong> of their allotted flat, being <strong>Flat no. ${flatDisplay}, situated on ${c.floor} of ${isTP ? 'A Building ' + c.bldName + ', ' + projLabel : '"' + projLabel + '" Building'}, ${projAddr}</strong>, unless and until the entire outstanding amount of <strong>&#8377;${amtFmt}/-</strong>, along with any applicable interest as per Clause 2 above, is fully and finally paid to the Lender.</p>
-    <p class="body">The Lender shall have the <strong>absolute right to withhold possession</strong> of the said flat until all dues are cleared, and the ${refWord} hereby waive any right to object or initiate possession-related claims prior to such full payment.</p>
+    <p class="body" style="margin-top:4pt;">It is expressly agreed by the ${refWord} that ${theyPronoun} <strong>shall not claim or take possession</strong> of ${theirPossessive} allotted flat, being <strong>Flat no. ${flatDisplay}, situated on ${c.floor} of ${isTP ? 'A Building ' + c.bldName + ', ' + projLabel : '"' + projLabel + '" Building'}, ${projAddr}</strong>, unless and until the entire outstanding amount of <strong>&#8377;${amtFmt}/-</strong>, along with any applicable interest as per Clause 2 above, is fully and finally paid to the Lender.</p>
+    <p class="body">The Lender shall have the <strong>absolute right to withhold possession</strong> of the said flat until all dues are cleared, and the ${refWord} hereby ${vWaive} any right to object or initiate possession-related claims prior to such full payment.</p>
   </li>
   <li class="bitem">
     <p class="clause-title">Right to Present Cheques &amp; Legal Action</p>
@@ -1016,7 +1032,7 @@ xmlns='http://www.w3.org/TR/REC-html40'>
   </li>
   <li class="bitem">
     <p class="clause-title">Binding Nature</p>
-    <p class="body" style="margin-top:4pt;">This Promissory Note is made voluntarily and with full understanding of its legal implications, and shall be binding upon the ${refWord}, jointly and severally.</p>
+    <p class="body" style="margin-top:4pt;">This Promissory Note is made voluntarily and with full understanding of its legal implications, and shall be binding upon the ${refWord}${isSingle ? '' : ', jointly and severally'}.</p>
   </li>
   <li class="bitem">
     <p class="clause-title">Jurisdiction</p>
@@ -1025,7 +1041,7 @@ xmlns='http://www.w3.org/TR/REC-html40'>
 </ol>
 
 <p class="sp">&nbsp;</p>
-<p class="body"><strong>IN WITNESS WHEREOF, the ${refWord} have executed this Promissory Note on the date and place first above written.</strong></p>
+<p class="body"><strong>IN WITNESS WHEREOF, the ${refWord} ${vHaveExecuted} this Promissory Note on the date and place first above written.</strong></p>
 
 <p class="sp">&nbsp;</p>
 <p class="sec-head">${isSingle ? 'BORROWER&#8217;S SIGNATURE' : 'BORROWERS&#8217; SIGNATURES'}</p>
