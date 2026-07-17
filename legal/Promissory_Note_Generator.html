@@ -987,18 +987,14 @@ xmlns='http://www.w3.org/TR/REC-html40'>
 <p class="sec-head">WHEREAS:</p>
 <ol class="numlist">
   <li class="bitem">${
-    isTG
-      ? `The ${refWord} hereby ${vAckAdmitConfirm} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is lawfully due towards various charges mentioned in clause 3 below in respect of <strong>Flat No. ${flatDisplay}, ${c.floor}, situated in the project "${projLabel}",</strong> constructed upon <strong>${projAddr}</strong>, payable to <strong>M/s. Micromega Projects and/or its approved vendors, consultants and agencies.</strong>`
-      : isTP
-        ? `The ${refWord} hereby ${vAck} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only.)</strong> is due towards the additional/ alteration work mentioned in clause 3 below in <strong>Flat no. ${flatDisplay},</strong> situated on <strong>${c.floor}</strong> of <strong>A Building ${c.bldName}, ${projLabel}, ${projAddr}</strong> by ${mCompany}.`
-        : `The ${refWord} hereby ${vAck} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is due towards the Price Consideration mentioned in clause 3 below against the <strong>Flat No. ${flatDisplay} on ${c.floor},</strong> <strong>${projAddr}</strong> by ${mCompany}.`
+    (isTG || isTP)
+      ? `The ${refWord} hereby ${vAckAdmitConfirm} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is lawfully due towards various charges mentioned in clause 3 below in respect of <strong>Flat No. ${flatDisplay}, ${c.floor}, situated in the project "${projLabel}",</strong> constructed upon <strong>${projAddr}</strong>, payable to <strong>${mCompany} and/or its approved vendors, consultants and agencies.</strong>`
+      : `The ${refWord} hereby ${vAck} that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is due towards the Price Consideration mentioned in clause 3 below against the <strong>Flat No. ${flatDisplay} on ${c.floor},</strong> <strong>${projAddr}</strong> by ${mCompany}.`
   }</li>
   <li class="bitem">${
-    isTG
+    (isTG || isTP)
       ? `The ${refWord} ${vFurtherAckUndertake} that the aforesaid amount of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender <strong>on or before ${dueDate}</strong>.`
-      : isTP
-        ? `The ${refWord} ${vHerebyConfirmAck} that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
-        : `The ${refWord} ${vHerebyConfirmAck} that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender in full and final settlement immediately upon the completion of the registration (registry) of the concerned property, or in any event, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
+      : `The ${refWord} ${vHerebyConfirmAck} that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender in full and final settlement immediately upon the completion of the registration (registry) of the concerned property, or in any event, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
   }</li>
   <li class="bitem">As security and assurance for the repayment of the aforesaid amount, the ${refWord} ${vHaveIssued} the following <strong>Post-Dated Cheques (PDCs)</strong>, drawn on HDFC Bank.${
     isTG
