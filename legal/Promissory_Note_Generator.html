@@ -876,7 +876,7 @@ function buildWordDocHTML(c, chList) {
 
   // Lender paragraph
   const lenderPara = isTP
-    ? `<strong>NAGJUA LIFESPACES</strong> (<strong>PAN No.: AAPFN1352H</strong>) a partnership firm registered under the Indian Partnership Act, 1932, having its principal place of business at &#8220;NAGJUA&#8221;, Shop No. 29-32, Garden City, Samarvani, Silvassa &#8211; 396230, represented by its authorized Partner <strong>SHRI SUMIT AGARWAL</strong>, Age <strong>48</strong> Years, Occupation Business, Male, Indian (Aadhar No.: <strong>779968279775</strong>) authorized vide Power of Attorney dated 12/12/2019, Notarized Serial No. 5288, hereinafter referred to as the <strong>&#8220;Lender&#8221;</strong>, which term shall include its successors, nominees, legal representatives, and assigns.`
+    ? `<strong>M/s. NAGJUA LIFESPACES</strong> (<strong>PAN No.: AAPFN1352H</strong>) a partnership firm registered under the Indian Partnership Act, 1932, having its principal place of business at &#8220;NAGJUA&#8221;, Shop No. 29-32, Garden City, Samarvani, Silvassa &#8211; 396230, represented by its authorized Partner <strong>SHRI SUMIT AGARWAL</strong>, Age <strong>48</strong> Years, Occupation Business, Male, Indian (Aadhar No.: <strong>779968279775</strong>) authorized vide Power of Attorney dated 12/12/2019, Notarized Serial No. 5288, hereinafter referred to as the <strong>&#8220;Lender&#8221;</strong>, which term shall include its successors, nominees, legal representatives, and assigns.`
     : `<strong>M/s. MICROMEGA PROJECTS</strong>, (<strong>PAN No. AARFM6047N</strong>) a partnership firm registered under the Indian Partnership Act, 1932, having its principal place of business at <strong>&#8220;NAGJUA&#8221;</strong> Shop No. 29-32, Garden City, Samarvani, Silvassa-396230, represented by its authorized Partner <strong>SHRI SUMIT AGARWAL</strong>, Age <strong>48</strong> Years, Occ. <strong>Business</strong>, <strong>Male</strong>, <strong>Indian</strong> (Aadhar No. <strong>7799 6827 9775</strong>) authorized vide Power of Attorney dated <strong>25/01/2020</strong>, Registration Serial No. <strong>DNH-457-2020</strong>, hereinafter referred to as the <strong>&#8220;Lender&#8221;</strong>, which term shall include its successors, nominees, legal representatives, and assigns.`;
 
   // Cheque bullets
@@ -898,11 +898,11 @@ function buildWordDocHTML(c, chList) {
   // Borrower paragraph
   let borrowerPara, refWord, sigBlocks;
   if (isSingle) {
-    borrowerPara = `<strong>(1) ${c.b1name} ${relPrefix(c.b1name)} ${c.b1fname},</strong> aged about <strong>${c.b1age}</strong> Years, Occ. <strong>${c.b1occ}</strong> (Aadhar Number <strong>${c.b1aadhar}</strong>) having PAN No. <strong>${c.b1pan}</strong> residing at- <strong>${c.addr}</strong>, hereinafter referred to as the <strong>"Borrower"</strong>, which expression shall, unless repugnant to the context or meaning thereof, be deemed to include his/her heirs, legal representatives, executors, administrators, and assigns.`;
+    borrowerPara = `<strong>${c.b1name} ${relPrefix(c.b1name)} ${c.b1fname},</strong> aged about <strong>${c.b1age}</strong> Years, Occ. <strong>${c.b1occ}</strong> (Aadhar Number <strong>${c.b1aadhar}</strong>) having PAN No. <strong>${c.b1pan}</strong> residing at- <strong>${c.addr}</strong>, hereinafter referred to as the <strong>"Borrower"</strong>, which expression shall, unless repugnant to the context or meaning thereof, be deemed to include his/her heirs, legal representatives, executors, administrators, and assigns.`;
     refWord = 'Borrower';
     sigBlocks = `
 <p style="margin:12pt 0 5pt; text-align:left; font-family:Verdana,sans-serif; font-size:11pt;">Signature: ____________________________________</p>
-<p style="margin:5pt 0; text-align:left; font-family:Verdana,sans-serif; font-size:11pt;">Name: <strong>(1) ${c.b1name}</strong></p>
+<p style="margin:5pt 0; text-align:left; font-family:Verdana,sans-serif; font-size:11pt;">Name: <strong>${c.b1name}</strong></p>
 <p style="margin:5pt 0; text-align:left; font-family:Verdana,sans-serif; font-size:11pt;">Date: ${date}</p>`;
   } else {
     borrowerPara = `<strong>(1) ${c.b1name} ${relPrefix(c.b1name)} ${c.b1fname},</strong> aged about <strong>${c.b1age}</strong> Years, Occ. <strong>${c.b1occ}</strong> (Aadhar Number <strong>${c.b1aadhar}</strong>) having PAN No. <strong>${c.b1pan} &amp; (2) ${c.b2name} ${relPrefix(c.b2name)} ${c.b2hname},</strong> Aged about <strong>${c.b2age}</strong> Years, Occ. <strong>${c.b2occ}</strong> (Aadhar Number <strong>${c.b2aadhar}</strong>) having PAN No. <strong>${c.b2pan}</strong> both residing at- <strong>${c.addr}</strong>, hereinafter collectively referred to as the <strong>"Borrowers"</strong>, which expression shall, unless repugnant to the context or meaning thereof, be deemed to include their heirs, legal representatives, executors, administrators, and assigns.`;
@@ -974,8 +974,8 @@ xmlns='http://www.w3.org/TR/REC-html40'>
     isTG
       ? `The ${refWord} hereby acknowledge, admit and confirm that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is lawfully due towards various charges mentioned in clause 3 below in respect of <strong>Flat No. ${flatDisplay}, ${c.floor}, situated in the project "${projLabel}",</strong> constructed upon <strong>${projAddr}</strong>, payable to <strong>M/s. Micromega Projects and/or its approved vendors, consultants and agencies.</strong>`
       : isTP
-        ? `The ${refWord} hereby acknowledge that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only.)</strong> is due towards the additional/ alteration work in <strong>Flat no. ${flatDisplay},</strong> situated on <strong>${c.floor}</strong> of <strong>A Building ${c.bldName}, ${projLabel}, ${projAddr}</strong> by ${mCompany}.`
-        : `The ${refWord} hereby acknowledge that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is due towards the Price Consideration against the <strong>Flat No. ${flatDisplay} on ${c.floor},</strong> <strong>${projAddr}</strong> by ${mCompany}.`
+        ? `The ${refWord} hereby acknowledge that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only.)</strong> is due towards the additional/ alteration work mentioned in clause 3 below in <strong>Flat no. ${flatDisplay},</strong> situated on <strong>${c.floor}</strong> of <strong>A Building ${c.bldName}, ${projLabel}, ${projAddr}</strong> by ${mCompany}.`
+        : `The ${refWord} hereby acknowledge that a sum of <strong>&#8377;${amtFmt}/- (Rupees: ${amtWords} Only)</strong> is due towards the Price Consideration mentioned in clause 3 below against the <strong>Flat No. ${flatDisplay} on ${c.floor},</strong> <strong>${projAddr}</strong> by ${mCompany}.`
   }</li>
   <li class="bitem">${
     isTG
@@ -984,7 +984,7 @@ xmlns='http://www.w3.org/TR/REC-html40'>
         ? `The ${refWord} hereby confirm and acknowledge that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
         : `The ${refWord} hereby confirm and acknowledge that the said sum of <strong>&#8377;${amtFmt}/-</strong> shall be paid to the Lender in full and final settlement immediately upon the completion of the registration (registry) of the concerned property, or in any event, <strong>on or before ${dueDate}</strong>, whichever is earlier.`
   }</li>
-  <li class="bitem">As security and assurance for the repayment of the aforesaid amount, the ${refWord} have issued the following <strong>Post-Dated Cheques (PDCs)</strong>, drawn on HDFC Bank in favour of ${mCompany}.${
+  <li class="bitem">As security and assurance for the repayment of the aforesaid amount, the ${refWord} have issued the following <strong>Post-Dated Cheques (PDCs)</strong>, drawn on HDFC Bank.${
     isTG
       ? ` The ${refWord} acknowledge that the amounts represented by the said cheques are payable towards various charges and dues payable to the <strong>${mCompany} and/or its approved vendors, consultants and agencies in relation to the aforesaid flat</strong>. The ${refWord} further undertake that they shall remain jointly and severally liable for payment of the entire outstanding amount irrespective of the presentation, encashment or dishonor of the said cheques.`
       : ` The ${refWord} acknowledge that the amounts represented by the said cheques are payable towards various charges and dues payable to <strong>${mCompany} and/or its approved vendors, consultants and agencies in relation to the aforesaid flat</strong>. The ${refWord} further undertake that they shall remain jointly and severally liable for payment of the entire outstanding amount irrespective of the presentation, encashment or dishonor of the said cheques.`
@@ -1028,7 +1028,7 @@ xmlns='http://www.w3.org/TR/REC-html40'>
 <p class="body"><strong>IN WITNESS WHEREOF, the ${refWord} have executed this Promissory Note on the date and place first above written.</strong></p>
 
 <p class="sp">&nbsp;</p>
-<p class="sec-head">BORROWERS&#8217; SIGNATURES</p>
+<p class="sec-head">${isSingle ? 'BORROWER&#8217;S SIGNATURE' : 'BORROWERS&#8217; SIGNATURES'}</p>
 ${sigBlocks}
 
 <p class="sp">&nbsp;</p>
