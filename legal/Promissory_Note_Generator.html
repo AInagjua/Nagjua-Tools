@@ -886,9 +886,9 @@ function buildWordDocHTML(c, chList) {
       if (isTG) {
         chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong> dated <strong>${fmtChequeDate(ch.date)}</strong> for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> in favour of <strong>${ch.favour} towards ${ch.purpose}</strong>.</p>`;
       } else if (isTP) {
-        chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong>, dated <strong>${fmtChequeDate(ch.date)}</strong>, for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> (${ch.favour || 'Nagjua Lifespaces'})</p>`;
+        chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong>, dated <strong>${fmtChequeDate(ch.date)}</strong>, for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> (${ch.favour || 'M/s. Nagjua Lifespaces'})</p>`;
       } else {
-        chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong>, dated <strong>${fmtChequeDate(ch.date)}</strong>, for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> (${ch.favour || 'Micro mega Projects'})</p>`;
+        chequeBullets += `<p class="subitem"><span class="submark">o&nbsp;&nbsp;</span>Cheque No. <strong>${ch.cheque_no}</strong>, dated <strong>${fmtChequeDate(ch.date)}</strong>, for <strong>&#8377;${fmtAmt(parseInt(ch.amount)||0)}/-</strong> (${ch.favour || 'M/s. Micromega Projects'})</p>`;
       }
     });
   } else {
