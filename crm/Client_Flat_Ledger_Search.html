@@ -434,6 +434,22 @@ function normalize(s){
   return String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+function normalizeDateForDedup(s){
+  if (!s) return '';
+  s = String(s).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+  if (m) {
+    const months = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+    const mon = months[m[2]] || '01';
+    return `20${m[3]}-${mon}-${m[1].padStart(2,'0')}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+  return s;
+}
+
 function runSearch(query){
   state.lastQuery = query;
   const resultsEl = document.getElementById('results');
@@ -444,7 +460,17 @@ function runSearch(query){
     resultsEl.innerHTML = `<div class="empty">No transactions found for "${escapeHtml(query)}".</div>`;
     return;
   }
-  const rows = matches.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  // Remove duplicate entries: same account, instrument no., date, and amounts
+  // (can happen when the same transaction appears in more than one uploaded ledger)
+  const seen = new Set();
+  const deduped = [];
+  for (const r of matches) {
+    const key = [normalize(r.account), normalize(r.instNo), normalizeDateForDedup(r.date), r.deposit || '', r.withdrawal || ''].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(r);
+  }
+  const rows = deduped.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   resultsEl.innerHTML = `<table class="txn-table">
     <thead><tr><th>Date</th><th>Account</th><th>Particulars</th><th>Inst No.</th><th class="num">Deposit</th><th class="num">Withdrawal</th></tr></thead>
     <tbody>
