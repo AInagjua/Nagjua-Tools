@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NOC Generator - Micromega Projects</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --navy:#0f1b35; --navy2:#152347; --paper:#f4f1ea; --card:#ffffff;
+    --gold:#c9962f; --gold-light:#e0ad4a;
+    --ink:#1b2230; --muted:#5b6577; --border:#e1ddd2; --border-soft:#ebe7dc;
+    --danger:#b3392c; --ok:#2f7a4d; --okbg:#e7f3ec; --warnbg:#fbeed8; --warntext:#92660f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Inter',Arial,sans-serif; color:var(--ink);
+    background:var(--paper);
+  }
+  .wrap{max-width:980px; margin:0 auto; padding:0 0 70px;}
+
+  header{
+    background:var(--navy);
+    color:#fff; padding:22px 32px; margin-bottom:0;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+    border-bottom:3px solid var(--gold);
+  }
+  header h1{margin:0; font-family:'Playfair Display',serif; font-size:23px; font-weight:700; letter-spacing:.2px;}
+  header h1 .accent{color:var(--gold-light);}
+  header p{margin:3px 0 0; color:#aab3c7; font-size:11.5px; letter-spacing:1.2px; text-transform:uppercase;}
+  .badge{
+    background:rgba(255,255,255,.08); border:1px solid rgba(224,173,74,.4); color:#f4f1ea;
+    padding:7px 16px; border-radius:3px; font-size:11.5px; letter-spacing:.4px;
+  }
+  .content{padding:30px 20px 0;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--border); border-radius:6px; padding:0; margin-bottom:22px; overflow:hidden;
+    box-shadow:0 1px 3px rgba(15,27,53,.06);
+  }
+  .card h2{
+    margin:0; font-size:16px; color:#fff; display:flex; align-items:center; gap:12px;
+    font-family:'Playfair Display',serif; font-weight:700; letter-spacing:.2px;
+    background:var(--navy); padding:18px 24px;
+  }
+  .card .subtitle{
+    display:block; font-family:'Inter',sans-serif; font-size:12.5px; font-weight:400;
+    color:#aab3c7; margin-top:3px; letter-spacing:0;
+  }
+  .card h2 .n{
+    background:var(--gold); color:var(--navy); width:26px; height:26px; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; font-size:13px;
+    font-family:'Playfair Display',serif; font-weight:700; flex-shrink:0;
+  }
+  .card-body{padding:24px 26px;}
+  .section-label{
+    font-size:11.5px; color:var(--gold); margin:0 0 14px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.8px; border-bottom:1px solid var(--border-soft); padding-bottom:10px;
+  }
+  .section-label:not(:first-child){margin-top:22px;}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;}
+  label{
+    display:block; font-size:11.5px; color:var(--navy); margin-bottom:6px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.4px;
+  }
+  select, input{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:5px;
+    font-size:14px; background:#fafaf8; color:var(--ink); font-family:'Inter',sans-serif;
+  }
+  select:focus, input:focus{outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,150,47,.15);}
+  input::placeholder{color:#b7bcc6;}
+  .field{margin-bottom:15px;}
+  .full{grid-column:1/-1;}
+  .customer-block{
+    border:1px solid var(--border); border-radius:6px; padding:18px 18px 14px; margin-bottom:14px; position:relative;
+    background:#fbfbf9;
+  }
+  .customer-block .tag{
+    position:absolute; top:-11px; left:14px; background:var(--navy); color:var(--gold-light); font-size:10.5px;
+    padding:3px 12px; border-radius:3px; letter-spacing:.5px; text-transform:uppercase; font-weight:600;
+  }
+  .customer-row{display:grid; grid-template-columns:1fr; gap:10px;}
+  .remove-btn{
+    position:absolute; top:12px; right:14px; background:none; border:none; color:var(--danger);
+    cursor:pointer; font-size:12px; font-weight:600;
+  }
+  .add-btn, .gen-btn, .reset-btn{
+    border:none; border-radius:5px; padding:11px 20px; font-size:13.5px; font-weight:600; cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .add-btn{background:#eef0f5; color:var(--navy); border:1px solid var(--border);}
+  .add-btn:hover{background:#e3e7ef;}
+  .gen-btn{
+    background:var(--gold); color:var(--navy); font-size:14.5px;
+    padding:13px 26px; font-weight:700;
+  }
+  .gen-btn:hover{background:var(--gold-light);}
+  .gen-btn:disabled{background:#cfd2da; color:#8a8f9c; cursor:not-allowed;}
+  .reset-btn{background:#fff; color:var(--danger); border:1px solid #ecc7bf;}
+  .pid-status{font-size:12.5px; margin-top:6px; padding:8px 12px; border-radius:5px; display:none;}
+  .pid-status.ok{display:block; background:var(--okbg); color:var(--ok); border:1px solid #bfe0cc;}
+  .pid-status.manual{display:block; background:var(--warnbg); color:var(--warntext); border:1px solid #ecd29c;}
+  .footer-row{display:flex; justify-content:space-between; align-items:center; margin-top:20px; flex-wrap:wrap; gap:10px;}
+  .hint{font-size:12px; color:var(--muted);}
+  .preview-box{
+    border:1px solid var(--border); border-radius:5px; padding:30px 34px; background:#fff;
+    font-family:Verdana,Arial,sans-serif; font-size:13px; line-height:1.6; color:#1a1a1a; margin-top:12px;
+    max-height:540px; overflow:auto;
+  }
+  .preview-box b{font-weight:700;}
+  .preview-box .header-line{font-weight:700; font-size:16px; margin-bottom:16px; color:var(--navy); letter-spacing:.3px;}
+  .preview-box u{text-decoration:underline;}
+  .status-msg{font-size:13px; padding:11px 16px; border-radius:5px; margin-top:14px;}
+  .status-msg.err{background:#fbe9e6; color:var(--danger); border:1px solid #ecc7bf;}
+  .status-msg.success{background:var(--okbg); color:var(--ok); border:1px solid #bfe0cc;}
+  .bottom-bar{
+    background:var(--navy); border-top:3px solid var(--gold); padding:16px 32px; margin-top:30px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+  }
+  .bottom-bar .hint{color:#aab3c7;}
+  @media(max-width:680px){.grid,.grid3,.customer-row{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Micromega <span class="accent">Projects</span></h1>
+      <p>NOC Generator</p>
+    </div>
+    <div class="badge">Tropical Greens · Silvassa</div>
+  </header>
+
+<div class="wrap">
+  <div class="content">
+
+  <!-- STEP 1: Property -->
+  <div class="card">
+    <h2><span class="n">1</span> Property &amp; Flat Details
+      <span class="subtitle" style="margin-left:auto;font-weight:400;"></span>
+    </h2>
+    <div class="card-body">
+    <div class="section-label">Project, Phase &amp; Flat</div>
+    <div class="grid3">
+      <div class="field">
+        <label>Project</label>
+        <select id="project" onchange="onProjectChange()">
+          <option value="TG">TROPICAL GREENS</option>
+          <option value="NA">NAGJUA ANANTA</option>
+        </select>
+      </div>
+      <div class="field" id="phaseField">
+        <label>Phase</label>
+        <select id="phase">
+          <option value="2A">PHASE-2A</option>
+          <option value="2B">PHASE-2B</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Building (Wing)</label>
+        <select id="building"></select>
+      </div>
+      <div class="field">
+        <label>Flat No.</label>
+        <input type="text" id="flatno" placeholder="e.g. 602 or IL703">
+      </div>
+    </div>
+    <div class="grid3">
+      <div class="field">
+        <label>Full Flat No. (auto)</label>
+        <input type="text" id="fullflat" readonly style="background:#f0f2f7;font-weight:600;">
+      </div>
+      <div class="field">
+        <label>Building Type Code (auto)</label>
+        <input type="text" id="buildingtype" readonly style="background:#f0f2f7;font-weight:600;">
+      </div>
+      <div class="field">
+        <label>Property ID</label>
+        <input type="text" id="propertyid" placeholder="auto-filled or enter manually">
+      </div>
+    </div>
+    <div id="pidStatus" class="pid-status"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Customers -->
+  <div class="card">
+    <h2><span class="n">2</span> Customer Details</h2>
+    <div class="card-body">
+    <div class="section-label">Borrower / Customer Names</div>
+    <div id="customersContainer"></div>
+    <button class="add-btn" id="addCustomerBtn" onclick="addCustomer()">+ Add Customer</button>
+    <button class="add-btn" onclick="autofillFromFlat()" style="background:var(--accent2,#1a7aab); margin-left:8px;">⤓ Auto-fill names &amp; salutation</button>
+    <span class="hint" style="margin-left:10px;">Up to 3 customers allowed</span>
+    </div>
+  </div>
+
+  <!-- STEP 3: Letter details -->
+  <div class="card">
+    <h2><span class="n">3</span> Letter Details</h2>
+    <div class="card-body">
+    <div class="section-label">Salutation &amp; Date</div>
+    <div class="grid3">
+      <div class="field">
+        <label>Salutation</label>
+        <select id="salutation">
+          <option value="Dear Sir,">Dear Sir,</option>
+          <option value="Dear Madam,">Dear Madam,</option>
+          <option value="Dear Ma'am,">Dear Ma'am,</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="letterdate">
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <div class="hint" style="margin-top:10px;">Format used in letter: DD/MM/YYYY</div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <div id="statusMsg"></div>
+
+  <!-- Preview -->
+  <div class="card" id="previewCard" style="display:none;">
+    <h2><span class="n">✓</span> Preview</h2>
+    <div class="card-body">
+    <div class="preview-box" id="previewBox"></div>
+    <div class="footer-row">
+      <button class="gen-btn" onclick="downloadDocx()">⬇ Download as Word (.docx)</button>
+      <span class="hint">Opens ready-to-send NOC, matching original format exactly</span>
+    </div>
+    </div>
+  </div>
+
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <span class="hint">Micromega Projects · NOC Generator</span>
+  <div style="display:flex; gap:10px;">
+    <button class="reset-btn" onclick="resetForm()">Reset</button>
+    <button class="gen-btn" onclick="generatePreview()">⚡ Generate NOC</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ============ DATA ============
+const PROJECTS = {
+  'TG': {
+    label: 'TROPICAL GREENS',
+    hasPhase: true,
+    address: 'Off Ring Road, Kamli Faliya, Silvassa- 396 230. D\u00a0&\u00a0N\u00a0H.',
+    addressShort: 'Silvassa Dadra & Nagar Haveli',
+    addressLong: 'Off Ring Road, Kamli Faliya, Silvassa, Dadra & Nagar Haveli',
+    wings: {
+      '2A': {
+        'H': {name:'HOSTA', prefix:'HT', hasData:true},
+        'I': {name:'ILEX', prefix:'IL', hasData:true},
+        'J': {name:'JADE', prefix:'JD', hasData:true},
+      },
+      '2B': {
+        'K': {name:'KESTRAL', prefix:'KT', hasData:false},
+        'L': {name:'LILAC', prefix:'LA', hasData:false},
+        'M': {name:'MAYFLOWER', prefix:'MF', hasData:true},
+        'N': {name:'NIGELLA', prefix:'NG', hasData:true},
+      }
+    }
+  },
+  'NA': {
+    label: 'NAGJUA ANANTA',
+    hasPhase: false,
+    address: 'Off Ring Road, Amli, Silvassa- 396230. D&N H.',
+    addressShort: 'Amli, Silvassa Dadra & Nagar Haveli',
+    addressLong: 'Off Ring Road, Amli, Silvassa, Dadra & Nagar Haveli',
+    wings: {
+      'AM': {name:'AMBER', prefix:'AM', hasData:true},
+      'BL': {name:'BERYL', prefix:'BL', hasData:true},
+      'CG': {name:'CYGNUS', prefix:'CG', hasData:true},
+      'DV': {name:'DIVINE', prefix:'DV', hasData:true},
+    }
+  }
+};
+
+// Kept for backward compat references
+const WING_INFO = PROJECTS['TG'].wings;
+
+const PROPERTY_IDS = {
+  // Tropical Greens
+  "N": {"NG101":"S06028891003","NG102":"S06028891004","NG103":"S06028891005","NG104":"S06028891006","NG201":"S06028891007","NG202":"S06028891008","NG203":"S06028891009","NG204":"S06028891010","NG301":"S06028891011","NG302":"S06028891012","NG303":"S06028891013","NG304":"S06028891014","NG401":"S06028891015","NG402":"S06028891016","NG403":"S06028891017","NG404":"S06028891018","NG501":"S06028891019","NG502":"S06028891020","NG503":"S06028891021","NG504":"S06028891022","NG601":"S06028891023","NG602":"S06028891024","NG603":"S06028891025","NG604":"S06028891026","NG701":"S06028891027","NG702":"S06028891028","NG703":"S06028891029","NG704":"S06028891030","NG801":"S06028891031","NG802":"S06028891032","NG803":"S06028891033","NG804":"S06028891034","NG901":"S06028891035","NG902":"S06028891036","NG903":"S06028891037","NG904":"S06028891038"},
+  "M": {"MF101":"S06028891039","MF102":"S06028891040","MF103":"S06028891041","MF104":"S06028891042","MF201":"S06028891043","MF202":"S06028891044","MF203":"S06028891045","MF204":"S06028891046","MF301":"S06028891047","MF302":"S06028891048","MF303":"S06028891049","MF304":"S06028891050","MF401":"S06028891051","MF402":"S06028891052","MF403":"S06028891053","MF404":"S06028891054","MF501":"S06028891055","MF502":"S06028891056","MF503":"S06028891057","MF504":"S06028891058","MF601":"S06028891059","MF602":"S06028891060","MF603":"S06028891061","MF604":"S06028891062","MF701":"S06028891063","MF702":"S06028891064","MF703":"S06028891065","MF704":"S06028891066","MF801":"S06028891067","MF802":"S06028891068","MF803":"S06028891069","MF804":"S06028891070","MF901":"S06028891071","MF902":"S06028891072","MF903":"S06028891073","MF904":"S06028891074"},
+  "I": {"IL101":"S06028891075","IL102":"S06028891076","IL103":"S06028891077","IL104":"S06028891078","IL201":"S06028891079","IL202":"S06028891080","IL203":"S06028891081","IL204":"S06028891082","IL301":"S06028891083","IL302":"S06028891084","IL303":"S06028891085","IL304":"S06028891086","IL401":"S06028891087","IL402":"S06028891088","IL403":"S06028891089","IL404":"S06028891090","IL501":"S06028891091","IL502":"S06028891092","IL503":"S06028891093","IL504":"S06028891094","IL601":"S06028891095","IL602":"S06028891096","IL603":"S06028891097","IL604":"S06028891098","IL701":"S06028891099","IL702":"S06028891100","IL703":"S06028891101","IL704":"S06028891102","IL801":"S06028891103","IL802":"S06028891104","IL803":"S06028891105","IL804":"S06028891106","IL901":"S06028891107","IL902":"S06028891108","IL903":"S06028891109","IL904":"S06028891110"},
+  "H": {"HT101":"S06028891111","HT102":"S06028891112","HT103":"S06028891113","HT114":"S06028891114","HT201":"S06028891115","HT202":"S06028891116","HT203":"S06028891117","HT204":"S06028891118","HT301":"S06028891119","HT302":"S06028891120","HT303":"S06028891121","HT304":"S06028891122","HT401":"S06028891123","HT402":"S06028891124","HT403":"S06028891125","HT404":"S06028891126","HT501":"S06028891127","HT502":"S06028891128","HT503":"S06028891129","HT504":"S06028891130","HT601":"S06028891131","HT602":"S06028891132","HT603":"S06028891133","HT604":"S06028891134","HT701":"S06028891135","HT702":"S06028891136","HT703":"S06028891137","HT704":"S06028891138","HT801":"S06028891139","HT802":"S06028891140","HT803":"S06028891141","HT804":"S06028891142","HT901":"S06028891143","HT902":"S06028891144","HT903":"S06028891145","HT904":"S06028891146"},
+  "J": {"JD101":"S06027637001","JD102":"S06027637002","JD103":"S06027637003","JD104":"S06027637004","JD105":"S06027637005","JD106":"S06027637006","JD107":"S06027637007","JD108":"S06027637008","JD201":"S06027637009","JD202":"S06027637010","JD203":"S06027637011","JD204":"S06027637012","JD205":"S06027637013","JD206":"S06027637014","JD207":"S06027637015","JD208":"S06027637016","JD301":"S06027637017","JD302":"S06027637018","JD303":"S06027637019","JD304":"S06027637020","JD305":"S06027637021","JD306":"S06027637022","JD307":"S06027637023","JD308":"S06027637024","JD401":"S06027637025","JD402":"S06027637026","JD403":"S06027637027","JD404":"S06027637028","JD405":"S06027637029","JD406":"S06027637030","JD407":"S06027637031","JD408":"S06027637032","JD501":"S06027637033","JD502":"S06027637034","JD503":"S06027637035","JD504":"S06027637036","JD505":"S06027637037","JD506":"S06027637038","JD507":"S06027637039","JD508":"S06027637040","JD601":"S06027637041","JD602":"S06027637042","JD603":"S06027637043","JD604":"S06027637044","JD605":"S06027637045","JD606":"S06027637046","JD607":"S06027637047","JD608":"S06027637048","JD701":"S06027637049","JD702":"S06027637050","JD703":"S06027637051","JD704":"S06027637052","JD705":"S06027637053","JD706":"S06027637054","JD707":"S06027637055","JD708":"S06027637056","JD801":"S06027637057","JD802":"S06027637058","JD803":"S06027637059","JD804":"S06027637060","JD805":"S06027637061","JD806":"S06027637062","JD807":"S06027637063","JD808":"S06027637064","JD901":"S06027637065","JD902":"S06027637066","JD903":"S06027637067","JD904":"S06027637068","JD905":"S06027637069","JD906":"S06027637070","JD907":"S06027637071","JD908":"S06027637072"}
+};
+
+// Ananta property IDs (AM/BL/DV/CG keyed by full flat e.g. AM202)
+const ANANTA_PIDS = {"AM101":"S01006000001","AM102":"S01006000002","AM103":"S01006000003","AM104":"S01006000004","AM105":"S01006000005","AM106":"S01006000006","AM107":"S01006000007","AM108":"S01006000008","AM201":"S01006000009","AM202":"S01006000010","AM203":"S01006000011","AM204":"S01006000012","AM205":"S01006000013","AM206":"S01006000014","AM207":"S01006000015","AM208":"S01006000016","AM301":"S01006000017","AM302":"S01006000018","AM303":"S01006000019","AM304":"S01006000020","AM305":"S01006000021","AM306":"S01006000022","AM307":"S01006000023","AM308":"S01006000024","AM401":"S01006000025","AM402":"S01006000026","AM403":"S01006000027","AM404":"S01006000028","AM405":"S01006000029","AM406":"S01006000030","AM407":"S01006000031","AM408":"S01006000032","AM501":"S01006000033","AM502":"S01006000034","AM503":"S01006000035","AM504":"S01006000036","AM505":"S01006000037","AM506":"S01006000038","AM507":"S01006000039","AM508":"S01006000040","AM601":"S01006000041","AM602":"S01006000042","AM603":"S01006000043","AM604":"S01006000044","AM605":"S01006000045","AM606":"S01006000046","AM607":"S01006000047","AM608":"S01006000048","AM701":"S01006000049","AM702":"S01006000050","AM703":"S01006000051","AM704":"S01006000052","AM705":"S01006000053","AM706":"S01006000054","AM707":"S01006000055","AM708":"S01006000056","AM801":"S01006000057","AM802":"S01006000058","AM803":"S01006000059","AM804":"S01006000060","AM805":"S01006000061","AM806":"S01006000062","AM807":"S01006000063","AM808":"S01006000064","AM901":"S01006000065","AM902":"S01006000066","AM903":"S01006000067","AM904":"S01006000068","AM905":"S01006000069","AM906":"S01006000070","AM907":"S01006000071","AM908":"S01006000072","BL101":"S01006000073","BL102":"S01006000074","BL103":"S01006000075","BL104":"S01006000076","BL105":"S01006000077","BL106":"S01006000078","BL107":"S01006000079","BL108":"S01006000080","BL201":"S01006000081","BL202":"S01006000082","BL203":"S01006000083","BL204":"S01006000084","BL205":"S01006000085","BL206":"S01006000086","BL207":"S01006000087","BL208":"S01006000088","BL301":"S01006000089","BL302":"S01006000090","BL303":"S01006000091","BL304":"S01006000092","BL305":"S01006000093","BL306":"S01006000094","BL307":"S01006000095","BL308":"S01006000096","BL401":"S01006000097","BL402":"S01006000098","BL403":"S01006000099","BL404":"S01006000100","BL405":"S01006000101","BL406":"S01006000102","BL407":"S01006000103","BL408":"S01006000104","BL501":"S01006000105","BL502":"S01006000106","BL503":"S01006000107","BL504":"S01006000108","BL505":"S01006000109","BL506":"S01006000110","BL507":"S01006000111","BL508":"S01006000112","BL601":"S01006000113","BL602":"S01006000114","BL603":"S01006000115","BL604":"S01006000116","BL605":"S01006000117","BL606":"S01006000118","BL607":"S01006000119","BL608":"S01006000120","BL701":"S01006000121","BL702":"S01006000122","BL703":"S01006000123","BL704":"S01006000124","BL705":"S01006000125","BL706":"S01006000126","BL707":"S01006000127","BL708":"S01006000128","BL801":"S01006000129","BL802":"S01006000130","BL803":"S01006000131","BL804":"S01006000132","BL805":"S01006000133","BL806":"S01006000134","BL807":"S01006000135","BL808":"S01006000136","BL901":"S01006000137","BL902":"S01006000138","BL903":"S01006000139","BL904":"S01006000140","BL905":"S01006000141","BL906":"S01006000142","BL907":"S01006000143","BL908":"S01006000144","DV101":"S01006000145","DV102":"S01006000146","DV103":"S01006000147","DV104":"S01006000148","DV105":"S01006000149","DV106":"S01006000150","DV201":"S01006000151","DV202":"S01006000152","DV203":"S01006000153","DV204":"S01006000154","DV205":"S01006000155","DV206":"S01006000156","DV301":"S01006000157","DV302":"S01006000158","DV303":"S01006000159","DV304":"S01006000160","DV305":"S01006000161","DV306":"S01006000162","DV401":"S01006000163","DV402":"S01006000164","DV403":"S01006000165","DV404":"S01006000166","DV405":"S01006000167","DV406":"S01006000168","DV501":"S01006000169","DV502":"S01006000170","DV503":"S01006000171","DV504":"S01006000172","DV505":"S01006000173","DV506":"S01006000174","DV601":"S01006000175","DV602":"S01006000176","DV603":"S01006000177","DV604":"S01006000178","DV605":"S01006000179","DV606":"S01006000180","DV701":"S01006000181","DV702":"S01006000182","DV703":"S01006000183","DV704":"S01006000184","DV705":"S01006000185","DV706":"S01006000186","DV801":"S01006000187","DV802":"S01006000188","DV803":"S01006000189","DV804":"S01006000190","DV805":"S01006000191","DV806":"S01006000192","DV901":"S01006000193","DV902":"S01006000194","DV903":"S01006000195","DV904":"S01006000196","DV905":"S01006000197","DV906":"S01006000198","CG101":"S01002930012","CG102":"S01002930013","CG103":"S01002930014","CG104":"S01002930015","CG105":"S01002930016","CG106":"S01002930017","CG107":"S01002930018","CG108":"S01002930019","CG201":"S01002930020","CG202":"S01002930021","CG203":"S01002930022","CG204":"S01002930023","CG205":"S01002930024","CG206":"S01002930025","CG207":"S01002930026","CG208":"S01002930027","CG301":"S01002930028","CG302":"S01002930029","CG303":"S01002930030","CG304":"S01002930031","CG305":"S01002930032","CG306":"S01002930033","CG307":"S01002930034","CG308":"S01002930035","CG401":"S01002930036","CG402":"S01002930037","CG403":"S01002930038","CG404":"S01002930039","CG405":"S01002930040","CG406":"S01002930041","CG407":"S01002930042","CG408":"S01002930043","CG501":"S01002930044","CG502":"S01002930045","CG503":"S01002930046","CG504":"S01002930047","CG505":"S01002930048","CG506":"S01002930049","CG507":"S01002930050","CG508":"S01002930051","CG601":"S01002930052","CG602":"S01002930053","CG603":"S01002930054","CG604":"S01002930055","CG605":"S01002930056","CG606":"S01002930057","CG607":"S01002930058","CG608":"S01002930059","CG701":"S01002930060","CG702":"S01002930061","CG703":"S01002930062","CG704":"S01002930063","CG705":"S01002930064","CG706":"S01002930065","CG707":"S01002930066","CG708":"S01002930067","CG801":"S01002930068","CG802":"S01002930069","CG803":"S01002930070","CG804":"S01002930071","CG805":"S01002930072","CG806":"S01002930073","CG807":"S01002930074","CG808":"S01002930075","CG901":"S01002930076","CG902":"S01002930077","CG903":"S01002930078","CG904":"S01002930079","CG905":"S01002930080","CG906":"S01002930081","CG907":"S01002930082","CG908":"S01002930083"};
+
+// Customer records
+const CUSTOMER_RECORDS_TG = {"IL703":{"c1":"AMIT SHYAMSUNDER SHUKLA","c2":"Mr. RAHUL SANJEEV MISHRA","c3":"SHYAMSUNDER SHUKLA"},"JD301":{"c1":"M/S. TANNU ARUN JOGADIA"},"IL902":{"c1":"Mr. ABHAY PRATAP SINGH","c3":"SHIV BAHAL SINGH"},"IL403":{"c1":"Mr. ADARSH KUMAR SHIVHORE","c2":"Mrs. MAMTA ADARSH SHIVHARE","c3":"RAM BAHORI SHIVHARE"},"JD507":{"c1":"Mr. ALPESHKUMAR HARISHBHAI KAHAR","c2":"Mrs. RAXITABEN ALPESHKUMAR KAHAR","c3":"HARISHBHAI KAHAR"},"JD802":{"c1":"Mr. AMIT GUNVANTBHAI PRAJAPATI","c3":"GUNVANTBHAI PRAJAPATI"},"IL704":{"c1":"Mr. ANILKUMAR JAMNADAS VAISHNAV","c2":"Mrs. NEELAM ANILKUMAR VAISHNAV"},"IL203":{"c1":"Mr. ANIMESH LAL SRIVASTAVA","c2":"Mrs. RITIKA G UNADKAT","c3":"LAL PYARE SRIVASTAVA"},"JD808":{"c1":"Mr. APRIT KANT","c3":"SHIV SHANKAR SINGH"},"JD607":{"c1":"Mr. ASHISH KUMAR DUBEY","c3":"UMA PATI DUBEY"},"JD307":{"c1":"Mr. ASHOK JAGDISH TIWARI","c2":"Mrs. REETA DEVI","c3":"JAGDISH TIWARI"},"JD907":{"c1":"Mr. BHAVESH MANGEISH SHAH","c2":"Mr. MANGEISH RASEEKLAL SHAH","c3":"MANGEISH SHAH"},"IL802":{"c1":"Mr. BHAVESH RAMJIBHAI PATEL","c2":"Mrs. SUMITA BHAVESH PATEL"},"JD604":{"c1":"Mr. BINODKUMAR BILASH THAKUR"},"JD501":{"c1":"Mr. BRIJESHKUMAR ARVINDBHAI DESAI","c2":"Mrs. SAGARIKA BRIJESH DESAI","c3":"ARVINDBHAI DESAI"},"HT103":{"c1":"Mr. CHANDRASHEKHAR BARAI","c2":"Mrs. JAYASHRI CHANDRASHEKHAR BARAI","c3":"SURESH GOVINDRAO BARAI"},"HT804":{"c1":"Mr. CHITARANJAN SWAIN","c2":"Mrs. SUSAMA SWAIN","c3":"LATE SRI DHARMANANDA SWAIN"},"JD102":{"c1":"Mr. DARSHAN RASIKLAL GUJARATI","c3":"RASIKLAL JAIN"},"HT404":{"c1":"Mr. DEBADATTA HRUDANANDA DAS","c3":"HRUDANANDA DAS"},"JD403":{"c1":"Mr. DEEPAK KESHRIPRASAD JAISWAL","c3":"KESHRIPRASAD JAISWAL"},"IL303":{"c1":"Mr. DEEPAK KUMAR","c3":"SHYAM LAL AMBARIYA"},"IL601":{"c1":"Mr. DEVANG MUNSHILAL SHARMA","c3":"MUNSHILAL SHARMA"},"IL104":{"c1":"Mr. DHIRUBHAI NARSINH CHAUHAN","c3":"NARSINH CHAUHAN"},"JD305":{"c1":"Mr. DINESH BHATA SAINDANE","c2":"Mrs. SARIKA DINESH SAINDANE","c3":"BHATA SAINDANE"},"JD205":{"c1":"Mr. DINESH KUMAR SINGH","c3":"RAJ BAHADUR SINGH"},"HT703":{"c1":"Mr. DIPAK TARAKNATH GHOSH","c2":"Mr. SOUMYADIP GHOSH","c3":"TARAKNATH GHOSH"},"IL801":{"c1":"Mr. DIPESH CHIMANLAL PRAJAPATI","c3":"CHIMANLAL D PRAJAPATI"},"JD107":{"c1":"Mr. DIWAKER OJHA"},"JD803":{"c1":"Mr. DWITI KRUSHNA PADHAN","c3":"NEPAL PADHAN"},"JD704":{"c1":"Mr. GIRRAJ PRASAD MUNDRA"},"HT301":{"c1":"Mr. GOPAL JHA","c3":"GANESH JHA"},"HT401":{"c1":"Mr. GOVIND JHA","c3":"GANESH JHA"},"IL504":{"c1":"Mr. JAGDISH FOJMALJI RAWAL","c3":"FOJMALJI RAWAL"},"HT901":{"c1":"Mr. JAGDISH NANU ROHIT","c2":"Mrs. MEENA NANU ROHIT","c3":"NANU JINA ROHIT"},"HT501":{"c1":"Mr. JAGMOHAN SINGH ROTHAN","c3":"GOVIND SINGH ROTHAN"},"HT101":{"c1":"Mr. KAMALKUMAR INDRAPRASAD PANDYA","c2":"Mrs. ANKITA KAMALKUMAR PANDYA","c3":"INDRAPRASAD M PANDYA"},"IL103":{"c1":"Mr. KAMLESHKUMAR DHIRUBHAI CHAUHAN","c3":"DHIRUBHAI CHAUHAN"},"HT903":{"c1":"Mr. KISHOR PATEL","c3":"VELJI BHAI PATEL"},"HT502":{"c1":"Mr. KISHOR RAUNDAL","c3":"JIBHAV RAUNDAL"},"IL501":{"c1":"Mr. KRISHNA KUMAR OMAR","c2":"Mrs. ANURADHA OMAR"},"JD401":{"c1":"Mr. MADANMOHAN MALLICK","c3":"BHARATCHANDRA MALLICK"},"JD903":{"c1":"Mr. MAHADEV JOSHI","c3":"SHANTILAL JOSHI"},"IL404":{"c1":"Mr. MANISH SRIVASTVA","c2":"Mrs. PRIYA SRIVASTAVA","c3":"BRAJESH KUMAR SRIVASTVA"},"IL904":{"c1":"Mr. MANISHKUMAR DAHYABHAI PRAJAPATI","c2":"Mrs. TEJAL MANISHKUMAR PRAJAPATI","c3":"DAHYABHAI NARAYAN PRAJAPATI"},"JD502":{"c1":"Mr. MONIKA KULDEEP JAIN","c2":"Mr. KULDEEP RAMESHCHANDRA JAIN","c3":"KULDEEP RAMESHCHANDRA JAIN"},"JD207":{"c1":"Mr. MRITHYUNJAY BASKARAN","c2":"Mr. M. BASKARAN"},"IL903":{"c1":"Mr. MUKESH MORESHWAR PAWAR","c2":"Mrs. PUNAM MUKESH PAWAR","c3":"MORESHWAR PAWAR"},"HT704":{"c1":"Mr. NAITIK PUNAMIYA","c3":"MUKESH PUNAMIYA"},"JD707":{"c1":"Mr. NAMAN HARISHANKAR SHARMA","c3":"HARISHANKAR SHARMA"},"JD406":{"c1":"Mr. NARESH M BHANUSHALI","c3":"MANJI DAYATBHAI BHANUSHALI"},"JD801":{"c1":"Mr. NAVEEN KUMAR"},"JD807":{"c1":"Mr. NILESH CHHOTUBHAI PRAJAPATI","c2":"Ms. PRITI PRAJAPATI","c3":"CHHOTUBHAI PRAJAPATI"},"IL204":{"c1":"Mr. NITHINCHANDRA RAMESHCHANDRA MALL"},"HT904":{"c1":"Mr. NITIN PATEL","c3":"VELJI BHAI PATEL"},"JD203":{"c1":"Mr. PATEL BHAVESHBHAI CHIMANBHAI"},"JD901":{"c1":"Mr. PRABHAT RANJAN","c2":"Mrs. RITI KUMARI","c3":"ASHWINI KUMAR SINGH"},"JD306":{"c1":"Mr. RAHISH KUMAR YADAV","c3":"BABULA YADAV"},"HT201":{"c1":"Mr. RAJAN TAMHANE","c2":"Ms. SMITA TAMHANE","c3":"LATE S.K. TAMHANE"},"JD804":{"c1":"Mr. RAJAT KUMAR A. N. SINGH","c2":"Mrs. SANDHYA A. N. SINGH"},"HT503":{"c1":"Mr. RAJENDRA KUMAR YADAV","c3":"AMAR BAHADUR YADAV"},"HT102":{"c1":"Mr. RANJAN KUMAR SINGH","c3":"MADHAB SINGH"},"JD405":{"c1":"Mr. RATNESH SINGH","c3":"JAI MANGAL SINGH"},"IL503":{"c1":"Mr. SAKARAM MOTARAM JI CHOUDHARY","c3":"MOTARAM JI CHOUDHARY"},"IL803":{"c1":"Mr. SEEMA SINGHANIA","c3":"PREM KUMAR AGARWAL"},"JD906":{"c1":"Mr. SUNIL CHAUHAN"},"IL101":{"c1":"Mr. SUNIL KUMAR JHA","c2":"Mrs. VANDANA KUMARI JHA","c3":"YOGENDRA JHA"},"HT602":{"c1":"Mr. SUSHIL CHAUDHARY","c3":"MAHENDRA CHAUDHARY"},"HT104":{"c1":"Mr. SUTHIP CHAKRAVARTHY","c2":"Mrs. KONIKA CHAKRAVARTHY","c3":"MOHAN CHAKRAVARTHY"},"JD603":{"c1":"Mr. VIKRAM SHAMBHU KUMAR","c3":"SHAMBHU SHARAN"},"HT803":{"c1":"Mr. VIKRANT JAYAWANT SANKHE","c3":"JAYAWANT S SANKHE"},"JD702":{"c1":"Mr. VILAS RAGUNATH BHUSARA","c2":"Mrs. NIKITA MANU MISHAL","c3":"RAGUNATH BHUSARA"},"HT702":{"c1":"Mr. VINOD MAHENDRA SHUKLA","c3":"MAHENDRA NATH SHUKLA"},"HT801":{"c1":"Mr. VIPIN KUMAR MISHRA","c2":"Mrs. MADHULIKA VIPIN MISHRA","c3":"PREM CHAND MISHRA"},"IL402":{"c1":"Mr. VIPUL GULATI","c3":"SHIV JEET GULATI"},"HT802":{"c1":"Mr. VIVEK KANKANI","c3":"ASHOK KUMAR KANKANI"},"IL804":{"c1":"Mr. YOGESH PRAVINCHANDRA MUNSHI","c2":"Mrs. KHUSHBOO YOGESH MUNSHI","c3":"PRAVINCHANDRA"},"JD703":{"c1":"Mrs. ANITA PAWAN PAREEK","c2":"Mr. ARUN PAWAN PAREEK","c3":"PAWAN PAREEK"},"JD505":{"c1":"Mrs. BAIJA BAJRANG GORAT","c2":"Mr. BAKUL KUMAR GORAT","c3":"BAJRANG GORAT"},"IL901":{"c1":"Mrs. BHAVNA RAMESHBHAI SOLANKI","c2":"Mrs. GAURI RUPABHAI VADHEL","c3":"RAMESHBHAI SOLANKI"},"JD104":{"c1":"Mrs. DARSHNA KANAK","c2":"Mr. DEEPESH KUMAR BENN"},"IL301":{"c1":"Mrs. DIKSHA NAGESH SINGH","c3":"NAGESH SINGH"},"HT402":{"c1":"Mrs. DIPIKA KUMARI DABHI","c2":"Mr. VIPUL KUMAR RAHEVAR","c3":"VIPUL KUMAR RAHEVAR"},"IL202":{"c1":"Mrs. GUDIYA DEVI SINGH","c2":"Mr. RATNESH KUMAR SINGH","c3":"RATNESH KUMAR SINGH"},"IL603":{"c1":"Mrs. HETAL LALIT PATEL","c3":"FRANCIS DAVID CHETTIAR"},"JD905":{"c1":"Mrs. HONEY BALA BHATIA","c2":"Ms. GAURI BHATIA"},"HT504":{"c1":"Mrs. JAYSHREE PRATAPSING RAJPUT","c3":"PRATAPSING RAJPUT"},"HT403":{"c1":"Mrs. JHAMU CHOUDHARY","c3":"BHAGA RAM CHOUDHARY"},"JD108":{"c1":"Mrs. JYOTI RATHI","c2":"Mr. SAURABH RATHI"},"HT701":{"c1":"Mrs. K VEENA","c3":"V KESAVULU"},"JD504":{"c1":"Mrs. KAVITA FEGADE","c2":"Mr. GIRISH FEGADE"},"HT303":{"c1":"Mrs. LINU BHASKARAN","c3":"NARAYAN BHASKARAN"},"HT601":{"c1":"Mrs. MAMATA GOPINATH ROUT","c2":"Mr. GOPINATH ROUT","c3":"GOPINATH ROUT"},"IL401":{"c1":"Mrs. MAMTA KAMLESH KUMAR MISHRA","c2":"Mrs. NANDANI KUMARUI","c3":"KAMLESH KUMAR MISHRA"},"IL702":{"c1":"Mrs. MANJU DINESH PALIWAL","c2":"Ms. SANIKA DINESH PALIWAL","c3":"DINESH PALIWAL"},"HT202":{"c1":"Mrs. NAMRATA RADHAKRISHNA KULKARNI","c2":"Mr. VAIBHAV KIRANRAO DESHPANDE","c3":"RADHAKRISHNA MADHAVRAO KULKARNI"},"JD503":{"c1":"Mrs. NEETA KISHORSINH PARMAR","c2":"Mr. KISHORSINH PARMAR"},"HT302":{"c1":"Mrs. NIDHI CHAUHAN","c2":"Mr. ANUJ KUMAR SINGH","c3":"ANUJ KUMAR SINGH"},"JD101":{"c1":"Mrs. NILAM PRASAD SUTAR"},"HT604":{"c1":"Mrs. NUTAN BHARAT PATIL","c2":"Mr. BHARAT BABURAO PATIL","c3":"BHARAT BABURAO PATIL"},"JD506":{"c1":"Mrs. PRATIBHA SANDIP PATIL","c2":"Mr. SANDIP NARASINGA PATIL","c3":"SANDIP PATIL"},"IL102":{"c1":"Mrs. PREETI SARASWAT","c2":"Mr. chandrakant saraswat","c3":"CHANDRAKANT SARASWAT"},"JD404":{"c1":"Mrs. PRINCY ALLWYN","c2":"Mr. ALLWYN JOSE"},"HT304":{"c1":"Mrs. PRIYANKA TAPAN CHAKRABORTY","c2":"Mr. TAPAN NARESH CHAKRABORTY","c3":"TAPAN CHAKRABORTY"},"JD204":{"c1":"Mrs. RACHANA DWIVEDI","c2":"Mr. VISHAL JOISAR","c3":"SHRINIWAS DWIVEDI"},"IL502":{"c1":"Mrs. RAGINI GUPTA","c2":"Mr. KISHORE KUMAR GUPTA","c3":"KISHORE KUMAR GUPTA"},"JD605":{"c1":"Mrs. RASHILABEN NARENDRA RAMPARIYA","c3":"NARENDRA RAMPARIYA"},"IL604":{"c1":"Mrs. RITA MISHRA","c2":"Mr. MANOJ NARAYAN MISHRA","c3":"MANOJ MISHRA"},"HT603":{"c1":"Mrs. SARADA DANTULURI","c3":"D S R RAJU"},"JD302":{"c1":"Mrs. SEEMA GANESH KADAM","c2":"Mr. GANESH BABAN KADAM"},"IL302":{"c1":"Mrs. SHANTIBEN DHAVJIBHAI BHAVAR","c2":"Mr. HIREN NANDU WANKHEDE","c3":"NANDU WANKHEDE"},"IL201":{"c1":"Mrs. SHARMILA GOBIND TIWARI","c2":"Mr. PRATIK GOBIND TIWARI","c3":"GOBIND TIWARI"},"JD303":{"c1":"Mrs. SHUBHANGI KIRAN DUDHANE","c2":"Mr. KIRAN TUKARAM DUDHANE"},"HT204":{"c1":"Mrs. SHWETABEN BABUBHAI PATEL","c2":"Mr. MANOJKUMAR DALPATBHAI PATEL","c3":"MANOJKUMAR DALPATBHAI PATEL"},"JD902":{"c1":"Mrs. SNEHA JAYKUMAR PRAJAPATI","c2":"Mr. JAYKUMAR B PRAJAPATI","c3":"JAYKUMAR PRAJAPATI"},"HT902":{"c1":"Mrs. SONIDEVI UMESH RANA","c2":"Mr. UMESH RANA","c3":"UMESH PANA"},"IL602":{"c1":"Mrs. SWATI BAPURAO ATRAM","c2":"Mr. SAURABH BAOURAO ATRAM","c3":"BAPURAO JAGANRAO ATRAM"},"JD602":{"c1":"Mrs. SWATI OMKAR KULKARNI","c2":"Mr. SATISH SHANKAR KULKARNI","c3":"OMKAR KULKARNI"},"JD105":{"c1":"Mrs. VINABEN HARIBHAI ROHIT","c3":"HARIBHAI ROHIT"},"IL304":{"c1":"Ms. NEHA BIRENDRA PRASAD SINHA","c3":"BIRENDRA PRASAD"},"IL701":{"c1":"Ms. PANKTI KOTHARI","c2":"Mrs. KASHMIRA KOTHARI","c3":"HITESH KOTHARI"},"JD402":{"c1":"REKHA BEN CHHIBU BHAI PATEL","c2":"Mrs. KRUTI DILIPBHAI PATEL","c3":"CHHIBU BHAI PATEL"},"JD908":{"c1":"SMK. PETROCHEMICAL INDIA PVT,LTD"},"MF104":{"c1":"Dr. VEDHANT GADHE","c2":"Mrs. GEETARANI GADHE","c3":"SAHEBRAO GADHE"},"LA703":{"c1":"MALA RAM","c3":"RAMA RAM"},"LA702":{"c1":"Mr. Abhishek Rai","c2":"Mrs. SHRIJA RAI","c3":"RAJENDRA RAI"},"NG503":{"c1":"Mr. ADITYA DARIA","c2":"Mrs. SHUBHANGINI KALRA","c3":"MAHESH DARIA"},"NG402":{"c1":"Mr. AJAY SAJJAN GOYAL","c2":"Mrs. POOJA AJAY GOYAL"},"MF501":{"c1":"Mr. AMIT KANERIYA","c2":"Mrs. SHAKSHI KANERIYA","c3":"kamlapati"},"NG502":{"c1":"Mr. AMITKUMAR LALJIBHAI NAYAK","c3":"LALJIBHAI NAYAK"},"MF503":{"c1":"Mr. ASHOK KUMAR SHARMA","c2":"Mrs. SEEMA SHARMA","c3":"PUSHKARLAL SHARMA"},"MF204":{"c1":"Mr. ASHU YADAV","c3":"RAJKUMAR YADAV"},"LA504":{"c1":"Mr. BABAJI SHAMRAO PATIL","c3":"SHAMRAO PATIL"},"NG504":{"c1":"Mr. BANWARLAL RADHAKRISHNA SHARMA","c2":"Mrs. MAMTA BANWARLAL SHARMA","c3":"RADHAKRISHNA SHARMA"},"MF604":{"c1":"Mr. BHAVESHBHAI HARISHBHAI KAHAR","c2":"Mrs. MADHAVI BHAVESHBHAI KAHAR","c3":"HARISHBHAI NARANBHAI KAHAR"},"LA302":{"c1":"Mr. BISMIT PUROHIT","c2":"Mr. BIJAYA PUROHIT","c3":"BIJAYA PUROHIT"},"NG603":{"c1":"Mr. DHEERAJ AGRAWAL"},"NG604":{"c1":"Mr. DURGESH AGARWAL","c2":"Mrs. ABHA AGARWAL"},"NG602":{"c1":"Mr. GHISULAL CHAUDHARY","c2":"Mrs. PUSHPA CHAUDHARY","c3":"MOHANLAL CHAUDHARY"},"LA803":{"c1":"Mr. HEMANT SAMARATAJI LOHAR"},"MF603":{"c1":"Mr. JAGDISH GHANSHYAM PATIL","c2":"Mrs. JYOTI JAGDISH PATIL"},"NG501":{"c1":"Mr. JAYKRISHNA DHANESHCHANDRA PATHAK","c3":"DHANESHCHANDRA PATHAK"},"MF403":{"c1":"Mr. JEET TRIVEDI","c3":"VIPUL TRIVEDI"},"MF701":{"c1":"Mr. JETHU MOHAN SINGH","c3":"MOHAN SINGH"},"NG903":{"c1":"Mr. KAMBALA LOKESH BAPU","c3":"VISWESWARAO ADI KASI KAMBALA"},"NG701":{"c1":"Mr. KAPIL GOPIRAM KANODIA","c3":"GOPIRAM KANODIA"},"NG702":{"c1":"Mr. KAPIL GOPIRAM KANODIA","c3":"GOPIRAM KANODIA"},"MF103":{"c1":"Mr. KETAN HIRJI BHANUSHALI","c2":"Mrs. NEHA KETAN BHANUSHALI"},"LA602":{"c1":"Mr. KRISHNA MOHAN SINGH","c3":"SUMAN KUMAR SINGH"},"MF404":{"c1":"Mr. MANAN TRIVEDI","c3":"VIPUL HARSHADARJI TRIVEDI"},"MF703":{"c1":"Mr. MANISH RAMESHCHANDRA MAHIDHAR","c2":"Mrs. DIPTI MANISH MAHIDHAR","c3":"RAMESHCHANDRA MAHIDHAR"},"MF504":{"c1":"Mr. NILESH GOENKA","c2":"Mrs. RASANA NILESH GOENKA"},"MF303":{"c1":"Mr. NIRANJAN GOVARDHANLAL BANSAL","c3":"GOVARDHANLAL BANSAL"},"NG403":{"c1":"Mr. PRADEEP SHANKAR WANMALI","c2":"Mrs. RASHMI WANMALI","c3":"SHANKAR WANMALI"},"MF502":{"c1":"Mr. PRAKASHSINGH JAIROOPJI RAJPUROHIT","c3":"JAIROOPJI"},"NG901":{"c1":"Mr. PRASHANT RAVINDRA RANE","c2":"Mrs. AADITI PRASHANT RANE"},"KT603":{"c1":"Mr. RADHESHYAM SUTHAR","c3":"SHANKARLAL SUTHAR"},"KT702":{"c1":"Mr. RAHUL KETAN KANSARA","c3":"KETAN KANSARA"},"MF402":{"c1":"Mr. REKHARAM PURARAM BENIWAL","c3":"PURARAM BENIWAL"},"NG801":{"c1":"Mr. SACHIN SONAWANE","c2":"Mrs. JYOTI SACHIN SONAWANE","c3":"PANDITRAO SONAWANE"},"MF902":{"c1":"Mr. SANDEEP GHOSH","c2":"Mrs. KASTURI GHOSH"},"NG902":{"c1":"Mr. SETHIL KUMAR MUDALIAR","c2":"Mrs. UMADEVI SENTHILKUMAR MUDALIAR","c3":"BATRACHALAM"},"MF802":{"c1":"Mr. SHUBHASH JOSHI","c3":"JAIRAMBHAI JOSHI"},"MF704":{"c1":"Mr. SIDHDHARTH PATHAK BANDOPADHYAY","c3":"AJIT PATHAK BANDOPADHYAY"},"NG601":{"c1":"Mr. SIVA KUMAR VISWANATHAN","c3":"M P VISWANATHAN"},"NG904":{"c1":"Mr. SUNIL DHAVJI BHAVAR","c2":"Mrs. NISHA SUNIL BHAVAR","c3":"DHAVJI BHAVAR"},"KT503":{"c1":"Mr. SUNIL KUMAR PANDEY","c3":"ABHAYA NARAYAN PANDEY"},"NG804":{"c1":"Mr. UPENDRA RAMESHBHAI PATEL","c2":"Mrs. SEJALBEN UPENDRA PATEL","c3":"RAMESHBHAI PATEL"},"LA202":{"c1":"Mr. VINOD DHARAMRAJ SINGH","c3":"DHARAMRAJ SINGH"},"MF903":{"c1":"Mr. VISHWANADH KANUKOLLU","c2":"Mrs. SANGITA YADAV","c3":"RAMAM KANUKOLLU"},"NG303":{"c1":"Mrs. ANJALI MOHAPATRA","c2":"Mrs. APURBA KUANAR","c3":"NIROD KUANAR"},"LA303":{"c1":"Mrs. ANURIMA GAUTAM MAITY","c3":"GAUTAM MAITY"},"MF401":{"c1":"Mrs. ASWATHY NAIR","c2":"Mr. VIPIN VISHWANATHAN NAIR","c3":"VIPIN NAIR"},"MF202":{"c1":"Mrs. BHAKTI KAPDI","c2":"Mr. KATHANKUMAR DINESHCHANDRA KAPADI","c3":"DINESHCHANDRA KAPDI"},"MF804":{"c1":"Mrs. GARIMA BHATIA SHARMA","c2":"Mr. ANGAD SUNIL SHARMA"},"NG203":{"c1":"Mrs. JAYSHREE VENKATESH POOJARY","c3":"VENKATESH POOJARY"},"NG302":{"c1":"Mrs. KUSUM PRAKASH CHOUDHARY","c3":"PRAKASH CHOUDHARY"},"LA203":{"c1":"Mrs. MEENA BIJAY SINGH","c2":"Mr. ANAND BIJAY SINGH","c3":"BIJAY KUMAR SINGH"},"MF803":{"c1":"Mrs. NAVDEEP GAREWAL","c3":"AVTAR SINGH GILL"},"MF304":{"c1":"Mrs. NEETU SENTHIL","c2":"Mr. SENTHIL KUMAR","c3":"SENTHIL KUMAR"},"LA402":{"c1":"Mrs. NIDHI ANIL TIWARI","c2":"Mr. ANIL KUMAR TIWARI","c3":"ANIL KUMAR TIWARI"},"MF602":{"c1":"Mrs. NITU SEKSARIA","c3":"SANTKUMAR SEKSARIA"},"NG102":{"c1":"Mrs. P RAJESWARI","c2":"Mr. K R SRINIVASAN","c3":"K . R SRINIVASAN"},"NG803":{"c1":"Mrs. POOJA MILAN VAGHELA","c2":"Mr. MILAN NAROTTAM VAGHELA","c3":"MILAN VAGHELA"},"NG201":{"c1":"Mrs. PRAMILA UPADHYAY","c2":"Mr. SUSHIL KUMAR UPADHYAY","c3":"SUSHIL UPADHYAY"},"NG202":{"c1":"Mrs. PRAMILA UPADHYAY","c3":"SUSHIL UPADHYAY"},"LA604":{"c1":"Mrs. PRIYANKA KUMARI","c2":"Mr. PAPPU KUMAR"},"NG103":{"c1":"Mrs. ROMEE PETER SIMON","c3":"GAURAV MESTRY"},"MF102":{"c1":"Mrs. SADHANA SHAILESH PANDEY","c2":"Mr. SHAILESH KUMAR PANDEY","c3":"SHAILESHKUMAR PANDEY"},"NG704":{"c1":"Mrs. SANDHYA VINOD"},"LA603":{"c1":"Mrs. SANGITA BANSHRAJ YADAV","c2":"Mr. BANSHRAJ LALLAN PRASAD YADAV","c3":"BANSHRAJ"},"MF904":{"c1":"Mrs. SHRUTI GUPTA","c3":"ASHISH GUPTA"},"NG703":{"c1":"Mrs. SHUBHA JAIN","c3":"PRAKASH NAHTA"},"MF702":{"c1":"Mrs. SREEJA PILLAI","c2":"Mr. AJEESH R PILLAI"},"MF801":{"c1":"Mrs. TINABEN DIPAKBHAI CHOPADIYA","c3":"DIPAKBHAI"},"NG802":{"c1":"Mrs. VANDANA ATUL SHAH","c3":"ATUL SHAH"},"LA502":{"c1":"Mrs. VANDANA BACHUBHAI DEVDHEKAR","c2":"Mr. RAJENDRA MANGLABHAI ROHIT"},"LA501":{"c1":"Ms. SEEMA YOGENDRA PRAJAPATI"}};
+const CUSTOMER_RECORDS_NA = {"BL702":{"c1":"AMIT KUMAR SINGH"},"CG904":{"c1":"AMRITA SINGH","c2":"RANJEET SINGH"},"CG507":{"c1":"ANITA PATEL","c2":"Mr. ANIL KUMAR PATEL","c3":"ANIL PATEL"},"AM508":{"c1":"CHETAN SURESH MARATHE","c2":"KARISHMA CHETAN MARATHE"},"CG805":{"c1":"DHARMENDRA KUMAR","c3":"DEVAN MAHTO"},"AM701":{"c1":"GAYATRI TUSHAR MORE","c3":"TUSHAR MORE"},"BL801":{"c1":"KAVITA JHA","c2":"NITESH KUMAR JHA"},"CG603":{"c1":"KAVITA SACHIN PATIL","c2":"Mr. SACHIN K PATIL"},"AM407":{"c1":"KUMARI GUNJAN PORWAL","c2":"Mr. VIVEK KUMAR","c3":"VIVEK KUMAR"},"CG505":{"c1":"MAYANK MEHROTRA","c2":"NEELAM MEHROTRA"},"AM403":{"c1":"MITHILESH KUMAR SINGH","c3":"NIRMAL SINGH"},"CG102":{"c1":"Mr. ABHIMANU SINGH","c2":"Mrs. SAROJ SINGH","c3":"RAM AKBAL SINGH"},"CG101":{"c1":"Mr. AJAY PRAKASH SINGH","c2":"Mrs. MEENU SINGH","c3":"RAJENDRA SINGH"},"BL106":{"c1":"Mr. AJINKYA MULE","c2":"Mr. SRIYASWATI SAMAL","c3":"DEEPAK MULE"},"AM202":{"c1":"Mr. AKHILESH KUMAR YADAV","c2":"Mrs. GUDIYA YADAV","c3":"SHIV BABU YADAV"},"DV106":{"c1":"Mr. AMIT KUMAR","c3":"MITHILESH SHARMA"},"AM606":{"c1":"Mr. AMIT SAHEBRAO BORSE","c3":"Sahebrav Borse"},"BL103":{"c1":"Mr. AMOL SHANTINATH INDE","c3":"SHANTILAL INDE"},"DV905":{"c1":"Mr. ANAND FULDAS DHALE","c3":"FULDAS DHALE"},"AM502":{"c1":"Mr. ANIL DILIP PATIL","c3":"DILIP PATIL"},"AM308":{"c1":"Mr. ANKUSH PRAKASH KHAIRNAR","c3":"PRAKASH DHANAJI KHAIRNAR"},"CG402":{"c1":"Mr. ASHA BHARTI","c2":"Mr. JITENDRA KUMAR BHARTI","c3":"JITENDRA KUMAR BHARTI"},"AM206":{"c1":"Mr. ASHISH SANJAY PATIL","c2":"Mrs. ASHWINI ASHISH PATIL","c3":"SANJAY CHINDA PATIL"},"AM406":{"c1":"Mr. ASHOK KANSHIRAM GOYAL","c2":"Mr. ANKIT ASHOK GOYAL","c3":"KANSHI RAM BAJAJ"},"CG701":{"c1":"Mr. ASHOK RADHESHYAM MISHRA","c2":"Mrs. REKHA ASHOK MISHRA","c3":"RADHESHYAM RAMASRE MISHRA"},"BL504":{"c1":"Mr. ASHOK SINGH BHADORIYA","c2":"NEHA SINGH","c3":"DHEERENDRA SINGH"},"BL404":{"c1":"Mr. AVINASH KUMAR DHARMADEV PATIL","c2":"Mrs. SAVITA DEVI","c3":"DHARMADEV PANDIT"},"CG106":{"c1":"Mr. AVINASH RAMCHANDRA PATIL","c3":"RAMCHNADRA PATIL"},"CG403":{"c1":"Mr. BASANT KUMAR SADA","c2":"Mrs. SONI DEVI .","c3":"SONI DEVI"},"AM706":{"c1":"Mr. BHAVESH DATTARAM CHAVAN","c2":"Mrs. JINAL BHAVESH CHAVAN","c3":"DATTARAM CHAVAN"},"CG307":{"c1":"Mr. BHUPENDRA BUGALIYA","c2":"Mrs. POOJA DARA","c3":"MANGA RAM"},"CG301":{"c1":"Mr. BIRMANI NARENDRA SINGH","c3":"NARENDRA BHADAR SINGH"},"AM302":{"c1":"Mr. BRIJESH PHOOL DEV PANDEY","c3":"PHOOL DEV PANDEY"},"AM705":{"c1":"Mr. BRIJESHPRATAP SHRISHIVPRATAP SINGH","c2":"Mrs. SNEHLATA BRIJESHPRATAP SINGH","c3":"SHIV PRATAP SINGH"},"CG704":{"c1":"Mr. CHANDRAKANT RAMDAS BARADE","c2":"Mrs. YOGESHRI CHANDRAKANT BARADE","c3":"RAMDAS BARADE"},"AM507":{"c1":"Mr. CHETAN SURESH RAUNDAL","c2":"Mrs. KAVITA CHETAN RAUNDAL"},"CG304":{"c1":"Mr. DHANANJAY RAJENDRA GARUD","c2":"Mrs. SONAL DHANANJAY GARUD","c3":"RAJENDRA VITTHALRAO GARUD"},"BL107":{"c1":"Mr. DHANRAJ NISHAD","c2":"BARFI DEVI NISHAD","c3":"BENEEMADHAV B. NISHAD"},"DV306":{"c1":"Mr. DHARMNATH RAI","c2":"Mrs. MANJU DEVI","c3":"NAVAL KISHOR RAI"},"BL804":{"c1":"Mr. DHEERENDRA KUMAR","c2":"Mrs. LAXMI KUMARI","c3":"RAJENDRA KUMAR"},"AM104":{"c1":"Mr. DILIP KUMAR DAS","c2":"Mrs. RASHMITA DAS","c3":"BINOD BEHARI DAS"},"BL704":{"c1":"Mr. DINESH LOTAN PATIL","c2":"Mrs. ROSHNI DINESH PATIL","c3":"LOTAN DAULAT PATIL"},"AM602":{"c1":"Mr. DIPAK CHOTU DESALE","c2":"Mrs. RAJASHRI DIPAK DESALE","c3":"CHOTU POPAT PATIL"},"CG508":{"c1":"Mr. DIPAK SHANTARAM SALUNKHE","c3":"SHANTARAM RAGHUNATH SALUNKHE"},"DV606":{"c1":"Mr. DIVYA PRAKASH JHA","c3":"JANKI RAMAN JHA"},"AM107":{"c1":"Mr. GAJANAN HIMMAT SONAWANE","c2":"Mrs. POOJA GAJANAN SONAWANE","c3":"HIMMAT WAMAN SONAWANE"},"AM804":{"c1":"Mr. GANESH KANTILAL DAHICHA","c2":"MONALI GANESH DAHICHA","c3":"KANTILAL RAMDAS DAHICHA"},"DV705":{"c1":"Mr. GANESH RAJENDRA SONAWANE","c2":"Mr. DINESH RAJENDRA SONAWANE","c3":"RAJENDRA SONAWANE"},"AM108":{"c1":"Mr. GANGADHAR NAMDEVRAO KHANDARE","c2":"Mrs. BEBITAI GANGADHAR KHANDARE","c3":"NAMDEORAO KHANDARE"},"CG807":{"c1":"Mr. GANPAT MALHARI TAPARE","c2":"Mrs. ASHWINI GANPAT TAPARE"},"DV806":{"c1":"Mr. GAURAV EKNATH BORADE","c3":"EKNATH BORADE"},"DV304":{"c1":"Mr. GULSHAN JAISWAL","c2":"Mr. DOLARAM JAISWAL","c3":"DOLARAM JAISWAL"},"AM105":{"c1":"Mr. HANEESH VIKRAMAN","c2":"Mrs. VIJI HANEESH VIKRAMAN","c3":"VIKRAMAN NAIR"},"DV303":{"c1":"Mr. HARSHAD NIMBA PATIL","c3":"DIPALI HARSHAD PATIL"},"CG404":{"c1":"Mr. HARSHKUMAR NAGESH SINGH","c2":"Mr. NAGESH KUMAR SINGH","c3":"NAGESH KUMAR SINGH"},"BL706":{"c1":"Mr. HEMANTA KUMAR PALAI","c3":"JAYKRUSHNA PALAI"},"BL201":{"c1":"Mr. ISHWAR GOPAL PATIL","c2":"Mr. UMESH GOPAL PATIL","c3":"GOPAL SHITARAM PATIL"},"BL407":{"c1":"Mr. JAGRUTI SATISH PATIL","c2":"Mr. SATISH LAXMAN PATIL","c3":"SATISH LAXMAN PATIL"},"CG806":{"c1":"Mr. JIGNESHBHAI SHAH","c3":"KANUBHAI SHAH"},"AM903":{"c1":"Mr. KALPESH SANJAY PATIL","c3":"SANJAY PATIL"},"BL604":{"c1":"Mr. KANAKKANTI DAS","c2":"Mrs. MOUMITA DAS","c3":"KANAILAL DAS"},"CG103":{"c1":"Mr. KASHI NATH SRIVASTAVA","c2":"Mrs. SHILPI SRIVASTAVA","c3":"GANGA PRASAD SRIVASTAVA"},"BL301":{"c1":"Mr. KAUSHALENDRA SINGH","c3":"RAM SHIROMANI SINGH"},"CG503":{"c1":"Mr. KIRAN MOTIRAM SONAWANE","c3":"MOTIRAM DHANDU SONAWANE"},"AM102":{"c1":"Mr. KRISHNA RAWAL","c3":"TEJA RAM"},"BL606":{"c1":"Mr. KUMUD RANJAN JHA","c3":"GOVIND JHA"},"DV506":{"c1":"Mr. KUNA SAHU","c3":"DANDASI SAHU"},"BL807":{"c1":"Mr. KUNAL VANWASU RAUT","c2":"Mr. VANWASU KUNDLIK RAUT","c3":"VANWASU KUNDLIK RAUT"},"SHOP-4":{"c1":"Mr. KUNDANRAM BHATI","c3":"BHERARAM BHATI"},"SHOP-3":{"c1":"Mr. KUNDANRAM BHATI","c3":"BHERARAM BHATI"},"CG608":{"c1":"Mr. MAHAVIR JAGANNATH CHOUDHARY","c2":"Mrs. RANI DEVI","c3":"JAGANNATH CHOUDHARY"},"BL105":{"c1":"Mr. MAHENDRASINH KHENGAR","c3":"NARANSINH KHENGAR"},"SHOP-1":{"c1":"Mr. MANGILAL BHATI","c3":"BHERA RAM BHATI"},"SHOP-2":{"c1":"Mr. MANGILAL BHATI"},"CG601":{"c1":"Mr. MANOJ ARVIND PATIL","c3":"ARVIND UTTAMRAO PATIL"},"DV302":{"c1":"Mr. MANUVIR SINGH","c3":"NARENDRA BAHADUR SINGH"},"AM708":{"c1":"Mr. MAYUR SHANTARAM SANER","c2":"Mrs. KAMLABAI SHANTARAM SANER","c3":"SHANTARAM JAGANNATH SANER"},"DV206":{"c1":"Mr. MILIND . PATIL","c2":"Mrs. VIJAYA MILIND PATIL"},"CG502":{"c1":"Mr. MRITUNJAY AYODHYA MISHRA","c3":"AYODHYA MISHRA"},"DV104":{"c1":"Mr. MUKESH SURESH PATIL","c3":"SURESH SAHEBRAO PATIL"},"CG407":{"c1":"Mr. MUKUND MADHUKAR PATIL","c2":"Mrs. HEMALATA MUKUND PATIL","c3":"MADHUKAR HARI PATIL"},"AM103":{"c1":"Mr. NAVNEET MISHRA"},"AM802":{"c1":"Mr. NIBHA KUMARI","c2":"Mr. SAJJAN KUMAR","c3":"SAJJAN KUMAR"},"BL501":{"c1":"Mr. NIKHIL RUBI BORSE","c2":"Mrs. MANISHA RUBI BORSE","c3":"RUBI BORSE"},"DV805":{"c1":"Mr. NILESH SUDHAKAR JAGTAP","c3":"SUDHAKAR"},"CG408":{"c1":"Mr. NIRANK NAGRAJ SONGIRE","c2":"KOMAL NIRANK SONGIRE","c3":"NAGRAJ SONGIRE"},"BL202":{"c1":"Mr. PANKAJKUMAR MISHRA","c3":"VIJAY MISHRA"},"CG401":{"c1":"Mr. PAPPU SHASHIDHAR PANDIT","c2":"Mrs. BANDANA PAPPU PANDIT","c3":"SASHIDHAR PANDIT"},"AM703":{"c1":"Mr. PARESH MOHAN SAMAL","c3":"RAMAKANTA SAMAL"},"CG604":{"c1":"Mr. PARMESHWAR MADESIA","c2":"Mrs. KM DHARMSHILA","c3":"SANTOSH KUMAR"},"CG602":{"c1":"Mr. PRADIP BISWAS","c3":"HARIHAR BISWAS"},"BL305":{"c1":"Mr. PRAGATI UMESH PATIL","c2":"Mr. UMESH GOPAL PATIL"},"BL207":{"c1":"Mr. PRAKASHCHANDRA SHANKARLAL GAUD","c3":"LATE SHANKARLAL GAUD"},"CG203":{"c1":"Mr. PRAMOD AVINASH PATIL","c2":"Mrs. AKSHATA PRAMOD PATIL","c3":"AVINASH PATIL"},"AM101":{"c1":"Mr. PRAMOD FAKIRA BAGUL","c2":"Mrs. SEEMA PRAMOD BAGUL","c3":"FAKIRA FULA BAGUL"},"DV803":{"c1":"Mr. PRASHANT NAIK","c3":"ASHOKRAO NAIK"},"AM805":{"c1":"Mr. PRAVIN DEVIDAS SHINDE","c2":"Mrs. MANISHA PRAVIN SHINDE","c3":"DEVIDAS SHINDE"},"AM204":{"c1":"Mr. PRAVIN PRAKASH PATIL","c2":"Mrs. VARSHA PRAVIN PATIL","c3":"PRAKASH A PATIL"},"BL507":{"c1":"Mr. PRAVIN SAHEBARAO SATTAWIS","c2":"Mrs. MONIKA PRAVIN SATTAVIS"},"CG702":{"c1":"Mr. PROSENJIT BINOY DEY","c2":"Mrs. SANGITA PROSENJIT DEY","c3":"BINOY DEY"},"DV804":{"c1":"Mr. PUNITA VIDYANIWAS MISHRA","c2":"Mr. SHALEEN MISHRA","c3":"VIDYANIWAS MISHRA"},"DV202":{"c1":"Mr. RABI NARAYANA SABAT","c3":"SIMANCHAL GOVINDA SABAT"},"BL307":{"c1":"Mr. RABINDRA HARI PRASAD PAL"},"CG804":{"c1":"Mr. RAGHVENDRA SINGH","c2":"DIPIKA SINGH","c3":"BRIJESH KUMAR SINGH"},"DV105":{"c1":"Mr. RAJAN DIXIT","c3":"RAJENDRA DIXIT"},"AM201":{"c1":"Mr. RAJAN KUMAR SINGH","c2":"Mrs. KAVITABEN SINGH","c3":"RAMASHIS SINGH"},"AM604":{"c1":"Mr. RAJBAHADUR JAISWAR","c3":"JAMUNA MATHURI JAISWAR"},"DV402":{"c1":"Mr. RAJEEVKUMAR UDAYKANT JHA","c2":"Mrs. PRIYANKA RAJEEV JHA","c3":"UDAYKANT JHA"},"BL401":{"c1":"Mr. RAJENDRA KUMAR RAMJIT SINGH","c3":"RAMJIT RAMDHANI SINGH"},"BL203":{"c1":"Mr. RAJESH KUMAR B RAM","c3":"SHRI BALKISUN RAM"},"DV802":{"c1":"Mr. RAJESHKUMAR ASHOKKUMAR JHA","c2":"Mrs. RITU JHA","c3":"ASHOKKUMAR JHA"},"CG707":{"c1":"Mr. RAJKUMAR DEONATH MAHAJAN","c2":"Mrs. CHANDA MAHAJAN","c3":"DEONATH MAHAJAN"},"DV706":{"c1":"Mr. RAJU DINESH SAROJ","c2":"Mrs. MEENU DEVI SAROJ","c3":"DINESH C SAROJ"},"BL505":{"c1":"Mr. RAKESH A PATIL","c2":"Mrs. RANJANA RAKESH PATIL","c3":"ASHOK PATIL"},"AM301":{"c1":"Mr. RAKESH KAILASH PATIL","c3":"KAILASH PATIL"},"DV203":{"c1":"Mr. RAKESH KUMAR","c3":"KIRTI NARAYA ROY"},"BL308":{"c1":"Mr. RAMASRE JAYNATH YADAV","c2":"Mrs. SARITA RAMASRE YADAV","c3":"JAYNATH YADAV"},"AM401":{"c1":"Mr. RANJEET KUMAR SINGH","c2":"Mrs. RINKU DEVI RANJET KUMAR SINGH","c3":"PARAS NATH SINGH"},"BL206":{"c1":"Mr. RAUNAK VIJAYPRATAP SINGH","c3":"VIJAYPRATAP SINGH"},"BL503":{"c1":"Mr. RAVI BABULAL JANGID","c3":"BABULAL JANGID"},"DV406":{"c1":"Mr. RAVINDRA ARJUN MALI","c2":"Mrs. ASHWINI RAVINDRA MALI","c3":"ARJUN MALI"},"BL605":{"c1":"Mr. SAGAR SUNIL PATIL","c3":"SUNIL BANDU PATIL"},"CG808":{"c1":"Mr. SAMMEK ARUN GAJBHIYE","c2":"Mrs. PUSHPA ARUN GAJBHIYE","c3":"ARUN GAJBHIYE"},"CG104":{"c1":"Mr. SANJAY GOUR","c2":"Mrs. Kanchan Gour","c3":"MOOLCHAND GOUR"},"CG802":{"c1":"Mr. SANJAY RAWAL","c3":"TEJARAM RAWAL"},"CG305":{"c1":"Mr. SANJEEV S SINGH","c3":"SHRIRAM NAGENDRA SINGH"},"BL904":{"c1":"Mr. SANJULATA P SAHU","c2":"Mr. PRAMOD KUMAR SAHOO","c3":"PRAMODKUMAR SHAHU"},"CG607":{"c1":"Mr. Satya Sundar Lenka","c2":"Mrs. PRANATI LENKA","c3":"Purushottam Lenka"},"DV704":{"c1":"Mr. SAURABH R YADAV","c2":"Mrs. LILAVATI YADAV","c3":"RAJENDRA PRASAD YADAV"},"BL208":{"c1":"Mr. SHIVDAS YURAJ PATIL","c2":"Mrs. SUSHMA SHIVDAS PATIL","c3":"YUVRAJ SHENPADU PATIL"},"AM207":{"c1":"Mr. Shivmangal Singh Kushwah","c3":"Chandra pal Singh Kushwah"},"AM808":{"c1":"Mr. SOPAN VASANT DARADE","c2":"Mrs. SONALI SOPAN DARADE","c3":"VASANT DARADE"},"CG708":{"c1":"Mr. SUJAL NARENDRA DHARGAWE"},"BL806":{"c1":"Mr. SUWARNA MANGESH PATIL","c2":"Mr. MANGESH ANKUSH PATIL","c3":"MANGESH ANKUSH PATIL"},"AM404":{"c1":"Mr. TARUN KUMAR V. ROHIT","c3":"VALLABH BHAI ROHIT"},"BL701":{"c1":"Mr. UMAKANT RAJNATH GUPTA","c2":"Mrs. SAILADEVI UMAKANT GUPTA","c3":"RAJNATH GUPTA"},"BL603":{"c1":"Mr. VIGNESH ATUL TOSHNIWAL","c3":"ATUL TOSHNIWAL"},"CG406":{"c1":"Mr. VIJAY AVINASH PATIL","c3":"AVINASH M PATIL"},"CG204":{"c1":"Mr. VIPIN KUMAR YADAV","c2":"Mrs. REEMA YADAV","c3":"JAGDEESH CHAND YADAV"},"AM205":{"c1":"Mr. VISHAL PANDEY","c2":"Mrs. JYOTI VISHAL PANDEY","c3":"SHIVKANT PANDEY"},"DV102":{"c1":"Mr. VIVEK SHIV SINGH","c3":"SHIV PALTAN SINGH"},"BL408":{"c1":"Mr. YASHWANT RAMJIT SINGH","c3":"RAMJIT RAMDHANI SINGH"},"CG703":{"c1":"Mr. YATIN U PRAJAPATI","c3":"JASUBEN PRAJAPATI"},"CG208":{"c1":"Mr. YOGESH BALU DHIVAR","c2":"Mrs. PUJA YOGESH DHIVAR","c3":"BALU DHIVAR"},"AM501":{"c1":"Mr. YOGESH dattatrey KSHIRSAGAR","c2":"Mrs. SUREKHA DATATREY KSHIRSAGAR","c3":"DATTATREY KASHIRSAGAR"},"AM702":{"c1":"Mr. YOGESH DIWAN BAGAL","c2":"Mrs. SANGITA YOGESH BAGAL","c3":"DIWAN BAGAL"},"CG606":{"c1":"Mrs. ABHA KHATOD","c3":"VISHNU KUMAR MAHESHWARI"},"AM305":{"c1":"Mrs. AMRAVATI DEVI","c3":"DHARMENDRA KUMAR VERMA"},"DV204":{"c1":"Mrs. ANAMIKA KUMARI M TIWARI","c2":"Mr. MADAN TIWAR","c3":"TIWARI MADAN"},"BL608":{"c1":"Mrs. ANITA HEMRAJ BORASE","c2":"Mr. BORASE HEMRAJ","c3":"BORASE HEMRAJ"},"BL502":{"c1":"Mrs. ANUSHILA SANJIB KUMAR MOHANTY","c2":"Mr. SANJIB KUMAR MOHANTY","c3":"SANJIB KUMAR MOHANTY"},"AM803":{"c1":"Mrs. ARUNAKUMARI CHABABHAI PATEL","c2":"Mr. NIKUNJ NATHUBHAI PATEL","c3":"CHANABHAI PATEL"},"AM307":{"c1":"Mrs. ASHVINI AVINASH SALUNKE","c2":"Mr. AVINASH SUBHASH SALUNKE","c3":"AVINASH SALUNKE"},"BL406":{"c1":"Mrs. BANDANA PRAJAPATI","c2":"Mr. RAKESH KUMAR PRAJAPATI","c3":"RAKESHKUMAR PRAJAPATI"},"CG706":{"c1":"Mrs. BHARTIDEVI UDAYBHAN SINGH","c2":"Mr. UDAYBHAN SINGH","c3":"UDAYBHAN SINGH"},"DV301":{"c1":"Mrs. CHANDA VIJAY SHANKAR YADAV","c3":"VIJAY SHANKAR YADAV"},"CG504":{"c1":"Mrs. DEEPALI YOGESH KATKAR","c2":"Mr. YOGESH DIPAKRAO KATKAR","c3":"YOGESH KATKAR"},"BL805":{"c1":"Mrs. DHANMA KEDARNATH PATIL","c2":"Mr. NAGNATH KEDARNATH PATIL","c3":"KEDARNATH PATIL"},"BL405":{"c1":"Mrs. GYANMATI RAMLAKAN YADAV","c2":"Mr. RAHUL RAMLAKHAN YADAV","c3":"RAMLAKHAN YADAV"},"BL902":{"c1":"Mrs. HARSHITA DADHEECH","c3":"ZUBIN CHANDRAPRAKASH DADHICH"},"DV404":{"c1":"Mrs. HENALBEN YOGESHKUMAR PRAJAPATI","c2":"Mr. YOGESHKUMAR PRAJAPATI","c3":"YOGESHKUMAR PRAJAPATI"},"AM603":{"c1":"Mrs. JAIVANTI DEVI","c2":"Mr. RAMESH RAMMURAT YADAV","c3":"RAMESH RAMMURAT YADAV"},"DV602":{"c1":"Mrs. JASODA DEVI","c2":"Mr. RAMESHWAR LAL","c3":"RAMESHWAR LAL"},"BL204":{"c1":"Mrs. JAYSHREE AVINASH DEORE","c2":"Mr. AVINASH DEORE","c3":"AVINASH ARUN DEORE"},"BL607":{"c1":"Mrs. JAYSHREE SHASHIKANT MAHAJAN","c2":"Mr. SHASHIKANT HIRALAL MAHAJAN","c3":"SHASHIKANT HIRALAL MAHAJAN"},"DV403":{"c1":"Mrs. JOTSANBEN SHANTILAL PRAJAPATI","c2":"Mr. PRATIK SHANTILAL PRAJAPATI","c3":"PRATIK SHANTILAL PRAJAPATI"},"DV501":{"c1":"Mrs. KALPANA KALU JADHAV","c2":"Mr. KALU RANJIT JADHAV","c3":"KALU RANJIT JADHAV"},"DV401":{"c1":"Mrs. KAMLADEVI YADAV","c2":"Mr. VINOD KUMAR RAMVAD YADAV","c3":"VINOD KUMAR RAMVAD YADAV"},"CG201":{"c1":"Mrs. KAVYA KUMARI","c2":"Mr. PANKAJ KUMAR","c3":"PANKAJ KUMAR"},"AM505":{"c1":"Mrs. KHUSI NAYAK","c2":"Mr. KALIA BHANJA"},"DV702":{"c1":"Mrs. KRITI TIWARI","c2":"Mr. SUMIT UPADHYAY"},"DV103":{"c1":"Mrs. LAKSHMI R NAIR","c2":"Mr. KRISHNADAS GOPALAN NAIR","c3":"KRISHNADAS NAIR"},"DV703":{"c1":"Mrs. LALITADEVI SINGESHWAR KAMAT","c3":"SINGESHWAR BANSU KAMAT"},"DV605":{"c1":"Mrs. LAXMI RAKESH YADAV","c3":"RAKESH KUMAR YADAV"},"CG105":{"c1":"Mrs. MADHU SAMANTA","c2":"Mr. ADWAITA MONDAL","c3":"ADWAITA MONDAL"},"BL703":{"c1":"Mrs. MADHURI AMOL BHUTADA","c3":"GOPALDAS JAJU"},"AM304":{"c1":"Mrs. MAMTA DEVI","c2":"Mr. SUNIL TIWARI","c3":"SUNIL TIWARI"},"BL304":{"c1":"Mrs. MANASHI NAHA","c2":"BISWAYAN NAHA","c3":"BISWADIP ANAH"},"DV305":{"c1":"Mrs. MANDA SOMNATH AVHAD","c2":"Mr. SOMNATH AVHAD","c3":"SOMNATH AVHAD"},"BL402":{"c1":"Mrs. MANISHA MORE","c2":"Mr. SANDEEP MORE","c3":"SANDEEP MORE"},"BL602":{"c1":"Mrs. MANISHA NILESH MALI","c2":"Mr. NILESH RAJENDRA MALI"},"BL104":{"c1":"Mrs. MANISHA PRADEEP RATHOD","c3":"PRADEEP RATHOD"},"BL102":{"c1":"Mrs. MANISHA RAVINDRA PATIL","c2":"Mr. RUPESH RAVINDRA PATIL","c3":"RAVINDRA SITARAM PATIL"},"AM402":{"c1":"Mrs. MANORAMA ANIL BOHRA","c3":"ANIL BOHRA"},"BL506":{"c1":"Mrs. MAYA PRAMOD SINGH","c2":"Mr. ABHISHEK PRAMOD SINGH","c3":"PRAMOD SINGH"},"BL601":{"c1":"Mrs. MAYA RADESHYAM TIWARI","c2":"Mr. RADHESHYAM TIWARI"},"AM106":{"c1":"Mrs. MAYURI NILESH PATIL","c2":"Mr. NILESH RAJENDRA PATIL"},"AM605":{"c1":"Mrs. MEETU BIJENDRAPRATAP SINGH","c2":"Mr. SHIVU L GIRIYAPUR","c3":"SHIVU L GIRIYAPUR"},"DV906":{"c1":"Mrs. MITALI JANA","c2":"Mr. MANASCHANDRA JANA","c3":"MANASCHANDRA JANA"},"AM306":{"c1":"Mrs. NAMRATA JITESH HIRANI","c2":"Mr. JITESH HIRANI","c3":"JITESH KIRIT HIRANI"},"DV504":{"c1":"Mrs. NAYANA SUBHASH PATIL","c2":"Mr. CHANDRAKANT PRAKASH PATIL","c3":"CHANDRAKANT P PATIL"},"CG506":{"c1":"Mrs. NEHA SINGH","c3":"ROHIT KUMAR"},"DV604":{"c1":"Mrs. NIDHI DHRMENDRA SINGH","c3":"DHRMENDRA SINGH"},"BL302":{"c1":"Mrs. NILAM ASHOKKUMAR THAKUR","c2":"Mr. ASHOKKUMAR JEEBACH THAKUR","c3":"ASHOK KUMAR THAKUR"},"DV205":{"c1":"Mrs. NIRALI AMIT DARJI","c2":"Mr. AMIT GHYANSHYAM DARJI","c3":"AMIT G DARJI"},"CG605":{"c1":"Mrs. NIRMA YADAV","c2":"Mr. RAM PARIKHA YADAV","c3":"RAM PARIKHA YADAV"},"BL205":{"c1":"Mrs. PARVINA","c2":"Mr. JITENDRA KUMAR"},"BL306":{"c1":"Mrs. POOJA YADAV","c3":"AVINASH YADAV"},"DV601":{"c1":"Mrs. POONAM GUPTA","c2":"Mr. UDRESH KUMAR GUPTA","c3":"UDRESH GUPTA"},"DV101":{"c1":"Mrs. PRITI GAUTAM OJHA","c2":"Mr. GAUTAM BIKAU OJHA","c3":"GAUTAM BIKAU OJHA"},"CG501":{"c1":"Mrs. PRIYANKA DIPAK PATIL","c2":"Mr. DIPAK BHIMRAO PATIL"},"DV902":{"c1":"Mrs. PUSHPA MISHRA","c3":"HARISHANKAR MISHRA"},"DV701":{"c1":"Mrs. PUSHPA SINGH CHILWAL","c2":"Mr. SUSHANT SINGH CHILWAL","c3":"MOHAN SINGH CHILWAL"},"CG303":{"c1":"Mrs. RAJESHREE DNYANESHWAR BORSE","c2":"Mr. DNYANESHWAR VYANKAT BORASE"},"DV901":{"c1":"Mrs. RAMA DEVI","c3":"RAJUSINGH THAKUR"},"AM506":{"c1":"Mrs. REENA VERMA","c2":"Mr. MANOJ KUMAR CHEJARA","c3":"MANOJ KUMAR CHEJARA"},"BL303":{"c1":"Mrs. REKHA RAJENDRA KANOJIYA","c2":"Mr. RAJENDRA PRASAD KANOJIYA","c3":"RAJENDRA"},"AM704":{"c1":"Mrs. REKHABAI SHAMRAO PATIL","c2":"Mr. MANISH SHAMRAO PATIL","c3":"SHAMRAO PATIL"},"CG308":{"c1":"Mrs. ROSHNI BAIDNATH MISHRA","c2":"Mr. BAIDNATH MISHRA","c3":"BAIDNATH MISHRA"},"AM408":{"c1":"Mrs. SANGEETA SATISH SINGH","c2":"Mr. SATISH RAJENDRABAHADUR SINGH","c3":"SATISH SINGH"},"CG205":{"c1":"Mrs. SANGITA RAJNEESH PATEL","c3":"RAJNEESH PATEL"},"DV405":{"c1":"Mrs. SANTOSH KISHOR SHEKHAWAT","c2":"Mr. SHIVAM KISHOR SINGH SHEKHAWAT","c3":"SHIVAM KISHOR SINGH SHEKHAWAT"},"AM601":{"c1":"Mrs. SARDA VIJAY BHAMARE","c3":"VIJAY BHAMARE"},"CG306":{"c1":"Mrs. SARIKA RATHI","c2":"SACHIN OMPRAKASH RATHI","c3":"SACHIN RATHI"},"CG803":{"c1":"Mrs. SARITA SINGH","c3":"SANJAY KUMAR SINGH"},"BL802":{"c1":"Mrs. SAROJ DADHICH","c2":"Mr. ARYAN KISHAN LAL DADHEECH","c3":"KISHAN LAL DADHICH"},"BL707":{"c1":"Mrs. SAYALI SANJIV SHINGADE","c2":"Mr. RAHUL KRUSHNA BHANUSE","c3":"RAHUL KRUSHNA BHANUSE"},"AM707":{"c1":"Mrs. Seema Kundlik Hake","c2":"Mr. Kundlik Hake","c3":"Kundlik Hake"},"AM607":{"c1":"Mrs. SEEMA SINGHANIA","c2":"Mrs. SHRADHA SINGHANIA BHARGAVA","c3":"MAHENDRA KUMAR SINGHANIA"},"DV503":{"c1":"Mrs. SHAGUN RAJVEER SINGH","c2":"Mr. RAJVEER SINGH","c3":"RAJVEER SINGH"},"BL508":{"c1":"Mrs. SHASHIKALA PRAMOD PANDEY","c2":"Mr. PANDEY CHANDRESHPRAMODKUMAR","c3":"PRAMOD PANDEY"},"CG302":{"c1":"Mrs. SHIKHA TIWARI","c2":"Mr. SUSHIL KUMAR TIWARI","c3":"SUSHIL KUMAR TIWARI"},"AM208":{"c1":"Mrs. SINGH GANGA TAHSILDAR","c3":"RAJNISH SINGH"},"AM405":{"c1":"Mrs. SONAL DHANANJAY GANGURDE","c2":"Mr. DHANANJAY SHAMAKANT GANGURDE","c3":"DHANANJAY SHAMAKANT GANGURDE"},"AM303":{"c1":"Mrs. SUJEETADEVI KUMAR PANDEY","c2":"Mr. ANJANI KUMAR PANDEY","c3":"ANJANI KUMAR PANDEY"},"AM503":{"c1":"Mrs. SUNITA DEVI","c2":"Mr. POONAM CHAND GAUR","c3":"RAMNIWAS"},"DV502":{"c1":"Mrs. SUNITA NARESH PATIL","c2":"Mr. NARESH MARTAND PATIL","c3":"NARESH MARTAND PATIL"},"BL101":{"c1":"Mrs. TANU SHARMA","c2":"Mr. PRAMOD KUMAR","c3":"PRAMOD SHARMA"},"BL108":{"c1":"Mrs. TARADEVI RAMDHANI RAM","c2":"Mr. RAM DHANI RAM","c3":"RAMDHANI RAM"},"AM806":{"c1":"Mrs. VINEETA SHARMA","c2":"Mr. SHANTAM KUMAR SHARMA","c3":"SURENDRA KUMAR SHARMA"},"AM203":{"c1":"Ms. ASHABEN CHHOTUBHAI ROHIT","c3":"LATE CHHOTUBHAI ROHIT"},"CG108":{"c1":"Ms. GHANOTRI PANCHTILAK","c2":"Mr. TEKCHAND PANCHTILAK","c3":"TEKCHAND PANCHTILAK"},"BL808":{"c1":"Ms. KHUSHBU KUMARI","c3":"AJAY CHANDRAVANSHI"},"AM504":{"c1":"Ms. KINJAL SHAMBHUBHAI KALSARIYA","c2":"Mr. JENIS SHAMBHUBHAI PRAJAPATI"},"BL403":{"c1":"Ms. PREM CHANDRAKANT SUTHAR","c3":"CHANDRAKANT SUTHAR"},"AM807":{"c1":"Ms. PRITY KUMARI","c3":"BIMLESH TIWARI"},"BL803":{"c1":"Ms. PRIYANKA OMPRAKASH YADAV","c3":"OMPRAKASH YADAV"},"DV201":{"c1":"Ms. RINKU ARJUN GUPTA","c3":"ARJUN GUPTA"},"BL708":{"c1":"Ms. RIYA SINGH","c3":"AHORWABUX SINGH"},"BL901":{"c1":"Ms. SONALI PRAVEEN SINGH","c3":"PRAVEEN SINGH"},"DV801":{"c1":"Ms. SUNITA ARJUN GUPTA","c3":"ARJUN GUPTA"},"CG902":{"c1":"PATEL HEMALI BIMALKUMAR"},"DV603":{"c1":"PATIL BALU JALAM","c2":"PATIL RANJIT BALU"},"CG405":{"c1":"PATIL SHITAL BEN"},"AM902":{"c1":"PURNIMA TIWARI","c2":"ASHUTOSH KUMAR TIWARI"},"CG705":{"c1":"REEMA TIWARI"},"CG107":{"c1":"RESHMA RAHUL DESLE","c2":"Mr. RAHUL SANJAY DESALE"},"BL705":{"c1":"SANDEEP OMPRAKASH PANDEY","c3":"OMPRAKASH PANDEY"},"CG801":{"c1":"SHOBHA BIST","c2":"Mr. MAHIPAL SINGH BISHT","c3":"MAHIPAL SINGH BISHT"},"AM801":{"c1":"VINAY RAVINDRA YADAV","c2":"Mrs. UMA VIJAY BHAMRE"},"AM905":{"c1":"VINOD ARUN PAWAR"},"CG202":{"c1":"YADAV BABLOO SUBHASH"}};
+
+
+let customerCount = 0;
+
+function onProjectChange(){
+  const proj = document.getElementById('project').value;
+  const pdata = PROJECTS[proj];
+  const phaseField = document.getElementById('phaseField');
+  const phaseEl = document.getElementById('phase');
+  if(pdata.hasPhase){
+    phaseField.style.display='';
+    phaseEl.innerHTML = '<option value="2A">PHASE-2A</option><option value="2B">PHASE-2B</option>';
+  } else {
+    phaseField.style.display='none';
+  }
+  populateBuildings();
+}
+
+function populateBuildings(){
+  const proj = document.getElementById('project').value;
+  const pdata = PROJECTS[proj];
+  const sel = document.getElementById('building');
+  sel.innerHTML = '';
+  let wings;
+  if(pdata.hasPhase){
+    const phase = document.getElementById('phase').value;
+    wings = pdata.wings[phase];
+  } else {
+    wings = pdata.wings;
+  }
+  Object.keys(wings).forEach(code=>{
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = pdata.hasPhase ? `${wings[code].name} (${code}-Wing)` : wings[code].name;
+    sel.appendChild(opt);
+  });
+  onBuildingChange();
+}
+
+function onBuildingChange(){
+  onFlatChange();
+}
+
+function getWingInfo(){
+  const proj = document.getElementById('project').value;
+  const pdata = PROJECTS[proj];
+  const wingCode = document.getElementById('building').value;
+  if(pdata.hasPhase){
+    const phase = document.getElementById('phase').value;
+    return pdata.wings[phase][wingCode];
+  } else {
+    return pdata.wings[wingCode];
+  }
+}
+
+function onFlatChange(){
+  const proj = document.getElementById('project').value;
+  const wingCode = document.getElementById('building').value;
+  const info = getWingInfo();
+  const flatNumPart = document.getElementById('flatno').value.trim();
+
+  document.getElementById('buildingtype').value = wingCode;
+
+  const fullFlat = info.prefix + flatNumPart;
+  document.getElementById('fullflat').value = flatNumPart ? fullFlat : '';
+
+  const statusEl = document.getElementById('pidStatus');
+  if(!flatNumPart){ statusEl.className='pid-status'; statusEl.textContent=''; return; }
+
+  let pid = null;
+  if(proj === 'TG'){
+    if(PROPERTY_IDS[wingCode] && PROPERTY_IDS[wingCode][fullFlat]) pid = PROPERTY_IDS[wingCode][fullFlat];
+  } else {
+    if(ANANTA_PIDS[fullFlat]) pid = ANANTA_PIDS[fullFlat];
+  }
+
+  if(pid){
+    document.getElementById('propertyid').value = pid;
+    statusEl.className = 'pid-status ok';
+    statusEl.textContent = '✓ Property ID auto-filled from records';
+  } else if(info.hasData){
+    document.getElementById('propertyid').value = '';
+    statusEl.className = 'pid-status manual';
+    statusEl.textContent = '⚠ Flat not found in records — please verify flat number or enter Property ID manually';
+  } else {
+    document.getElementById('propertyid').value = '';
+    statusEl.className = 'pid-status manual';
+    statusEl.textContent = `⚠ ${info.name} wing has no Property ID data yet — please enter manually`;
+  }
+}
+
+function addCustomer(){
+  if(customerCount >= 3) return;
+  customerCount++;
+  const container = document.getElementById('customersContainer');
+  const div = document.createElement('div');
+  div.className = 'customer-block';
+  div.id = `customer-${customerCount}`;
+  div.innerHTML = `
+    <span class="tag">Customer ${customerCount}</span>
+    ${customerCount>1?`<button class="remove-btn" onclick="removeCustomer(${customerCount})">✕ Remove</button>`:''}
+    <div class="field" style="margin-bottom:0;">
+      <label>Full Name (with title, e.g. MR./MRS.)</label>
+      <input type="text" class="cust-name" placeholder="e.g. MRS. SWATI BAPURAO ATRAM">
+    </div>
+  `;
+  container.appendChild(div);
+  updateAddBtn();
+}
+
+function removeCustomer(id){
+  const el = document.getElementById(`customer-${id}`);
+  if(el) el.remove();
+  customerCount--;
+  // renumber tags
+  const blocks = document.querySelectorAll('.customer-block');
+  blocks.forEach((b,i)=>{
+    b.querySelector('.tag').textContent = `Customer ${i+1}`;
+  });
+  updateAddBtn();
+}
+
+function updateAddBtn(){
+  document.getElementById('addCustomerBtn').disabled = customerCount>=3;
+  document.getElementById('addCustomerBtn').style.opacity = customerCount>=3?0.5:1;
+}
+
+function inferTitle(name){
+  // If name already starts with a known title, return as-is
+  const upper = name.trim().toUpperCase();
+  const knownTitles = [
+    'MR.','MRS.','MS.','DR.','LATE ','LATE. ','M/S.','M/S ','SMK.',
+    'S/O ','D/O ','W/O ','S/O.','D/O.','W/O.',
+    'SHRI ','SMT.','SMT ','KUM.','KUM ','COL.','COL ','LT.','CAPT.',
+    'PROF.','ADV.','ER.'
+  ];
+  for(const t of knownTitles){
+    if(upper.startsWith(t)) return name.trim();
+  }
+  // No title present — return null so caller can assign one
+  return null;
+}
+
+function assignTitleToC3(c3name, c1name){
+  // If c3 already has a title, use as-is
+  const withTitle = inferTitle(c3name);
+  if(withTitle) return withTitle;
+  // Infer from c1: if c1 is female (MRS./MS.) → relative is likely male (MR.)
+  // If c1 is male (MR.) → relative is also likely male (MR.) — father/grandfather
+  // Special case: if c1 has no title or company name, default MR.
+  const c1up = (c1name||'').trim().toUpperCase();
+  if(c1up.startsWith('MRS.') || c1up.startsWith('MS.')) return 'MR. ' + c3name.trim();
+  return 'MR. ' + c3name.trim();
+}
+
+
+function getCustomers(){
+  const blocks = document.querySelectorAll('.customer-block');
+  const names = [];
+  blocks.forEach(b=>{
+    const name = b.querySelector('.cust-name').value.trim();
+    if(name) names.push(name);
+  });
+  return names;
+}
+
+function joinNames(names, forCommaStyle){
+  // Builds "A, B & C" style joining, matching sample format
+  if(names.length === 0) return '';
+  if(names.length === 1) return names[0];
+  if(names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names.slice(0,-1).join(', ')} & ${names[names.length-1]}`;
+}
+
+function fmtDate(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function generatePreview(){
+  const statusMsg = document.getElementById('statusMsg');
+  statusMsg.innerHTML = '';
+
+  const names = getCustomers();
+  const flatPart = document.getElementById('flatno').value.trim();
+  const fullFlat = document.getElementById('fullflat').value.trim();
+  const propertyId = document.getElementById('propertyid').value.trim();
+  const buildingType = document.getElementById('buildingtype').value;
+  const wingCode = document.getElementById('building').value;
+  const phase = document.getElementById('phase').value;
+  const proj = document.getElementById('project').value;
+  const pdata = PROJECTS[proj];
+  const info = getWingInfo();
+  const buildingName = info.name;
+  const phaseLabel = pdata.hasPhase ? `${pdata.label} PHASE-${document.getElementById('phase').value}` : pdata.label;
+  const salutation = document.getElementById('salutation').value;
+  const dateVal = fmtDate(document.getElementById('letterdate').value);
+
+  // Validation
+  const errors = [];
+  if(names.length===0) errors.push('Add at least 1 customer name.');
+  if(!flatPart) errors.push('Enter the flat number.');
+  if(!propertyId) errors.push('Property ID is required (auto-fill failed — enter manually).');
+  if(!dateVal) errors.push('Select a date.');
+
+  if(errors.length){
+    statusMsg.innerHTML = `<div class="status-msg err">${errors.join('<br>')}</div>`;
+    document.getElementById('previewCard').style.display='none';
+    return;
+  }
+
+  const namesJoined = joinNames(names);
+
+  window.__nocData = { proj, names, namesJoined, fullFlat, buildingType, buildingName, phaseLabel, propertyId, salutation, dateVal };
+
+  const html = `
+    <div class="header-line">MICROMEGA PROJECTS</div>
+    <p><b>To,</b></p>
+    ${names.map((n,i)=>{
+      const isLast = i===names.length-1;
+      const conn = isLast ? ',' : (i===names.length-2 ? ' &' : ',');
+      return `<p style="margin:2px 0;"><b>${n}${conn}</b></p>`;
+    }).join('')}
+    <p style="margin:8px 0 2px;"><b>Flat No. ${fullFlat}, Bldg. – ${buildingName},</b></p>
+    ${proj === 'TG'
+      ? `<p style="margin:2px 0 10px;">Type – <b>${buildingType}</b>, <b>${phaseLabel}</b></p>
+    <p style="margin:2px 0 10px;">Off Ring Road, Kamli Faliya, Silvassa- 396 230. D&amp;N H.</p>`
+      : `<p style="margin:2px 0 10px;"><b>NAGJUA ANANTA,</b></p>
+    <p style="margin:2px 0 10px;">Off Ring Road, Amli, Silvassa- 396230. D&amp;N H.</p>`
+    }
+    <p style="margin:2px 0;"><b>Date: - ${dateVal}</b></p>
+    <p style="margin:10px 0 2px;"><b>Sub: <u>No Dues Certificate, NOC for SMC Registration &amp; Possession Letter</u></b></p>
+    <p style="margin:10px 0;">${salutation}</p>
+    <p style="margin:10px 0;">${
+      proj === 'TG'
+        ? `Welcome to your new family at <b>TROPICAL GREENS</b>, we are pleased to handover the possession of your new Flat No. <b>${fullFlat},</b> in Bldg Type – <b>${buildingType},</b> known as – <b>${buildingName},</b> in <b>${phaseLabel}</b>, Silvassa Dadra &amp; Nagar Haveli`
+        : `Welcome to your new family at <b>NAGJUA ANANTA</b>, we are pleased to handover the possession of your new Flat No. <b>${fullFlat},</b> in Bldg - A, known as – <b>${buildingName},</b> in NAGJUA ANANTA, Amli, Silvassa Dadra &amp; Nagar Haveli.`
+    }</p>
+    <p style="margin:10px 0;">${
+      proj === 'TG'
+        ? `We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. <b>${fullFlat},</b> in Bldg Type – <b>${buildingType},</b> known as – <b>${buildingName}</b> in <b>${phaseLabel}</b>, Off Ring Road, Kamli Faliya, Silvassa, Dadra &amp; Nagar Haveli, bearing Property ID Number- <b>${propertyId}.</b>`
+        : `We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. <b>${fullFlat},</b> in Bldg - A, known as – <b>${buildingName}</b> in NAGJUA ANANTA, Off Ring Road, Amli, Silvassa, Dadra &amp; Nagar Haveli, bearing Property ID Number- <b>${propertyId}.</b>`
+    }</p>
+    <p style="margin:10px 0;">We also certify further that we have no objection in registration of said Property in the name of <b>${namesJoined}</b> in the <b>Silvassa Municipal Council</b> records.</p>
+    <p style="margin:10px 0;">Wishing you a pleasant and prosperous life ahead.</p>
+    <p style="margin:10px 0 2px;">Thanking you,</p>
+    <p style="margin:2px 0;">Yours&nbsp;&nbsp;truly,</p>
+  `;
+
+  document.getElementById('previewBox').innerHTML = html;
+  document.getElementById('previewCard').style.display='block';
+  statusMsg.innerHTML = `<div class="status-msg success">✓ NOC generated. Review the preview below, then download as Word.</div>`;
+  document.getElementById('previewCard').scrollIntoView({behavior:'smooth'});
+}
+
+function resetForm(){
+  document.querySelectorAll('input').forEach(i=>i.value='');
+  document.getElementById('customersContainer').innerHTML='';
+  customerCount = 0;
+  addCustomer();
+  populateBuildings();
+  document.getElementById('previewCard').style.display='none';
+  document.getElementById('statusMsg').innerHTML='';
+  updateAddBtn();
+}
+
+// ============ DOCX GENERATION (raw OOXML, no heavy lib) ============
+function xmlEscape(s){
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+// run: returns a <w:r> block. opts: {bold, underline, italics, font, size, verdana}
+function r(text, opts={}){
+  const rpr = [];
+  if(opts.verdana) rpr.push('<w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/>');
+  else rpr.push('<w:rFonts w:cstheme="minorHAnsi"/>');
+  if(opts.bold) rpr.push('<w:b/>');
+  if(opts.italics) rpr.push('<w:i/>');
+  if(opts.underline) rpr.push('<w:u w:val="single"/>');
+  if(!opts.verdana) rpr.push(`<w:sz w:val="${opts.size||26}"/><w:szCs w:val="${opts.size||26}"/>`);
+  else if(opts.size) rpr.push(`<w:sz w:val="${opts.size}"/><w:szCs w:val="${opts.size}"/>`);
+  const preserve = /^\s|\s$/.test(text) ? ' xml:space="preserve"' : '';
+  return `<w:r><w:rPr>${rpr.join('')}</w:rPr><w:t${preserve}>${xmlEscape(text)}</w:t></w:r>`;
+}
+
+// paragraph wrapper
+function p(runsXml, pprOpts={}){
+  const pprParts = [];
+  if(pprOpts.tabs) pprParts.push(`<w:tabs>${pprOpts.tabs}</w:tabs>`);
+  const before = pprOpts.before;
+  let spacingAttrs = `w:line="${pprOpts.line||360}" w:lineRule="auto"`;
+  if(before) spacingAttrs = `w:before="${before}" ${spacingAttrs}`;
+  if(pprOpts.after !== undefined) spacingAttrs = `w:after="${pprOpts.after}" ${spacingAttrs}`;
+  pprParts.push(`<w:spacing ${spacingAttrs}/>`);
+  if(pprOpts.indentRight) pprParts.push(`<w:ind w:right="${pprOpts.indentRight}"/>`);
+  if(pprOpts.indentHang) pprParts.push(`<w:ind w:left="${pprOpts.indentHang}" w:hanging="${pprOpts.indentHang}"/>`);
+  if(pprOpts.justify) pprParts.push(`<w:jc w:val="both"/>`);
+  return `<w:p><w:pPr>${pprParts.join('')}</w:pPr>${runsXml}</w:p>`;
+}
+
+function buildDocumentXml(d){
+  const sz = {size:26};
+
+  // "To," name lines
+  const nameParas = d.names.map((n,i)=>{
+    const isLast = i === d.names.length-1;
+    const conn = isLast ? ',' : (i===d.names.length-2 ? ' &' : ',');
+    return p(r(`${n}${conn}`, {bold:true, verdana:true}), {after:0, line:360, indentRight:180});
+  }).join('');
+
+  const body = [
+    p(r("To,", {bold:true, ...sz}), {after:0, line:240, justify:true}),
+    p('', {after:0, line:240}),
+    nameParas,
+    p(
+      r("Flat No. ", sz) + r(d.fullFlat, {bold:true, verdana:true}) + r(", Bldg. \u2013 ", sz) +
+      r(d.buildingName, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}),
+      {after:0, line:360, indentRight:180}
+    ),
+    ...(d.proj === 'TG' ? [
+      p(r("Type \u2013 ", sz) + r(d.buildingType, {bold:true, verdana:true}) + r(`, ${d.phaseLabel}`, {bold:true, ...sz}), {after:0, line:360}),
+    ] : [
+      p(r("NAGJUA ANANTA,", {bold:true, verdana:true}), {after:0, line:360}),
+    ]),
+    p(
+      r(d.proj === 'TG' ? "Off Ring Road, Kamli Faliya, Silvassa- 396 230. D\u00a0&\u00a0N\u00a0H." : "Off Ring Road, Amli, Silvassa- 396230. D&N H.", sz),
+      {after:0, line:360, indentHang:360}
+    ),
+    p(r(`  Date: - ${d.dateVal}`, {bold:true, ...sz}), {before:240, line:240}),
+    p(
+      r("       ", {bold:true, italics:true, ...sz}) + r("Sub: ", {bold:true, ...sz}) +
+      r("No Dues Certificate, NOC for SMC Registration & Possession Letter", {bold:true, underline:true, ...sz}),
+      {before:240, line:240}
+    ),
+    p(r(d.salutation, sz), {before:240, line:240}),
+    p(
+      d.proj === 'TG'
+        ? r("Welcome to your new family at ", sz) + r("TROPICAL GREENS", {bold:true, ...sz}) +
+          r(", we are pleased to handover the possession of your new Flat No. ", sz) +
+          r(d.fullFlat, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" in Bldg Type \u2013 ", sz) + r(d.buildingType, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(", ", {bold:true, ...sz}) +
+          r("in ", sz) + r(d.phaseLabel, {bold:true, ...sz}) + r(", Silvassa Dadra & Nagar Haveli", sz)
+        : r("Welcome to your new family at ", sz) + r("NAGJUA ANANTA", {bold:true, ...sz}) +
+          r(", we are pleased to handover the possession of your new Flat No. ", sz) +
+          r(d.fullFlat, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" in Bldg - A, known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" in NAGJUA ANANTA, Amli, Silvassa Dadra & Nagar Haveli.", sz),
+      {line:360, justify:true}
+    ),
+    p(
+      d.proj === 'TG'
+        ? r("We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. ", sz) +
+          r(d.fullFlat, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" in Bldg Type \u2013 ", sz) + r(d.buildingType, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(" ", {bold:true, ...sz}) +
+          r("in ", sz) + r(d.phaseLabel, {bold:true, ...sz}) +
+          r(", Off Ring Road, Kamli Faliya, Silvassa, Dadra & Nagar Haveli, bearing Property ID Number- ", sz) +
+          r(d.propertyId, {bold:true, verdana:true}) + r(".", {bold:true, verdana:true})
+        : r("We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. ", sz) +
+          r(d.fullFlat, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" in Bldg - A, known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(" ", {bold:true, ...sz}) +
+          r("in NAGJUA ANANTA, Off Ring Road, Amli, Silvassa, Dadra & Nagar Haveli, bearing Property ID Number- ", sz) +
+          r(d.propertyId, {bold:true, verdana:true}) + r(".", {bold:true, verdana:true}),
+      {after:0, line:360, indentRight:180, justify:true}
+    ),
+    p(
+      r("We also certify further that we have no objection in registration of said Property in the name of ", sz) +
+      r(d.namesJoined, {bold:true, verdana:true}) + r(" in the ", sz) +
+      r("Silvassa Municipal Council", {bold:true, ...sz}) + r(" records.", sz),
+      {after:0, line:360, indentRight:180}
+    ),
+    p(r("Wishing you a pleasant and prosperous life ahead.                                     ", sz), {after:0, line:360, indentRight:180, justify:true}),
+    p(r("Thanking you, ", sz), {line:240, justify:true}),
+    p(r("Yours  truly,", sz), {line:240, justify:true}),
+    p('<w:r><w:rPr><w:rFonts w:cstheme="minorHAnsi"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:tab/></w:r>', {after:0, line:240}),
+    '<w:p/>'
+  ].join('');
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    ${body}
+    <w:sectPr>
+      <w:headerReference w:type="default" r:id="rId1"/>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="990" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+}
+
+function buildHeaderXml(){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p>
+    <w:pPr><w:pStyle w:val="Header"/></w:pPr>
+    <w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:b/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr><w:t xml:space="preserve">MICROMEGA PROJECTS </w:t></w:r>
+  </w:p>
+</w:hdr>`;
+}
+
+const CONTENT_TYPES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+const RELS_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+const DOC_RELS_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault>
+  </w:docDefaults>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Header">
+    <w:name w:val="Header"/>
+    <w:basedOn w:val="Normal"/>
+  </w:style>
+</w:styles>`;
+
+async function downloadDocx(){
+  const d = window.__nocData;
+  if(!d){ return; }
+
+  if(typeof JSZip === 'undefined'){
+    alert("Could not load the document builder library (JSZip). Please check your internet connection and try again.");
+    return;
+  }
+
+  try{
+    const zip = new JSZip();
+    zip.file("[Content_Types].xml", CONTENT_TYPES_XML);
+    zip.folder("_rels").file(".rels", RELS_XML);
+    const wordFolder = zip.folder("word");
+    wordFolder.file("document.xml", buildDocumentXml(d));
+    wordFolder.file("header1.xml", buildHeaderXml());
+    wordFolder.file("styles.xml", STYLES_XML);
+    wordFolder.folder("_rels").file("document.xml.rels", DOC_RELS_XML);
+
+    const blob = await zip.generateAsync({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fname = `${d.fullFlat}_${d.names[0].replace(/[^A-Za-z0-9]+/g,'_')}.docx`;
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  } catch(err){
+    console.error(err);
+    alert("Something went wrong while creating the Word file: " + err.message);
+  }
+}
+
+// ── Auto-fill today's date ──────────────────────────────────────────────────
+function setTodayDate(){
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm   = String(today.getMonth()+1).padStart(2,'0');
+  const dd   = String(today.getDate()).padStart(2,'0');
+  document.getElementById('letterdate').value = `${yyyy}-${mm}-${dd}`;
+}
+
+// ── Infer salutation from c1 title ─────────────────────────────────────────
+function inferSalutation(c1name){
+  if(!c1name) return null;
+  const u = c1name.trim().toUpperCase();
+  if(u.startsWith('MRS.') || u.startsWith('MS.') || u.startsWith('SMT.') || u.startsWith('KUM.'))
+    return "Dear Madam,";
+  if(u.startsWith('MR.') || u.startsWith('SHRI ') || u.startsWith('DR.') ||
+     u.startsWith('COL.') || u.startsWith('CAPT.') || u.startsWith('PROF.') ||
+     u.startsWith('ADV.') || u.startsWith('ER.'))
+    return "Dear Sir,";
+  return null;
+}
+
+// ── Smart flat-code parser: type full code like "IL703" → sets everything ──
+// Build a reverse lookup: prefix → { proj, phase(optional), wingCode }
+function buildPrefixMap(){
+  const map = {};
+  for(const [proj, pdata] of Object.entries(PROJECTS)){
+    if(pdata.hasPhase){
+      for(const [phase, wings] of Object.entries(pdata.wings)){
+        for(const [wCode, wInfo] of Object.entries(wings)){
+          map[wInfo.prefix.toUpperCase()] = { proj, phase, wingCode: wCode };
+        }
+      }
+    } else {
+      for(const [wCode, wInfo] of Object.entries(pdata.wings)){
+        map[wInfo.prefix.toUpperCase()] = { proj, phase: null, wingCode: wCode };
+      }
+    }
+  }
+  return map;
+}
+const PREFIX_MAP = buildPrefixMap();
+
+function tryParseFlatCode(raw){
+  const m = raw.trim().toUpperCase().match(/^([A-Z]{2})(\d+)$/);
+  if(!m) return false;
+  const prefix = m[1], flatNum = m[2];
+  const entry = PREFIX_MAP[prefix];
+  if(!entry) return false;
+
+  // Set project
+  document.getElementById('project').value = entry.proj;
+  const pdata = PROJECTS[entry.proj];
+  const phaseField = document.getElementById('phaseField');
+  const phaseEl = document.getElementById('phase');
+  if(pdata.hasPhase){
+    phaseField.style.display = '';
+    phaseEl.innerHTML = '<option value="2A">PHASE-2A</option><option value="2B">PHASE-2B</option>';
+    if(entry.phase) phaseEl.value = entry.phase;
+  } else {
+    phaseField.style.display = 'none';
+  }
+
+  // Rebuild building dropdown for correct phase
+  const sel = document.getElementById('building');
+  sel.innerHTML = '';
+  const wings = pdata.hasPhase ? pdata.wings[entry.phase] : pdata.wings;
+  Object.keys(wings).forEach(code => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = pdata.hasPhase ? wings[code].name + ' (' + code + '-Wing)' : wings[code].name;
+    sel.appendChild(opt);
+  });
+  sel.value = entry.wingCode;
+
+  // Set flat number (suppress re-trigger)
+  const flatnoEl = document.getElementById('flatno');
+  flatnoEl.removeEventListener('input', onFlatnoInput);
+  flatnoEl.value = flatNum;
+  flatnoEl.addEventListener('input', onFlatnoInput);
+
+  onFlatChange();
+  return true;
+}
+
+function onFlatnoInput(){
+  const raw = document.getElementById('flatno').value.trim();
+  // If user typed a full code (e.g. IL703), parse and redirect
+  if(/^[A-Za-z]{2}\d+$/.test(raw)){
+    if(tryParseFlatCode(raw)) return;
+  }
+  onFlatChange();
+}
+
+// ── Auto-fill salutation when customers change ──────────────────────────────
+function autoFillSalutation(){
+  const blocks = document.querySelectorAll('.customer-block');
+  if(blocks.length === 0) return;
+  const c1 = blocks[0].querySelector('.cust-name').value.trim();
+  const sal = inferSalutation(c1);
+  if(sal) document.getElementById('salutation').value = sal;
+}
+
+function autofillFromFlat(){
+  const proj = document.getElementById('project').value;
+  const fullFlat = document.getElementById('fullflat').value.trim();
+  if(!fullFlat){ alert('Please enter a flat number first.'); return; }
+  const recs = proj === 'TG' ? CUSTOMER_RECORDS_TG : CUSTOMER_RECORDS_NA;
+  const rec = recs[fullFlat];
+  if(!rec){ alert(`No customer record found for ${fullFlat}. Please enter names manually.`); return; }
+  document.getElementById('customersContainer').innerHTML = '';
+  customerCount = 0;
+  const names = [];
+  if(rec.c1) names.push(rec.c1.trim());
+  if(rec.c2) names.push(rec.c2.trim());
+  if(rec.c3 && rec.c3.trim()) names.push(assignTitleToC3(rec.c3, rec.c1));
+  names.forEach(name => {
+    addCustomer();
+    const blocks = document.querySelectorAll('.customer-block');
+    blocks[blocks.length-1].querySelector('.cust-name').value = name;
+  });
+  updateAddBtn();
+  // Auto-fill salutation from c1
+  if(rec.c1){
+    const sal = inferSalutation(rec.c1);
+    if(sal) document.getElementById('salutation').value = sal;
+  }
+}
+
+// ── init ────────────────────────────────────────────────────────────────────
+document.getElementById('phase').addEventListener('change', populateBuildings);
+document.getElementById('building').addEventListener('change', onBuildingChange);
+// Replace oninput on flatno to use smart parser
+document.getElementById('flatno').removeAttribute('oninput');
+document.getElementById('flatno').addEventListener('input', onFlatnoInput);
+populateBuildings();
+setTodayDate();
+addCustomer();
+</script>
+</body>
+</html>
