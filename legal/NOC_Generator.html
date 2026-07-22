@@ -500,6 +500,8 @@ function generatePreview(){
   const pdata = PROJECTS[proj];
   const info = getWingInfo();
   const buildingName = info.name;
+  const NA_BUILDING_LETTERS = { AM: 'A', BL: 'B', CG: 'C', DV: 'D' };
+  const naBuildingLetter = NA_BUILDING_LETTERS[wingCode] || wingCode;
   const phaseLabel = pdata.hasPhase ? `${pdata.label} PHASE-${document.getElementById('phase').value}` : pdata.label;
   const salutation = document.getElementById('salutation').value;
   const dateVal = fmtDate(document.getElementById('letterdate').value);
@@ -519,7 +521,7 @@ function generatePreview(){
 
   const namesJoined = joinNames(names);
 
-  window.__nocData = { proj, names, namesJoined, fullFlat, buildingType, buildingName, phaseLabel, propertyId, salutation, dateVal };
+  window.__nocData = { proj, names, namesJoined, fullFlat, buildingType, buildingName, naBuildingLetter, phaseLabel, propertyId, salutation, dateVal };
 
   const html = `
     <div class="header-line">MICROMEGA PROJECTS</div>
@@ -533,7 +535,7 @@ function generatePreview(){
     ${proj === 'TG'
       ? `<p style="margin:2px 0 10px;">Type – <b>${buildingType}</b>, <b>${phaseLabel}</b></p>
     <p style="margin:2px 0 10px;">Off Ring Road, Kamli Faliya, Silvassa- 396 230. D&amp;N H.</p>`
-      : `<p style="margin:2px 0 10px;"><b>NAGJUA ANANTA,</b></p>
+      : `<p style="margin:2px 0 10px;">Type – <b>${naBuildingLetter}</b>, <b>NAGJUA ANANTA</b></p>
     <p style="margin:2px 0 10px;">Off Ring Road, Amli, Silvassa- 396230. D&amp;N H.</p>`
     }
     <p style="margin:2px 0;"><b>Date: - ${dateVal}</b></p>
@@ -542,12 +544,12 @@ function generatePreview(){
     <p style="margin:10px 0;">${
       proj === 'TG'
         ? `Welcome to your new family at <b>TROPICAL GREENS</b>, we are pleased to handover the possession of your new Flat No. <b>${fullFlat},</b> in Bldg Type – <b>${buildingType},</b> known as – <b>${buildingName},</b> in <b>${phaseLabel}</b>, Silvassa Dadra &amp; Nagar Haveli`
-        : `Welcome to your new family at <b>NAGJUA ANANTA</b>, we are pleased to handover the possession of your new Flat No. <b>${fullFlat},</b> in Bldg - A, known as – <b>${buildingName},</b> in NAGJUA ANANTA, Amli, Silvassa Dadra &amp; Nagar Haveli.`
+        : `Welcome to your new family at <b>NAGJUA ANANTA</b>, we are pleased to handover the possession of your new Flat No. <b>${fullFlat},</b> in Bldg - ${naBuildingLetter}, known as – <b>${buildingName},</b> in NAGJUA ANANTA, Amli, Silvassa Dadra &amp; Nagar Haveli.`
     }</p>
     <p style="margin:10px 0;">${
       proj === 'TG'
         ? `We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. <b>${fullFlat},</b> in Bldg Type – <b>${buildingType},</b> known as – <b>${buildingName}</b> in <b>${phaseLabel}</b>, Off Ring Road, Kamli Faliya, Silvassa, Dadra &amp; Nagar Haveli, bearing Property ID Number- <b>${propertyId}.</b>`
-        : `We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. <b>${fullFlat},</b> in Bldg - A, known as – <b>${buildingName}</b> in NAGJUA ANANTA, Off Ring Road, Amli, Silvassa, Dadra &amp; Nagar Haveli, bearing Property ID Number- <b>${propertyId}.</b>`
+        : `We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. <b>${fullFlat},</b> in Bldg - ${naBuildingLetter}, known as – <b>${buildingName}</b> in NAGJUA ANANTA, Off Ring Road, Amli, Silvassa, Dadra &amp; Nagar Haveli, bearing Property ID Number- <b>${propertyId}.</b>`
     }</p>
     <p style="margin:10px 0;">We also certify further that we have no objection in registration of said Property in the name of <b>${namesJoined}</b> in the <b>Silvassa Municipal Council</b> records.</p>
     <p style="margin:10px 0;">Wishing you a pleasant and prosperous life ahead.</p>
@@ -630,7 +632,7 @@ function buildDocumentXml(d){
     ...(d.proj === 'TG' ? [
       p(r("Type \u2013 ", sz) + r(d.buildingType, {bold:true, verdana:true}) + r(`, ${d.phaseLabel}`, {bold:true, ...sz}), {after:0, line:360}),
     ] : [
-      p(r("NAGJUA ANANTA,", {bold:true, verdana:true}), {after:0, line:360}),
+      p(r("Type \u2013 ", sz) + r(d.naBuildingLetter, {bold:true, verdana:true}) + r(", NAGJUA ANANTA", {bold:true, ...sz}), {after:0, line:360}),
     ]),
     p(
       r(d.proj === 'TG' ? "Off Ring Road, Kamli Faliya, Silvassa- 396 230. D\u00a0&\u00a0N\u00a0H." : "Off Ring Road, Amli, Silvassa- 396230. D&N H.", sz),
@@ -654,7 +656,7 @@ function buildDocumentXml(d){
         : r("Welcome to your new family at ", sz) + r("NAGJUA ANANTA", {bold:true, ...sz}) +
           r(", we are pleased to handover the possession of your new Flat No. ", sz) +
           r(d.fullFlat, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
-          r(" in Bldg - A, known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
+          r(" in Bldg - ", sz) + r(d.naBuildingLetter, {bold:true, verdana:true}) + r(", known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
           r(" in NAGJUA ANANTA, Amli, Silvassa Dadra & Nagar Haveli.", sz),
       {line:360, justify:true}
     ),
@@ -669,7 +671,7 @@ function buildDocumentXml(d){
           r(d.propertyId, {bold:true, verdana:true}) + r(".", {bold:true, verdana:true})
         : r("We acknowledge the receipt of full and final payment from you and henceforth there is no due on account of Flat No. ", sz) +
           r(d.fullFlat, {bold:true, verdana:true}) + r(",", {bold:true, ...sz}) +
-          r(" in Bldg - A, known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(" ", {bold:true, ...sz}) +
+          r(" in Bldg - ", sz) + r(d.naBuildingLetter, {bold:true, verdana:true}) + r(", known as \u2013 ", sz) + r(d.buildingName, {bold:true, verdana:true}) + r(" ", {bold:true, ...sz}) +
           r("in NAGJUA ANANTA, Off Ring Road, Amli, Silvassa, Dadra & Nagar Haveli, bearing Property ID Number- ", sz) +
           r(d.propertyId, {bold:true, verdana:true}) + r(".", {bold:true, verdana:true}),
       {after:0, line:360, indentRight:180, justify:true}
