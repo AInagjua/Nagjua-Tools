@@ -164,7 +164,7 @@
       </div>
       <div class="field">
         <label>Flat No.</label>
-        <input type="text" id="flatno" placeholder="e.g. 602 or IL703">
+        <input type="text" id="flatno" autocomplete="off" placeholder="e.g. 602 or IL703">
       </div>
     </div>
     <div class="grid3">
@@ -178,7 +178,7 @@
       </div>
       <div class="field">
         <label>Property ID</label>
-        <input type="text" id="propertyid" placeholder="auto-filled or enter manually">
+        <input type="text" id="propertyid" autocomplete="off" placeholder="auto-filled or enter manually">
       </div>
     </div>
     <div id="pidStatus" class="pid-status"></div>
@@ -408,7 +408,7 @@ function addCustomer(){
     ${customerCount>1?`<button class="remove-btn" onclick="removeCustomer(${customerCount})">✕ Remove</button>`:''}
     <div class="field" style="margin-bottom:0;">
       <label>Full Name (with title, e.g. MR./MRS.)</label>
-      <input type="text" class="cust-name" placeholder="e.g. MRS. SWATI BAPURAO ATRAM">
+      <input type="text" class="cust-name" autocomplete="off" placeholder="e.g. MRS. SWATI BAPURAO ATRAM">
     </div>
   `;
   container.appendChild(div);
@@ -917,6 +917,8 @@ document.getElementById('building').addEventListener('change', onBuildingChange)
 // Replace oninput on flatno to use smart parser
 document.getElementById('flatno').removeAttribute('oninput');
 document.getElementById('flatno').addEventListener('input', onFlatnoInput);
+document.getElementById('flatno').value = '';
+document.getElementById('propertyid').value = '';
 populateBuildings();
 setTodayDate();
 addCustomer();
