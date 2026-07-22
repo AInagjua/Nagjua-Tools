@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mortgage Letter Generator - Nagjua Group</title>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --navy:#1b3a5c;
+    --navy-dark:#122a44;
+    --gold:#b8893f;
+    --bg:#f3f4f6;
+    --card:#ffffff;
+    --text:#1f2430;
+    --muted:#6b7280;
+    --border:#dbe0e6;
+    --green:#2f7d52;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:Arial, Helvetica, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 16px 60px;
+  }
+  .wrap{max-width:720px;margin:0 auto;}
+  .head{
+    background:var(--navy);
+    color:#fff;
+    padding:22px 26px;
+    border-radius:10px 10px 0 0;
+  }
+  .head h1{margin:0;font-size:20px;letter-spacing:.3px;}
+  .head p{margin:4px 0 0;font-size:13px;color:#cfd9e4;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-top:none;
+    border-radius:0 0 10px 10px;
+    padding:22px 26px 28px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .section-title{
+    font-size:13px;
+    font-weight:bold;
+    color:var(--navy);
+    text-transform:uppercase;
+    letter-spacing:.6px;
+    margin:26px 0 14px;
+    padding-bottom:6px;
+    border-bottom:2px solid var(--gold);
+  }
+  .section-title:first-of-type{margin-top:6px;}
+  .row{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .field{flex:1 1 220px;}
+  label{
+    display:block;
+    font-size:12.5px;
+    font-weight:bold;
+    color:var(--muted);
+    margin-bottom:5px;
+  }
+  select, input{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:14px;
+    font-family:inherit;
+    background:#fff;
+    color:var(--text);
+  }
+  select:focus, input:focus{
+    outline:none;
+    border-color:var(--navy);
+  }
+  .hint{font-size:11.5px;color:var(--muted);margin-top:4px;}
+  .auto-box{
+    background:#f7f8fa;
+    border:1px dashed var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    font-size:12.5px;
+    color:var(--muted);
+    margin-top:4px;
+    line-height:1.5;
+  }
+  .auto-box b{color:var(--text);}
+  .btn{
+    width:100%;
+    padding:13px;
+    margin-top:26px;
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+    letter-spacing:.3px;
+  }
+  .btn:hover{background:var(--navy-dark);}
+  .msg{
+    margin-top:12px;
+    font-size:13px;
+    text-align:center;
+    color:var(--green);
+    min-height:18px;
+  }
+  .err{color:#b3261e;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>Mortgage Letter Generator <span style="font-size:12px;font-weight:normal;color:#cfd9e4;">(v2 - 30 Jun fixes)</span></h1>
+    <p>Nagjua Group — No Objection / Permission to Mortgage letters</p>
+  </div>
+
+  <div class="card">
+
+    <div class="section-title" style="margin-top:0;">Quick Fill from Ledger (optional)</div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Upload Ledger PDF</label>
+        <input type="file" id="ledgerPdf" accept="application/pdf" onchange="handlePdfUpload(event)">
+        <div class="hint">Select the ledger PDF directly &mdash; no need to copy/paste text.</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Or Paste Ledger Text</label>
+        <textarea id="ledgerText" rows="4" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-family:inherit;" placeholder="Only needed if PDF upload doesn't work for a file."></textarea>
+      </div>
+    </div>
+    <button class="btn" style="margin-top:8px;background:var(--gold);" onclick="readLedger()">Read Ledger &amp; Fill Fields</button>
+    <div class="msg" id="ledgerMsg"></div>
+
+    <div class="section-title">1. Selections</div>
+
+    <div class="row">
+      <div class="field">
+        <label>Bank</label>
+        <select id="bank" onchange="onBankChange()">
+          <option value="ICICI">ICICI Bank Limited</option>
+          <option value="HDFC">HDFC Bank Ltd</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Bank Address</label>
+        <input id="bankAddress" placeholder="Auto-filled, editable">
+      </div>
+    </div>
+
+    <div class="row" id="hdfcFormatRow" style="display:none;">
+      <div class="field">
+        <label>HDFC Letter Format</label>
+        <select id="hdfcFormat">
+          <option value="A">Branch copy (Verdana, addressed to local HDFC branch)</option>
+          <option value="B">Head Office copy (Times New Roman, addressed to HDFC House, Vadodara)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Building</label>
+        <select id="building" onchange="onBuildingChange()"></select>
+        <div class="hint">Project is auto-detected from the building you pick.</div>
+      </div>
+      <div class="field">
+        <label>Flat / Unit No.</label>
+        <input id="flatNo" placeholder="e.g. HT103, 203" oninput="onFlatNoChange()">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Floor (auto)</label>
+        <input id="floor" readonly>
+      </div>
+    </div>
+
+    <div class="auto-box" id="lookupBox">
+      Project/building details (survey no., development permission, block letter, company) will appear here once a building is selected.
+    </div>
+
+    <div class="section-title">2. Buyer &amp; Flat Details</div>
+
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Buyer Name(s)</label>
+        <input id="buyerName" placeholder="e.g. MR. SOPAN VASANT DARADE & MRS. SONALI SOPAN DARADE">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Carpet / Built-up Area (sq.ft.)</label>
+        <input id="carpetArea" placeholder="e.g. 439">
+      </div>
+      <div class="field">
+        <label>Balcony Area (sq.ft.)</label>
+        <input id="balconyArea" placeholder="e.g. 36">
+      </div>
+    </div>
+
+    <div class="row" id="washAreaRow" style="display:none;">
+      <div class="field">
+        <label>Wash Area (sq.ft.)</label>
+        <input id="washArea" placeholder="e.g. 26.35">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Total Consideration (Rs.)</label>
+        <input id="totalAmount" placeholder="e.g. 2151750" oninput="updateAmountPreview()">
+      </div>
+      <div class="field">
+        <label>Amount Paid (Rs.)</label>
+        <input id="paidAmount" placeholder="e.g. 223365" oninput="updateAmountPreview()">
+      </div>
+    </div>
+
+    <div class="auto-box" id="amountBox">
+      Amount remaining and amount-in-words will be calculated automatically.
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Agreement for Sale Date</label>
+        <input id="agreementDate" type="date">
+      </div>
+      <div class="field">
+        <label>Letter Date</label>
+        <input id="letterDate" type="date">
+      </div>
+    </div>
+
+    <button class="btn" onclick="generateLetter()">Generate Letter (.doc)</button>
+    <div class="msg" id="msg"></div>
+
+  </div>
+</div>
+
+<script>
+// ---------- Lookup data ----------
+const BANKS = {
+  ICICI: { name: "ICICI Bank Limited", nameCaps: "ICICI Bank Limited", address: "" },
+  HDFC:  { name: "HDFC Bank Ltd", nameCaps: "HDFC BANK LTD", address: "201-204, Riddhi Shoppers, Opp. Imperial Square, Adajan – Hazira Road, Adajan, Surat -395009, Tel.:0261 – 4141212." }
+};
+
+const PROJECTS = {
+  TG2A: {
+    label: "Tropical Green Phase 2A",
+    company: "MICROMEGA PROJECTS",
+    projectName: "TROPICAL GREEN PHASE - 2A, NAGJUA",
+    surveyShort: "90/3/1/1",
+    devPermissionNo: "No. SMC/RCP/Srv.No.90/3/1/1, 89, 90/6, 90/5, 90/4, 90/3/2, 88, 86, 90/2, 85/1/SLV/2021/700 dated 09-03-2022",
+    devAgreementDate: "25/01/2020",
+    buildings: { HOSTA:"HT", ILEX:"IL", JADE:"JD" }
+  },
+  TG2B: {
+    label: "Tropical Green Phase 2B",
+    company: "MICROMEGA PROJECTS",
+    projectName: "TROPICAL GREEN PHASE - 2B, NAGJUA",
+    surveyShort: "90/3/1/1",
+    devPermissionNo: "No. SMC/RCP/Srv.No.90/3/1/1, 89, 90/6, 90/5, 90/4, 90/3/2, 88, 86, 90/2, 85/1/SLV/2021/700 dated 09-03-2022",
+    devAgreementDate: "25/01/2020",
+    buildings: { KESTRAL:"KT", LILAC:"LA", MAYFLOWER:"MF", NIGELLA:"NG" }
+  },
+  ANANTA: {
+    label: "Nagjua Ananta",
+    company: "MICROMEGA PROJECTS",
+    projectName: "NAGJUA ANANTA",
+    surveyShort: "229/1/1",
+    devPermissionNo: "No. SMC/CP/ Srv.No.229/1/1 & 231/1 / SLV / 2021 / 909 dated 30-03-2022",
+    devAgreementDate: "25/01/2020",
+    buildings: { AMBER:"AM", BERYL:"BL", CYGNUS:"CG", DIVINE:"DV" }
+  },
+  PARK: {
+    label: "The Eternity Park Phase-2",
+    company: "NAGJUA LIFESPACES",
+    projectName: "THE ETERNITY PARK PHASE-2",
+    surveyShort: "72/3/1",
+    addressLine: "City Survey no. 72/3/1, Vapi Daman Road, Chala, Vapi \u2013 396191",
+    devPermissionNo: "No. VAADA/30-10-2020/1505799/01/000646/ODPS/192/20-21 dated 28/12/2020",
+    devAgreementDate: "12/12/2019",
+    buildings: { JACINTA:"", NERINE:"", MAGNOLIA:"", "ASTER 1":"", "ASTER 2":"", BLUEBELL:"", "ELDA 1":"", "ELDA 2":"" }
+  }
+};
+
+// ---------- Helpers ----------
+function ordinal(n){
+  n = parseInt(n,10);
+  if(isNaN(n)) return "";
+  if(n===0) return "Ground";
+  const s=["th","st","nd","rd"];
+  const v=n%100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+
+// Same as ordinal() but wraps the suffix in <sup> for use inside the generated letter
+function ordinalHtml(n){
+  const word = ordinal(n);
+  const m = word.match(/^(\d+)([a-z]+)$/);
+  if(!m) return word;
+  return `${m[1]}<sup>${m[2]}</sup>`;
+}
+
+function deriveFloor(flatNo){
+  if(!flatNo) return "";
+  const digits = flatNo.replace(/[^0-9]/g,"");
+  if(digits.length<=2) return "0"; // ground / unclear
+  const floorDigits = digits.slice(0, digits.length-2);
+  return String(parseInt(floorDigits,10));
+}
+
+function blockLetter(buildingName){
+  if(!buildingName) return "";
+  return buildingName.trim().charAt(0).toUpperCase();
+}
+
+// Derive Wing number from a building name's trailing number, e.g.
+// "ASTER 1" -> "1", "ASTER 2" -> "2". Returns "" if no trailing number.
+function wingFromBuilding(buildingName){
+  if(!buildingName) return "";
+  const m = buildingName.trim().match(/(\d+)\s*$/);
+  return m ? m[1] : "";
+}
+
+// Indian numbering number-to-words
+function numToWords(num){
+  num = Math.round(parseFloat(num)||0);
+  if(num===0) return "Zero";
+  const ones=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
+    "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+  const tens=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+  function twoDigit(n){
+    if(n<20) return ones[n];
+    return tens[Math.floor(n/10)] + (n%10? " "+ones[n%10] : "");
+  }
+  function threeDigit(n){
+    if(n<100) return twoDigit(n);
+    return ones[Math.floor(n/100)] + " Hundred" + (n%100? " And "+twoDigit(n%100) : "");
+  }
+  let crore = Math.floor(num/10000000);
+  let lakh = Math.floor((num%10000000)/100000);
+  let thousand = Math.floor((num%100000)/1000);
+  let rest = num%1000;
+  let parts=[];
+  if(crore) parts.push(threeDigit(crore)+" Crore");
+  if(lakh) parts.push(threeDigit(lakh)+" Lakh");
+  if(thousand) parts.push(threeDigit(thousand)+" Thousand");
+  if(rest) parts.push(threeDigit(rest));
+  return parts.join(" ");
+}
+
+function fmtAmount(n){
+  n = Math.round(parseFloat(n)||0);
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function fmtDateDMY(dateStr){
+  if(!dateStr) return "";
+  const [y,m,d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+// Strip building-code prefix (e.g. BL203 -> 203, NG903 -> 903) for display in
+// the letter body. Only applies to projects that use a 2-letter building
+// code prefix (Micromega/Ananta). Eternity Park flat numbers (e.g. "A2-203")
+// have no such prefix to strip - the "A2" wing/building marker is part of
+// the flat number itself and must stay as-is.
+function displayFlatNo(flatNo, skipStrip){
+  if(!flatNo) return "";
+  if(skipStrip) return flatNo;
+  return flatNo.replace(/^[A-Za-z]+-?/,"");
+}
+
+// ---------- UI wiring ----------
+function onBankChange(){
+  const b = BANKS[document.getElementById("bank").value];
+  document.getElementById("bankAddress").value = b.address;
+  document.getElementById("hdfcFormatRow").style.display =
+    document.getElementById("bank").value === "HDFC" ? "" : "none";
+}
+
+const NAGJUA_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAhgAAACiCAIAAACMKCN9AAAAAXNSR0IArs4c6QAAAAlwSFlzAAAOwwAADsQBiC4+owAAMJlJREFUeF7tXQvYVlPa5h8XlZhCOojqS+nwpYNKpU818imiRISQCb/DMMnhd2pENOOUxozD5FASRVQqSqLoizSJdNTJJ9HXQYUkfv/03681177eeffez1p77bX2u/d+n/d6L1febx2eda+1172fZz3Ps/bft2/ffvxhBBgBRoARYAR0Efgv3YpcjxFgBBgBRoARyCDARMLrgBFgBBgBRiAUAkwkoeDjyowAI8AIMAJMJLwGGAFGgBFgBEIhwEQSCj6uzAgwAowAI8BEwmuAEWAEGAFGIBQCTCSh4OPKjAAjwAgwAvvTcSQb163aXrEpfTDVqd+oVt366RsXj4gRYAQYgegRkBDJjm0Vz99/XfRi2e6xpM+VbTqfarsXbp8RYAQYgUJAQGLaOqxGLey5hQAEj5ERYAQYAUZADwH5GUlxu5LqNdkKpAcv12IEGAFGIP0IyInkwIMqlV5wbfqR4BEyAowAI8AIaCEgJxI0i3PpE3sM0GqfKzECjAAjwAikHAHJYbsz+p9/2jvx0aE7t5S78WhQ3CnmIG0uX7l3965sIfmwPeZTxuIxAoxAghBQJRIMqWJT+UujbnaPrXv/wc3bnhTnMU8b+8jny99nIonzHLFsjAAjkFwElExbYngwcLXscrZ7qGUzxu7+7j/e95MLB0vOCDACjAAjEBSBAESCpjuV9q1UtVpOH7AaLZg1KWjHXJ4RYAQYAUYgHQgEIxJ4cPUcMMQ98tWLZiMGPh2I8CgYAUaAEWAEAiEQjEjQ9DHHNm3SvtTdx8zxI3EgH6hvLswIMAKMACOQAgQCEwnG3K33xZ4GrrmvPZ8CRHgIjAAjwAgwAoEQ0CESNnAFgpgLMwKMACOQbgR0iEQYuDzDR9jAle7lwqNjBBgBRsCNQIA4kpzKcPl9YeTNOYF+KIMY+A7de8cKa44jidV0pEmYHTt3bd+xc/mqtRjUwo+X+Q2tQ+sW+FNRvbpVqlRu3LBBmhDgsTACQECfSFB5xeIFcyaOcuN4/uAHY3XbBxMJr3WDCGz6umLlZ+sWL10xdd6Hn2zZqdHypSe1bNm0UeviJk0bNzysejWNFrgKIxArBEIRCUbi3qPxI7IF979+OI5SYjJUJpKYTESixQB/vDN/4eTZ772x8nODAwGplLRr9buSDnXr1DLYLDfFCESJQFgiSYSByxSRzJ5b1uy4Y+P5wE+eMbv/fU/4LZ3l40fGwaICQ9CLk1//w6CLolziIfv6ce/eJUtXPDj6BbP84Zbq9GYNrhnQt6Rj28qV8v8GdmBHjxwWQuafP5jiFn7N+s+LvSLMRMmYLD9iUBPvuLpvL4+ohpCLR6X6LcMffmDojSol41xG87DdGVLVQ6t17jXQPcIPZ41Hbq44j1xDtt0/7Ol7ze14M9Woy1WAAFhkyNOvgE4SgQYoBPTcpf813Qbfa5tFAAi66HX7w+ju78+8kBSIEjGPcRZywYcfjXqjDP+Ns5AqsoUlEvSBjI21izJniTmf2RMeU5EgWWVgEweXfLJsZbLEjoO02BzBIoJO4iAPLYOgECh5eqcg2gNEd0Cp1umXgU7AZNrtcMVEIABNF3KK/yb6Y4BIMP7u/Tyu40XO+SVlbyUaHU/h8ai3v/KOFLxERDw1Dn+Mm/52nLdIWGn6DBoSPYXkTAfoBEwGPot4mri7yBDAHiI0Xfw36fuJGSLxu9p9/tTRO7al0xAEc0fS5z6yBwYdOeoI/g0mnjnnvSh7V+wL9AY9ALb+CAxZKiIBKPDZFTcNY2uqClyJK5OtiIydND1x8mcLbIZI0GKbzqd6GrjmTBqdaIAI4ZlL1Gc2x5z1l6cnxk0pwWZ9wbW3C+NbrD7PLVhadM7VrJrEalLCCwPzePb7CmYZqnD4ZvPVgjEi8TNwbd6wLJUGLjFhzCUqCxeckbNBx00pgXKJzVpPEYH/7sjLz4XbD3yT8N3w6hPwaxJf/Fv8OGPEjSgw+PTOcM1SQcxdBqoJ3Hvixr56Y+FaQODFqTNzcHj6xcnJRcYkkRAGrhTffMVcIl39noas+CglMGdhEqWjyC4APnh68KWLRt8HtnjqoWFwaIbzKBys8c32Dse/xY+l3TqjALw8pz4zsuKNMXNH3QnuaVWzeqBO4d5z/Z1/YTNXINDiWRjKB2YzRzb8klylxCSRAJfidiWIRnRP3juTx8RzRo1IxVxCwIiXaHCGu0BMlBKwSCBzFggAGgb44JLz+7Rq0Uxj/SCU/aQTTwD3LJr6LKgoEKPAAMIO6BqYx62Kn/KRXKXEMJEgmr30gmvd04Yr05FPJW7TaVAe5hI/MKGO+HnQehKMwUmRNqXOItAeYJuCMgECMBjaCSpCg+9OfByNK1q9hAM66yXSyY1tAU91REibXKXEMJEAC2TZQt5G9yym/mp35hL3pPupI6Ik9sQ8er6pswiUBuz1sE1ZyouFUHY0PuGxEaATFXsXc0lsSUJFMFrteGV6Ih2+zRMJoGxTcprbwIU8wek2cGHgzCU5DxKhjoiS+QrFUmQRHKTDkAWlIYK0JYJOwFjgLel+BC65e+STfPYuBSpuBaBKuk9HsoUc9tKsJOY1sEIkBWvgYi7JfiRodUSUzEsoFnKmqZyL4DgdB+kGDVkqmxroJHN8Mvo+qWqC85K7Hkxh8ggVlJJbZurMt6XCJyL1Q84orBCJMHC17OKR9w0GrtRf7c56iVhkyHWokl8kYqUEFmqktKIfZmzicKzCcbr0mbdUAGcnUE2gD9Ht492Ws/VYmgIbzWaH5RLtJygfnTMKCZEsnPOaNqCdSvsW7NXuzCXqZqsolRIoSQNuHC5lkcmPj4BjlfbKN1IRqgn0IcLMBbbLKC5anmNGJORGgiKgrmqolwwqg6XyEiLZummDdjhhgV/tXuBc4uQRUlm4kSkljzz5HK0kYXcGi8TnpgCYuTy5BLGNs8aMZBZRWV0xKaOojghpE6eUyE1bYfJl4Wr3Ju09svwXyNXuhcwlgbgBSkkEoViwAuEkk9hW4sYiQlQ3l8C5C7GNllzIYrLtpk+MoEpG0PL5RUxOJJCv7PUJ2lJ2631xwRq4AFphckkgdUQsLduhWDBqXTn0ocSxiBB40EXniPMSxJog7Uq+rmDS3gS4YiB1RMAV8yTZOXOqRCRhwgkL3MBVmFwSSB0RK9J2KJbUEXn08JviY9HKeUpxXnL/HYNh40KsSWyFZLYgEJgxe15QfGKS+kFRbCUiySglM8Zq58uCgatBcSe3QPOmPJt6Dy4x6oLSS3LSmiouRKtKCd4HiXuI0XUmEjDep9YwZEUTzqI+X1xSEYHM9QQTpikWzi4Wn3x0UuFViSRkOOHv+l7mNnBlbr6a/6ZUxHQUKBwucac1VZxBe0oJbW6G1YiNRYpzxMU0EJBqw35tJkgpUSUSDDWMgaugrnb3WxaFwCVEHiGVJ9DGSQneB2FuJnq/a8hVKrJxGUZAAwGVsFyi2aQoJQGIJKSBC1e7exq4cLV7gRi4CsHGRTMB3KIQLk48NlBKjOeHoN8HIQ+fOmjsj1xFEQGpOgKzKtFUUpSSYEQCA9eCWZMUEXQXS7eBS5rTQgCSYr1Eqo7cenn/XqVd6fVj3Otx3BRfl19MWb/ePbTXM1dkBGgEpOoI4oFgVsV/aaUk/jgHIxKMZ/Wi2RvXrdIbWLoNXAhkK3AukaojPbufjENjOimh2VAscBtx7yGILYJsjHoPC9dKAQLzP1hMB8BefmFfDPPCPj1ppSSPSbIVZyEwkaDdMOGEMHB5Xu3+3rRxihLHthgsJIXMJSrqiNi1L+x7RmRKyex57/v1BdYHscV2ObFgKUDg8fHU7bnw8hApQeExSN9Go+FPHzF6OkQCA9fc157XFrR7vyvdddNxtXshcwmxZYvpdnbtKJWSOe9/5LdQLznzFFZHtJ9irihFQBqWO7DfmU4jN195EdFglPnopOPyLKBDJGgojIGLuNp9x7YKvWHEp1Zhcok0cBfmrOxdOxqlBHc/EHatPj1Pic+yYUnShwCtRkAFyU4Min8nWinRJJKQBq42nU/1NHDNmTQ6BeupALlEekKewxzRKCUrP1vnt5zw0LKzVgqetdgOQaqOuFWQRCsl+kQCA1eYcMIUG7iwuINyCS7si+0jIRVMRR1xZxiUKiXzFiySdk0XWLx0hV+BvqV8OhISXa5OIRBIHRENJVop0ScSjPzDWeMrNpXrLSjCwKWdi0VPEku1BJcoNg5XpeRySVB1RGACapF6PYa8SnbRss/88D++WWPFqeFijEBQBDTUEdGFVCmJIEl20MGK8qGIBPXDhBMWtytxX+2ONlNztTu4BBftKU5MQrlETx0RmAjfR79P+FAs4oDkuEZFivPCxRiBoAiMnTSdqJJzOpJdsk3L5nQIgY3UD0FH51k+LJGEyZdVCFe7Q11NN5dI05oSJiz4PtpTSoh3NzzJ7K9lZPvgRtwIYOE9t2ApgcwlZ/vGwGJZIraJqGsvH13IqQxLJOg+jIELV7uf2GOAewxhkg2HRMR49RRziTStKXiCvn/JtlLiOZuN6x9lfJa5QUZAIKASlktgBS/5JColBogEoMDApb2M2pSc5jZwhUw2rC2MpYpp5RJpHiGaJ4C2PaWkfONXfrNZ3LihpYnmZgscAfWwXD+gEqqUBCYSz1ONjIGr7C29NVQIBi4gkz4uUckjJAJ36Y9UKVni73xFtLz7hz1+f616cBWZUPx3RkAHgZDqiOgyiUpJYCKpVqNOSR+P0PQwV7vDwNWyy9nueYOBK02JgVPGJeHVETHjIJtEh2Lp7DdcJ40IhFdHBCoqSgmCbWMFYWAigfQ2wgk7lfYthKvdU8MlptQR8TBIvR7jn7QuVk81C5MXBF6ZPpvoN1But64ntaeHMHUmdcVO9MPff9++fUSv08Y+gvussgvgTpGzBt6AXCbP33+duyKUFdCM3jCQVHjKk39y1z37qntwWa9em6KWexR6ck6eMZu4sfXnD6YoComQETj7KhZGchHcsSotTMu2fPxIFSuTtBenwOy5Zb1uf5goH7THPoOGEN66UFmmPjNSXTyUJADBDRDRX4l4y3AKrkBD8yvcu7RrdtaNMG0e2NHDQiAa9FzneBkvHjDEr8egiyGM5ERdYlDhlwT84GudfhnRO26+ueT8PupDk+4SFW+MoT1Z1PsKX1JHI0GvNvJlgS2atC91DylMsuHwANloAcRAp1LP7jSe8SWKaU3V0Uu9UgLHTdvfLdu+UQecS5pFQBqWK72JJ0ceaeoHaY9mB0i3pkkkaNQvnLDs9QnaA+jW++JCMHABn0RziTRwNzutqeJiSHR+CMUxcrG0IhAmLNcPk2jy0ZmaEX0iseFthTZ7einIYZINm0LKeDvJ5RKNPEIq6EmVkk+WrVRpR5QpqlfXr/DqdZ+rt8MlGQEpAlLlQKpeeHYhrSXtVyq5qQL6RAIJbIQTwsDlebX7vCnPpsmDS8xfErlEqo7QfEAsXKlS8uLUmerrvkqVyn6Fd32/W70dLskI0AjYUEdEjwlSSkIRCYZqI5ww3Ve75yzKxHGJJXVEwEJkj8BfA+WHOOKw6n7PP9rhzZERMIWAVC2QKhaEJNJbc8InyTaCQ1gisWHgSvfV7u5pSxCX2FNHBCwGQ7Foh5a4ueEbeZi5kegRgB/8uOmUJy7casL4ViHxq718dAbhCkskEIUIJ9ROCI+r3T0NXGGSDRtEzXhTgy46Bxc4KzabRz8u7bSmikNTCcVSz6RNPIHEnVeKosawWHHTRjGUKt0iScNyS7t2ComANPUDZAjZRfjqBogEQviFEy6YNUlbxIIycGEDffTeW2POJWHSmqovA4NKCZFTi7jzSl1ULlngCJgNy/UD014+OoPTZ4ZIbHhbFZqBK/5cYiSPkHTtGlRKiNurhr00K+StWdKB5BRAUJ6RL9Hv0UfVDioVlw+DgFQdkSYtVew9/kqJGSIBHDbCCWHg8rza/b1p4xQnIFnF4swlpvIIqcyIVCmZPe8/si34tUnfXqWXC1JFfs8yeK8M/yV6RwaOPF6ysnzVWm1kEloxGnVEgBN/pcQYkWC0NsIJ0321u/sRii2XRKOOCEAAwiVnnkLsLzglgs+ldANCO4S1kD7vkTaelwILF/vemNT1hOZ5EalgO41MHREIS5WSiF+McubdJJHYMHDZyMUS86UfQy6JUh0RsyP1mJT6XIp2+p3R3W+6cY2d+rl9TNbM5Nm+x6odWreIiZDxFEPlzSOQ5H95eiJRHo4eZrPbxTxJtkkiAax+4YRh8mXZSDYcaMVEX1iDS+hlHXIIBtOaKkpiKhSrbatiosfY3oDtKTNclom8lvl12Yr/FS/bd+xUXHsqxeAH/8kWqsEL+/RUaSdQGWnqhzwmyTZMJMDF09sKNx4umf9mINSyCxeagQtjB5fcf8dg+tLNbIjoZa2NPCriVQ5H00QLMEPZsM4bUUpASMPO970iO1CEYxgMjdQlModjnRh8/yWCbPxMhfWPoW4vTt8JijQst1WLZkYmPbsRaeoHWirj8mQ3aJ5IbHhbEQYu7VAVq7AaaRyb4OTHR6hziZFO3Y1IjUjSHV9PMFNKyemnlBACPPjEc3riRVyLzsNBHykFFfWLL31vKa7+20OCtobyxG2VGq3pVaHJrGaNw9WbtR2WS0gSW6XEPJEABRvhhH7Jht+ZPEZ9BSSuJOJa88sl9vIIqcyFlKJmzJ4nbQfvhsQNjDgpwd0q0kbyXoCm887tWxuUcH35l36t+YXm0J7Hy9esNyieXlNfb9lGVKxxxGHqzUrVEVO3wrhFiq1SYoVIMH7j4YQ2crGoL508lswvl+RLHRGA04YpFPj7hGkq4SD0e9ydf3025hlTIB5xExpo0qwhhTjSb1j/aM9nAbZNQnWOQ3KzOe9/RDzF6iE4eVRHhPzxVEpsEYkNA5eNZMN5ZAj1rvPFJflVRwQ+557pcdeZAx1OhlTyQ9DvcWjk7pFPqhCS+pSZLQnxiAbpTJdBJaGP9Js2bujXIO1/HOgKgKAyS8vTgwoUgpNHdUQME4uZNne/pqCmSxELWsAWkUAOv3BC5MsKKqVT3kayYW1hoqyYFy7Jrzoi4DUVivXA7R43QzszCAPXMy+8GuWEqveFO4Mhnl/5QDeBq3RKHOlD9SHyD9L+x2WLPlbp3VKZd+YvJFru0/VExX7hL044zqER7TsUFAUQxW69vD9RPi8uJBaJBEP19LbauaV8SdlbgYBzChesgQsIRMwleEOnL5YPmdZUfQFIQ7FUlBIpIWGw2LLVpYqmJF7k+9/3BNEX9hSDLnO0Dtq39GRCEtr/WDGG1BKqMIESLbdtqRrLKQ3LbaPcVJiRSlM/RO/XbpdIbIQTEsmG03fzVc5qA5eMf3homCWoXle6O4dPa6oojJQDEEOjYpi69Q+DaJsAtuw8euK70YBB5sqhDxEoGVdHnnzuJaK7Dm2pBNWYJhpeqYKruB6CFoMzBe0cTwcbOd1FH5brN1KD+eiCgulX3i6RoFcb4YR+yYbnvva8KVxi2w4e17mj7rQtXpR5hFTGIlVK5n+wWNoOzDL3/vH3dLFug++NiRMXWKTvNbfTO+Ajt11rUB2B9kMEDMGuJQ1VkSa2id6pASsZzhTEpCMyRvG+EKk6AkVBughNFYibUmKdSACc8XBCG7lYTE1wBO3gtM02l0ScR0gKmlQpeXz8ZGkjKFDarTMRnyha6HX7w39/5gWV1uyVUWERJOEw6GYq1X6uGdBXOl6pF3L0Tg2PPPkcTcZEEp3s8cZHHRFSxU0piYJIYOA6sccA9yqcP3X0jm0V0tXpWcBGsmE9SfJSyyqXxE0dEQj3Lu1KQI0jUEWr1A1XXSq99wUG/VuGP6xiLrMx+9AMpLoIjEiw1JnqHSPFFk9suOiupGNbaXd0yA6qR+zUgBcCOikDRFIZF4rFSh0REyFVgBSTZEunVaVAFEQCOTy9rfB72esTVKT0LGMj2bC2MNFXtMclcVNHBLamQrHwKnfXkKuk+QLg+tKl/zXRO62Oe2lq+yvvkCa8GT38JkWDjHRlQhfBSAnHMLQAk6CiDU3qthTZ/Z5gEdpbBOOCw4jKuAARHQpj1uVBOmWiACSH/EThKB0cIiISG95WBW7gEnurDRtXxGlNFR8bFDMViiX836T9YjfHnj5i1D+iUU2wW11x07DLR8lTtky842pTEYg4EJJqP1DgYBKUwqXI9yiGDQ4jtXdeAt8zKJRSFoEk0tQJYlCES7QoIFUOFNELWkwqf2QODhERCQCyEU7ol2x43pRnU+/B5Ty3ZrlEmtaUNjEFfRIClTellKBTcIkibrCN4IUdnsH26AQbH16fi865mlYLBFZ4Ce3biwrSVIQURn/stjgQkmo/UOAU2xTFhg2+XFoeI8V4MWqzdILWoNL1uGyISiw9+FhFq1MJy1VRa6SYaBQwlY9Oo+ucKtERCTq2EU5oPBdLeEwjbgHb64wRN5rqNO+Bu/RATCkl6EVdn8NWC89gG3QiKKTW6ZepvD5n9ujze/xh0EVh5hp0iHcFKATFA5R2WywtkG6gHqEtwRFApQpGDTrpM2gIdn9YEbWpGqSIFtAOWoNKJ6VGyAYnNEU1QvpSL1ULVKDQLiPtXSq/dtfZFffft28f0dC0sY98vvw/rjVtUNzprIE3aPddsan8pVE3u6t37z8YkfB6za5YvGDOxFHuuucPfhBqEH53j6Kkz5XwSw7aHV5Lieiwnz+YErRBg+VpizBuC5f6bkIYbDHwfyWkwlu8QU8hveFjvyCii2GHeeqhYeotYw8acONwla3HaRO7OTIKhzEuYcfEfXZIZaHy4pzdLzwFNF5+QVcbN3294YtNCz9eFqhHaD96vIUBZk6YyBs7POcI+3v7Fsc1ObYB0vGKRIpHHFbd0RswEHGtyLbtO7Zs+wZ5GJeuWquixrn72vDqEyoEiR5B88Ry0oZIfYlKS0pPgyreGKOie0k7IgpETSQQ5c2Xn1q9KDeEuFLVapfd9jcce+gNxk0VaKd6zfr9rx+ONguBSDBeYj0pEgm9R+Mhn/rMSL0JMlgLZn0YZIgGFQfrtKDia+vZHRgFQdG4ikOFpLG3fvnVZiQzD7qbi67VNywYrBxp5320QmM3F9WDUnIORGBoKD0G591gU+rvQ3HYo6UDl7Ld04MvveT8PtJ2whTIA5Hg9GLMn6/DVVc5cjdpX3raeVfoDQa3krww8mZ3m3A77tC9d4EQCcElKntrItQRjFH6tgu7ygNDg9n60OZdDz4W6G09Z6Fm4vXqH1XtkKp4m87+E2gD/xtmQ0d1WPMVz0VAijDv6D1E2bWA4d03h412lK6o8HJqtKBOydINWr0pDTkDVcHbA7F64aP47sTHNXRZdRkiPSMRYtnwtrKRbFgdxPiUhCGC9ggkRI356YgjuY1QLLQJ7sF+rT2VsLbhScbJPIyf2V/8iK+2WoAtYNHo+xRZBMLv+fFH7SE4FbGEgEb4fUf9FCq8zIotBNr65y1YRDcrPZ9QlCp8MWnqB2nGo5Ay5IFIILGNcEK/ZMPvTRsXEqNkVdfjEhx10mlNVQKbIwPKUn4I7NcwnUvDFSMbJtQCvEiGOYwJKip4C2YfvXMRz75ixSVwHFAfmkpYru2DB/Xpk6Z+UMxHp95jTsn8EAmEsBFO6JeLJcdfQBuspFTU4JIXp84kRqcY2BwZPjaUEiE8DmBxVp8J1KhZPbLhuDsSiogRtUB9FOCtWWNGGnemQIOgZ+KSSnUJtUsCT1h31aNh0FE8w3IJBPKrlOSNSGDgOuVcD0sCzuE3rlult2L8kg3rtZboWoG4JG55hFSQlyolr0zXzwkP1QSqgLaRUEV+vzLY8kBjESsioBDss+AtS6/YoOcJj43AkW8YZLTrol/gqeIQ4XShoo4EalBbePWK+VVK8kYkAOjY4jZwJnYjFSac0C/ZsPp8pKbkoIvOUbTSxDCPkHQWpEoJjitwWCptx68A2gcZw28S21A02olDIaCx8OcTigOH45mgENvbIkYExyHgqRhioig/XQyvAugR/QbFM3HqiMAhj0pJPokEI7cRTuhp4DKyLpPVCB6eR++9VcolSVRHxER0Pak9PSPhQ7Hwho5tCO+zODmQIqm9PNAy2kcvkVEI+AMHBt/OnXD74P+2TSHZsABPkBYsXVa1PeApRodXAQ0dK4nqiAAZU0mv0nFTZmmvUrpinonEhrcVG7icKVfhkiSqI2KAkeWHAIww9OPsBK+32KFMvVOjHbSGNtEy2g/61qy+I0DXQV/Yu9Ed9A9EzoI/cGBgr0daNli6sMVjowd9SrP6Kw4TYxTsKPAMMzrcbUN72dEv/ooCWyo2sN+ZRMvqSbKDipeHOBK3iHQ4YdAhoTxCVSY+OhR3+vrV1YtsdwJrPZuN8s0uECYi84TfrgGNhGitSuXKKgHAgeQxWFhE+RENZsdFG+9XRBeuKf+Kdnhz+sXbYoO6tRFogltpLa2WbEBiPncOLJD5s7UbPl25Zvma9eoBNyJwp7hxw4b1j6539FEGVylicWgvaktzZ2p95uWJjgWR0OGEevj65WIRrekRiZ4kXKsQEHBeMvbs+RHJSMSQnWvMLfFZKoF1uFDkQXHGWFSvbpUqlfG/DGYM5z0WRAJclpS9hXuu3AA5+bI0sFs457UPZ433rMhEooEnV2EEGAFGwBOBPJ+RODL5eVuFCSf0u02LlwIjwAgwAoyAQQTiQiQYko2r3UsvuNYgWNwUI8AIMAKMgBuBGBGJn7dVmKvdkUYeuSB54hkBRoARYATsIRAjIsEg/QxccyZ5HJ8oguKZi0WxLhdjBBgBRoARkCIQLyKxZODqGdd7EaTTwwUYAUaAEYg/ArEjEhi4cImIGzgYuOAlrAeoX7Jhvda4FiPACDACjEA2ArEjkoyBq+Q0XG7onqd3Jo/Rnjw2cGlDxxUZAUaAEaARiCORIDGwp7cVssHjena9GfVLNqzXGtdiBBgBRoARcBCII5FAOHhbeRq4ymaM1TZw+SUb5tXACDACjAAjEAaBmBKJn4ELt7KHMXB5JhsOAx/XZQQYAUaAEYgvkdgwcPklG+Z1wAgwAowAI6CNQFxybfkN4M2Xn8KdiTl/rVS12mW3/Q1MozdsJBuuCztX51ODVodVzdOwBkngbCZtbce2CqQlJorBoOf3V7+uQY34SrtGv+idKEYPARkwibp+Mvz1pn6i1h8fmuSuLkQi+hVwEZjQ7YvqfrKJ3hXRQ8k1Sz/cummDGMWRdYvq1G8MV0Ap7DYKQPK1yz7atGHlT3t2o/1DD69Zt0ETLGdpX35LCEs36KMk1oNGRTeS9Zu0JKbYGVSYZ0c0guEvX/Ru9iQWt++i8uxIgeUCQCDuRILHZsyfr4NFK2e2EK9+2nlX6E0hltQXa1Y0b3tS0Op+mSXRDtzMOvW8gH6ePbPlZ8vgueGKAkTXgKJdtzNpJqNzIaN9XFV51sAb/ABxtmzPAn4ZMOmN3hHJLy+ngIvAhG5fVPcbl+hdmrsTy2/ua8+7X2UEYrCURrwTYT+dMfZh9/0IEKbHBVfTfEAsIZXq2Xv68/dfh//FKWaH7r3VHyK/JKpYwHCqpIUP8+xAwnXLl7w+9s9uUc8YeJsKB6uPsWBL/mbYsGHE4D/7ZOGurV9mF6h+5NHHteoYGV6/OeCAI+s2Wr14bk6P279aX6eoxW8Pq6EhCZZstcOPRMtB627euGHj6o/AGbUbNAMOznfvnu9376z4ct3youbtKx9c1a9ZAWbtohY1jjo2u7rzbwJYz64rV622e+dWQLFm6Qd01+DOFQvfgiZ3dOM2nl3jLbtuURM/yT+cnVEpsN141q1b1PSwI2u764pa+HQoPc/9VyESft+xtaJ5uy7uAgIuz7qiMN2+qI7vEXWOdYsneq/X5ITaxzQklsGro0eUL/9AbJqde11c3KEU36rVan5TsXH7prXlq5c1bXuyxkIKuvCc8pMevxssghV4Sr+r23TtLYT5at2nGOb//t9+9Y9rQbRMLCFU/6p8necsuBtc+sHb6BG/7/n+u5YnqeYfmjf9xY/efhm1WnY5u1PPC1t2Pr1xq5KDDq625YvVWMC7d/9wbPMTpBuR3rODl4YpT/4JjYOxSs68VHT9096fMOq1n5RpbyPak5jKinHXSAToNgxcGtMp3uncr7F4b5014Qm8/2Khn3dNZsl6fsRblV5ifL+usSG+Mf7RzRuW0eY+8QJOqx0EIOLdn1AOPOsqaiSo6/liaEQjQeOeyKhoJAJzVO937fAchQ+awaTHhkJRxrbY9cwLNdaSRhXxWg0W6X/98Oz3943rVomNctCfniI0JL8l5IxF8fV83IM3g8wAC4Z/9lX3qJj4HAndXTi6Av1chHl2wGFL353itmGI3+lnVmOaCrNKfA/bs+fDM5wQ6xhmhzhMG55qGBYgCTb0iOXBxtFn0C3YXIAGTOcR9x6+OxF5+vYrT9CnR2E6AjLL/zk/aAuQ559zMm/QvS+/w202xC+nnJuZ8c8+ytWVg3akXv67XZlbnhq37pxjBcJWjt0Qf9qxlbos0q8jjKVl51746/qV8vUD1hEqkaiyYdXHKvIv/FU3xRuY246EX0DG+Ovqj99XaUqjzHffbEGtlp1yz0Tbdjk9L8+sxhDiXyUZROIXTgjjNV524oAyJBR7In0ubUNUdI3jGbS8YtHbNtq32mZxx1Jsgtjrl8x/00ZH2LzQrEZ+nY1rV0IqyOZ3FIwdUPB39DPuBuqYxi3x4/aKf9/MGBRJnHijiji9pz9wOhBk1rjlifiHCo+Ce8QLVnG7Es/Gm7TuhN/Fdm/jA8uzZ7OO9qYdmmZD2oS2mQwiAbh+4YTzpjxr72U20KT++MOuQOUNFq51TBFai14fMjKEk8+6BO3gLkvar0yvrzr1G4l7BIKGH236fHVm1R1PHQf2GngjDDIqDnt6wufUOqhSFfyy5uMyd2s49IbhUcMRUTT1894fFSUUvYNFMGrBo9I3uc1frEcVmFX9jtPRFGDsfEbmZcjGp1KVQ9Bs+eql7sYBGr4Re0zYGGPe20wMkQApz3BCKNqWXmYDzQ1eS/FQwXCs4ssYqGWVwngS0DVKxuHtWEXg7DJATBg3yl6fELSuSvmTevQDODidkm552a2JF2TwENEFdkAIH9R3VkVmzzL1GjfH71jwOKUINBZpj8JCBU9iuqRj1xLcCb0E/5Vat37auwfF4HDv1zgABIz2+LhhcXt0jTcVHLWy8iFdDHoFkkQkfuGEWCL52kChDKFrHGO+9vR9mABhOKY/sAWjvPsbconXrt9M1vN+u7Z97dk1fpTWRQHPujgsValLl+lU2lfs9UZay+kLy6Zd94zbWCDldXP5SlSJjCRUMMRAcFgtuASn6/8YdgWOi4FYGI0cqw7TijNnNCtMTMTn04XvOPyR+YeadWvTuuUqo1Mpo/fsNGpxgjhDgiX8mXuuePnxe+CIbEP9VRlCWsvE3f03B/cj6xyz9euvcjySUebrz9dG4IgpHCjxheOp+C5+Zwq8SPHLLz/v7d5/MG1bEA6p8HcUjeR8G7c+mVCxRdeEu6poPOMP6hWfKLxd9/6wy7Nr/Eh42Wbe5n49LPWs+8sv//LzWlZx/xUjggftfx1QGe3Dhfr4jqXCodaI+68ABF2sWfpP7L+VD60h/H2l7r8LZmT8OLqd/fvsFYgNaMl7MyFY9vc3Bxzk6f1sY8tAR/Wbtd+z+wfMNZYc1hIcWJcvmgv0aD9mCONevZigj9+dDtjxVyiFfmcYzkDenPAoOv3dOVcIH3f8d+O61bu2bKQ9aMU8duzRP4wFKcyzg+UEz2Z4gW/fvAmPADzm4b786YKZWBLVax6tF0JgY3IT3WaSNBIBdGwNXNs2f6GyFPDE4gTY/Q3zmKn0izIwant2LU6kpR/Pus3aeoSASJtyFwAHC5u7JUNl118pIeipe46aiLhoqE05X+FMFdkHViCEjsLTF9oJjn+EGy7GhRdtPRnwto6mpE7MMKahI8xRtg2qeftT0KnUuoUy31R8pSdedq0wzw4OWS+5+cGL/+dveOETCopQ7GwoweFHmrgWkkckjqUiB+vIDFzYT8UZnfPFUSGeZ9gHVCzXMCBg03R/QxKJn2tKNkrVatTx7FrxkNazrsHAYHF3AOYxpJXP8yGEjyzOe/GnBbM88rW4q4jCOZLgQBhz7XzF0U5ePlgtQB7JHZArSLwHwNVC5ZIFyOzIf/V9z2MNI/JJZRIFW1Q6+JBsC6d4eaJ9t8TRizgpCfkJ/+yABZHSAkMGEwsvDITm2FhvIUeauOrJIxJA7He1+3vTxuVlAvCSeNwJ3dC1tv9leLGFy1ZINgovRpgWAKOeh5Vip9BlURKGcvUTtZz3aHG67nwrVT5YsWsjxSC2W3Kc4uBxEJS2fvkiaUeHVq/hyB/oBEiwBZYZtB/nKw5XaN8t9Igy274uJ2QT5CQVXqOAOMV0n4jgSQENCxcVJEzSaJmrZCOQSCLBALr387DGYJVbWo7SRVOjdj2U+W7nNmlJGwWEJoSnItFEgiHoeVgpQgpwxMv77AmPSasILyN6a964xsOjVNqydgHkJsDX82i9qGnrzC7/q4OAjY9j18pWyMS/xb1Bq5Z4OCULSYTnW/lKX5LDiAQz2ZAcFALQ/BwCxfufEW3JhvAJajOpRIJ3Q0/LPpZjXvwxDq91VIZIrAVV0UtKPMbiqUj0J9vDSsVYF3SwOE+GlR/G8UVzMq/SxEfkrcJxiN9ycuLsgsqgXf7fEa9ffu5uoepvq+PHygdX026crijsWvD3zVbIxL+RQxd/gp7n5zyGMuIgx+80ArGfaEHYEi19/ChWaEv8CY9AUokEI/czcM2ZZOXVJjzWllrA8ynS04qUD0n/OHu9jfhKJwsAGIIGCm8qYmvDcnJvkfgl+mV2TJOM2vFJ2Sy35OWfZQybNes1tjT7wq4l/H1zPhmnuF/PrgUfeH6E+7VnIhwg+f7MTPyQiPYw/nFozPMAad2nmYych1Y73Hi/hdZggokEUxU3AxcCNaQLCGZ3Yex2f6UBATCdZdfCs4EYK5EfGxYGqV0L7/h+XasfG0gHGLIA9nrhYWXpo37jsvAPBJ9NfeaBbHzwb/yC38UGGtlHxHmAAhE+kn0+jGUg7EINm1EJdLXl9PTXym5N+G4RqbrEywGUkomPDnUjKZJ3IdpDKqHesyOiu+ZMHJXNJXjWAKPIdnpMI3kMllS2Ai+QjOy/xCT5XXJAZ0LVm3W//KmiNZHsFp4wfmeY0jsViASoxGUSgkXomyGk95GgEenNHzay//rdCOJgJZXKT3IiXyysUuJGDel9JMANoabiOhzsOAjicFQZnG9jZ1e51ERvsXnWyl7toDEk/8iWh3bhpVcvIaTIkkusMbAaAv3oxe/kGEYx0AYcCPHWJS5W8cyvnCNPmGcHnCGIX7QJRRNvVM7/KuY8NjiJqWwqYQGJ7jk48qj661d8jDijnD/t+uYb4/em/PDdt4i/87t+Y+9Pv1Q55LBa9Rr5XUmyc/vWAytV9bzSQ/zYoGlrv7qi65y69Zq2bdGxR7e+g4qatqJXJ56l77/9luiavmYGQaAa99DQAYlCJD8wjypqihmkO6XbF2h7QgqQD6xSHYGEfr07YELJa9Lm5H/tdwBC/xCLJyJhsQ+2O/W8jqf2oYdgY7/AnTGI/vt2x3ZE1eGbIw/dI716ibqfLV14SPWaJ3bv4/eGhN+lix+YI9QUl6Z8+00FLu+B5HhmQSHNO/Y8a+CNUmU6zLODgMRGx5+IWNStm9aLSQR0glFOu/B6lTT4NqYyZW0mXiPBfPi9biPySOMaxJRNMA/HFAL03b2melFsx7k7WfG2YMVmoykmkFS8oNqsSM59wxr3BJuVJGWtJfuMREwGztOED2LOp2zGWA41Stl6zeNwRBCJ9N05GglFosP4yBNo1AJJe1kaCWEwfQK3QDE0gUZXmIXTQCSYuTYlpwnnyOwPTNtBk4cX5iLgUTMCjAAjEAaBlBAJ3i9Ego2cD44iVfJGhEGQ6zICjAAjUOAIpIRIMItOgg23gUvqVlvgi4CHzwgwAoxAGATSQyRAIeZXu4eZJ67LCDACjEBsEUgVkcDA1XPAEDfW8bnaPbbrgAVjBBgBRkAbgVQRCVCAV7jIIJvzmTl+JBu4tFcJV2QEGAFGgEAgcBwJnKOKO3rs1PFB+ee9e3CnhVseEAwSR8dHTpaEEWAEGIF0IBCYSBI97LOvuocDWRM9gyw8I8AIxBCBtJm2aIjnTXmWDVwxXIUsEiPACCQagcIiEiSJs3QleKIXAQvPCDACjEAYBAqLSIBUZFe7h5kVrssIMAKMQIIQKDgiwdzgplU2cCVojbKojAAjEHMEJIftuP9g66YNMR+DhnitOvfgU3cN3LgKI8AIMAJuBCREwpAxAowAI8AIMAI0AoVo2uI1wQgwAowAI2AQASYSg2ByU4wAI8AIFCICTCSFOOs8ZkaAEWAEDCLARGIQTG6KEWAEGIFCRICJpBBnncfMCDACjIBBBJhIDILJTTECjAAjUIgIMJEU4qzzmBkBRoARMIgAE4lBMLkpRoARYAQKEQEmkkKcdR4zI8AIMAIGEWAiMQgmN8UIMAKMQCEi8P/NtqK4kahA0AAAAABJRU5ErkJggg==";
+const NAGJUA_PIN_B64 = "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";
+
+// Master building list -> which project it belongs to
+const BUILDING_TO_PROJECT = {};
+Object.keys(PROJECTS).forEach(pKey=>{
+  Object.keys(PROJECTS[pKey].buildings).forEach(bName=>{
+    BUILDING_TO_PROJECT[bName] = pKey;
+  });
+});
+
+// Reverse lookup: building code prefix (e.g. "BL", "HT") -> building name.
+// Only buildings with a non-empty code are included (Eternity Park buildings
+// have no code, so flat numbers there can't auto-select a building).
+const CODE_TO_BUILDING = {};
+Object.keys(PROJECTS).forEach(pKey=>{
+  const b = PROJECTS[pKey].buildings;
+  Object.keys(b).forEach(bName=>{
+    if(b[bName]) CODE_TO_BUILDING[b[bName].toUpperCase()] = bName;
+  });
+});
+
+// Detect a building from a flat number's leading letters, e.g. "BL203" -> "BERYL".
+function detectBuildingFromFlatNo(flatNo){
+  if(!flatNo) return "";
+  const m = flatNo.trim().toUpperCase().match(/^([A-Z]+)/);
+  if(!m) return "";
+  return CODE_TO_BUILDING[m[1]] || "";
+}
+
+function populateBuildingDropdown(){
+  const sel = document.getElementById("building");
+  sel.innerHTML = "";
+  Object.keys(PROJECTS).forEach(pKey=>{
+    const p = PROJECTS[pKey];
+    const grp = document.createElement("optgroup");
+    grp.label = p.label;
+    Object.keys(p.buildings).forEach(bName=>{
+      const opt = document.createElement("option");
+      opt.value = bName;
+      opt.textContent = bName;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  });
+}
+
+function onBuildingChange(){
+  const bName = document.getElementById("building").value;
+  const pKey = BUILDING_TO_PROJECT[bName];
+  const p = PROJECTS[pKey];
+  const bl = blockLetter(bName);
+  const wing = wingFromBuilding(bName);
+  document.getElementById("lookupBox").innerHTML =
+    `<b>Project (auto-detected):</b> ${p.label}<br>
+     <b>Company:</b> ${p.company}<br>
+     <b>Project name on letter:</b> ${p.projectName}<br>
+     <b>Block letter:</b> ${bl || "(not used for this project)"}<br>
+     <b>Wing (auto-derived):</b> ${wing || "(not used for this project)"}<br>
+     <b>Survey No.:</b> ${p.surveyShort || "(see permission no.)"}<br>
+     <b>Development Permission:</b> ${p.devPermissionNo}<br>
+     <b>Development Agreement date:</b> ${p.devAgreementDate}`;
+  // Wash Area field only applies to Eternity Park (Nagjua Lifespaces) letters
+  document.getElementById("washAreaRow").style.display = (pKey === "PARK") ? "" : "none";
+}
+
+function onFlatNoChange(){
+  const flatNo = document.getElementById("flatNo").value;
+  const buildingName = document.getElementById("building").value;
+  const pKey = BUILDING_TO_PROJECT[buildingName];
+  // Eternity Park flat numbers include a wing prefix (e.g. "A2-203" = Wing
+  // A2, flat 203). Strip it before deriving floor, otherwise the wing
+  // digit gets folded into the floor calculation (e.g. "22" instead of "2").
+  const floorInput = (pKey === "PARK") ? flatNo.replace(/^[A-Za-z]+\d*-?/,"") : flatNo;
+  document.getElementById("floor").value = ordinal(deriveFloor(floorInput));
+  const detected = detectBuildingFromFlatNo(flatNo);
+  if(detected){
+    const sel = document.getElementById("building");
+    if(sel.value !== detected){
+      sel.value = detected;
+      onBuildingChange();
+    }
+  }
+}
+
+function updateAmountPreview(){
+  const total = parseFloat(document.getElementById("totalAmount").value)||0;
+  const paid = parseFloat(document.getElementById("paidAmount").value)||0;
+  const remaining = total - paid;
+  document.getElementById("amountBox").innerHTML =
+    `<b>Total:</b> Rs.${fmtAmount(total)}/- (${numToWords(total)} Only)<br>
+     <b>Paid:</b> Rs.${fmtAmount(paid)}/- (${numToWords(paid)} Only)<br>
+     <b>Remaining:</b> Rs.${fmtAmount(remaining)}/- (${numToWords(remaining)} Only)`;
+}
+
+// ---------- Ledger paste-and-parse (best effort) ----------
+function parseLedger(text){
+  const lines = text.split(/\r?\n/);
+  const r = { buyerName:"", buildingKey:"", unitNo:"", floor:"", carpet:0, balcony:0, washArea:0, netBasicCost:0, receivedBasic:0, clubAmount:0 };
+
+  // Buyer + Co-Allottee names: token-based - collect ALL-CAPS tokens after
+  // Mr./Mrs./Ms., stopping at the first lowercase token or a known ERP
+  // label word (Name/Party/Payment/Plan/Booking etc.) that can end up
+  // adjacent to the value due to PDF table column layout.
+  const NAME_STOPWORDS = new Set(["NAME","PARTY","PAYMENT","PLAN","APPLICATION","BOOKING","CO-ALLOTEES","ALLOTEES","COST","BREAKUP","OF"]);
+  const allTokens = text.split(/\s+/);
+
+  function captureName(startIdx){
+    if(!/^(Mr\.|Mrs\.|Ms\.)$/i.test(allTokens[startIdx])) return null;
+    const nameTokens = [allTokens[startIdx]];
+    for(let j=startIdx+1;j<allTokens.length && nameTokens.length<10;j++){
+      const t = allTokens[j];
+      const clean = t.replace(/[.:]/g,"").toUpperCase();
+      if(/[a-z]/.test(t)) break;
+      if(!/^[A-Z.&-]+$/.test(t)) break;
+      if(NAME_STOPWORDS.has(clean)) break;
+      nameTokens.push(t);
+    }
+    return nameTokens.join(" ");
+  }
+
+  for(let i=0;i<allTokens.length;i++){
+    const name = captureName(i);
+    if(name){ r.buyerName = name; break; }
+  }
+
+  // Co-Allottee: scan a SHORT window of tokens after the "Co-Allotees" label
+  // for a second Mr./Mrs./Ms. name. Bounded to avoid scanning past a blank
+  // field into later receipt lines that re-mention the primary buyer's name.
+  for(let i=0;i<allTokens.length;i++){
+    if(/^co-?allotees?$/i.test(allTokens[i].replace(/[:.]/g,""))) {
+      const windowEnd = Math.min(allTokens.length, i+8);
+      for(let k=i+1;k<windowEnd;k++){
+        if(/^booking$/i.test(allTokens[k].replace(/[:.]/g,""))) break;
+        const coName = captureName(k);
+        if(coName){ r.buyerName += " & " + coName; break; }
+      }
+      break;
+    }
+  }
+
+  // Unit/Building/Floor: line with "Unit (Flat)" and "Unit Cost"
+  // Two known layouts:
+  //  Micromega/Ananta: "BL203 Unit (Flat) Unit Cost BERYL 2 0.000 0.000 0.000 1 0"
+  //    -> unit token = "BL203", building = "BERYL", floor = next integer token
+  //  Eternity Park:    "A2 203 Unit (Flat) Unit Cost ASTER 2 1385.000 0.000 846.000 0 0"
+  //    -> unit tokens = "A2","203" (wing+flat split), building = "ASTER",
+  //       the "2" right after it is the WING number, not floor - floor
+  //       must come from the flat number's own digits instead.
+  for(const line of lines){
+    if(/Unit\s*\(Flat\)/.test(line) && /Unit Cost/i.test(line)){
+      const tokens = line.trim().split(/\s+/);
+      const flatIdx = tokens.findIndex(t=>/^Unit$/i.test(t) && tokens[tokens.indexOf(t)+1]==="(Flat)");
+      // Everything before "Unit (Flat)" is the unit-number token(s).
+      const unitTokens = tokens.slice(0, flatIdx);
+      r.unitNo = unitTokens.join("-").replace(/-+/g,"-");
+      const idx = tokens.findIndex(t=>t.toLowerCase()==="cost");
+      if(idx>=0 && tokens.length>idx+1){
+        let bKey = tokens[idx+1].toUpperCase();
+        const nextTok = tokens[idx+2];
+        // If the ledger's unit line had 2+ leading tokens (wing+flat split,
+        // e.g. "A2","203"), this is Eternity Park style: the token right
+        // after the building name is a WING number, so fold it into the
+        // building key ("ASTER"+"2" -> "ASTER 2") and derive floor from the
+        // flat number's own digits instead of this line.
+        if(unitTokens.length>=2 && nextTok && /^\d+$/.test(nextTok)){
+          bKey = bKey + " " + nextTok;
+          r.floor = deriveFloor(unitTokens[unitTokens.length-1]);
+        } else {
+          // Micromega/Ananta style: next integer token after building name is floor.
+          for(let k=idx+2;k<tokens.length;k++){
+            if(/^\d+$/.test(tokens[k])){ r.floor = tokens[k]; break; }
+          }
+        }
+        r.buildingKey = bKey;
+      }
+      break;
+    }
+  }
+
+  // Carpet / Balcony / Wash area: third-from-last numeric token on the
+  // relevant line. Balcony wording differs by project: "RERA BALCONY AREA"
+  // (Micromega/Ananta) vs "EXCLUSIVE BALCONY" (Eternity Park). Wash area
+  // ("EXCLUSIVE WASH AREA") only exists for Eternity Park.
+  for(const line of lines){
+    if(/RERA CARPET AREA/i.test(line)){
+      const nums = line.match(/[\d,]*\.\d+|\d+/g);
+      if(nums && nums.length>=3) r.carpet = parseFloat(nums[nums.length-3].replace(/,/g,""));
+    }
+    if(/RERA BALCONY AREA/i.test(line) || /EXCLUSIVE BALCONY/i.test(line)){
+      const nums = line.match(/[\d,]*\.\d+|\d+/g);
+      if(nums && nums.length>=3) r.balcony = parseFloat(nums[nums.length-3].replace(/,/g,""));
+    }
+    if(/EXCLUSIVE WASH AREA/i.test(line)){
+      const nums = line.match(/[\d,]*\.\d+|\d+/g);
+      if(nums && nums.length>=3) r.washArea = parseFloat(nums[nums.length-3].replace(/,/g,""));
+    }
+  }
+
+  // Net Basic Cost = Total Consideration base
+  for(const line of lines){
+    const m = line.match(/Net Basic Cost\s*:\s*([\d,]+)/i);
+    if(m){ r.netBasicCost = parseFloat(m[1].replace(/,/g,"")); break; }
+  }
+
+  // Received till date (basic only) = Basic value from the ledger's own
+  // "Received till [date]" summary line, e.g.:
+  // "Received till 30-Jun-2026   1999794 (84.91%)   Basic: 1981345 + Tax: 18449"
+  // This is the ERP's own clean total (flat cost only, already excluding
+  // Stamp Duty/GST/Society Deposit/Gas/EMS), so no per-line tag scanning is needed.
+  r.receivedBasic = 0;
+  r.receivedTotal = 0;
+  r.receivedTax = 0;
+  // The ledger header table's text extraction scrambles column order, so the
+  // "Received till" line and its "Basic: X + Tax: Y" breakdown can land on
+  // separate lines. Two independent, more robust extractions:
+  // 1) Total received figure - the number right after "Received till <date>"
+  const totalMatch = text.match(/Received till[^\d]*[\d-]+[A-Za-z]*-?\d*\s+([\d,]+)/i);
+  if(totalMatch){ r.receivedTotal = parseFloat(totalMatch[1].replace(/,/g,"")); }
+  // 2) Basic/Tax breakdown - the header block always prints exactly 4 pairs
+  // in fixed order: Due, Received, Balance, Total Due (with future bills).
+  // The 2nd pair (index 1) is always "Received".
+  const basicTaxPairs = [...text.matchAll(/Basic\s*:\s*([\d,]+)\s*\+\s*Tax\s*:\s*([\d,.]+)/gi)];
+  if(basicTaxPairs.length>=2){
+    r.receivedBasic = parseFloat(basicTaxPairs[1][1].replace(/,/g,""));
+    r.receivedTax = parseFloat(basicTaxPairs[1][2].replace(/,/g,""));
+  }
+  // Fallback: if the total wasn't found but basic/tax was, reconstruct total.
+  if(!r.receivedTotal && r.receivedBasic){ r.receivedTotal = r.receivedBasic + r.receivedTax; }
+
+  // Received till date: start from the ledger's Total Received (r.receivedTotal),
+  // then subtract full amounts (Basic+Tax) of any receipt line tagged with a
+  // non-flat charge (GAS, EMS, SOCIETY DEPOSIT, STAMP DUTY, GST).
+  // Amount Paid = Total Received - sum(tagged charge Basic+Tax amounts)
+  const EXCLUDE_TAG_RE = /\b(GAS|EMS|EMC|MAINTENANCE|SOC(?:IETY)?\s*DEP(?:OSIT)?|STAMP\s*DUTY|GST)\b/i;
+  r.excludedLines = [];
+  for(let i=0;i<lines.length;i++){
+    const basicMatch = lines[i].match(/Basic\s*:\s*([\d,]+)\s*(?:\+|,)?\s*Tax\s*:\s*([\d,.]+)/i);
+    if(!basicMatch) continue;
+    // Look at a SMALL fixed window immediately above the Basic line (the
+    // ledger has no blank lines between receipts, so we cannot scan
+    // until a blank line - that would pick up tag words from unrelated
+    // sections like the charge master table). A tag, if present, always
+    // sits within the same or previous 1-2 lines as the receipt narration.
+    let narration = "";
+    for(let k=i-1;k>=0 && k>=i-3;k--){
+      narration = lines[k] + " " + narration;
+    }
+    const combined = narration + " " + lines[i];
+    const tagMatch = combined.match(EXCLUDE_TAG_RE);
+    if(tagMatch){
+      const basicAmt = parseFloat(basicMatch[1].replace(/,/g,""));
+      const taxAmt = parseFloat(basicMatch[2].replace(/,/g,"")) || 0;
+      let tagLabel = tagMatch[1].toUpperCase().replace(/\s+/g,' ').trim();
+      if(/^SOC/.test(tagLabel)) tagLabel = "SOCIETY DEPOSIT";
+      if(tagLabel==="EMC") tagLabel = "EMS";
+      if(/^STAMP/.test(tagLabel)) tagLabel = "STAMP DUTY";
+      r.excludedLines.push({ amount: basicAmt + taxAmt, tag: tagLabel });
+    }
+  }
+  const excludedSum = r.excludedLines.reduce((s,x)=>s+x.amount,0);
+  if(r.receivedTotal){
+    r.receivedBasic = r.receivedTotal - excludedSum;
+  }
+  r.excludedSum = excludedSum;
+  for(const line of lines){
+    if(/CLUB/i.test(line)){
+      const tokens = line.trim().split(/\s+/);
+      for(const t of tokens){
+        if(/^\d+$/.test(t)){ r.clubAmount = parseFloat(t); break; }
+      }
+      break;
+    }
+  }
+
+  return r;
+}
+
+// ---------- PDF upload handling ----------
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+
+// Reconstruct visual lines from PDF text items (group by Y position, order by X)
+function extractPageLines(content){
+  const items = content.items.map(it=>({str:it.str, x:it.transform[4], y:it.transform[5]}));
+  items.sort((a,b)=> b.y - a.y || a.x - b.x);
+  const lines = [];
+  let currentLine = [];
+  let lastY = null;
+  const TOL = 2;
+  items.forEach(it=>{
+    if(lastY===null || Math.abs(it.y-lastY)<=TOL){
+      currentLine.push(it);
+    } else {
+      lines.push(currentLine);
+      currentLine = [it];
+    }
+    lastY = it.y;
+  });
+  if(currentLine.length) lines.push(currentLine);
+  return lines.map(line => line.sort((a,b)=>a.x-b.x).map(it=>it.str).join(" ")).join("\n");
+}
+
+async function handlePdfUpload(event){
+  const file = event.target.files[0];
+  const ledgerMsg = document.getElementById("ledgerMsg");
+  if(!file) return;
+  ledgerMsg.textContent = "Reading PDF...";
+  ledgerMsg.className = "msg";
+  try{
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      fullText += extractPageLines(content) + "\n";
+    }
+    document.getElementById("ledgerText").value = fullText;
+    readLedger();
+  }catch(err){
+    ledgerMsg.textContent = "Could not read this PDF. Try pasting the text instead.";
+    ledgerMsg.className = "msg err";
+  }
+}
+
+function readLedger(){
+  const text = document.getElementById("ledgerText").value;
+  const ledgerMsg = document.getElementById("ledgerMsg");
+  if(!text.trim()){
+    ledgerMsg.textContent = "Paste the ledger text first.";
+    ledgerMsg.className = "msg err";
+    return;
+  }
+  const r = parseLedger(text);
+  const filled = [];
+
+  if(r.buyerName){ document.getElementById("buyerName").value = r.buyerName.toUpperCase(); filled.push("Buyer Name"); }
+
+  if(r.buildingKey && BUILDING_TO_PROJECT[r.buildingKey]){
+    document.getElementById("building").value = r.buildingKey;
+    onBuildingChange();
+    filled.push("Building/Project");
+  }
+
+  if(r.unitNo){ document.getElementById("flatNo").value = r.unitNo; onFlatNoChange(); filled.push("Flat No."); }
+  if(r.floor){ document.getElementById("floor").value = ordinal(r.floor); }
+
+  if(r.carpet){ document.getElementById("carpetArea").value = r.carpet; filled.push("Carpet Area"); }
+  if(r.balcony){ document.getElementById("balconyArea").value = r.balcony; filled.push("Balcony Area"); }
+  if(r.washArea){ document.getElementById("washArea").value = r.washArea; filled.push("Wash Area"); }
+
+  let total = r.netBasicCost;
+  const pKey = r.buildingKey ? BUILDING_TO_PROJECT[r.buildingKey] : "";
+  if((pKey==="TG2A" || pKey==="TG2B") && r.clubAmount){
+    total += r.clubAmount;
+  }
+  if(total){ document.getElementById("totalAmount").value = total; filled.push("Total Consideration"); }
+  if(r.receivedBasic){ document.getElementById("paidAmount").value = r.receivedBasic; filled.push("Amount Paid"); }
+
+  updateAmountPreview();
+
+  if(filled.length){
+    let msg = "Filled: " + filled.join(", ") + ". Please review before generating.";
+    if(r.receivedTotal){
+      msg += "<br><br><b>Total Received (from ledger):</b> Rs."+r.receivedTotal.toLocaleString("en-IN")+".";
+      if(r.excludedLines && r.excludedLines.length){
+        const exList = r.excludedLines.map(x=>x.tag+": Rs."+x.amount.toLocaleString("en-IN")).join(", ");
+        msg += "<br><b>Subtracted charges</b> (Rs."+r.excludedSum.toLocaleString("en-IN")+" total): "+exList+".";
+      } else {
+        msg += "<br>No Gas/EMS/Society Deposit/Stamp Duty/GST charges found to subtract.";
+      }
+      msg += "<br><b>Amount Paid</b> = Rs."+r.receivedTotal.toLocaleString("en-IN")+" − Rs."+r.excludedSum.toLocaleString("en-IN")+" = <b>Rs."+r.receivedBasic.toLocaleString("en-IN")+"</b>.";
+    }
+    ledgerMsg.innerHTML = msg;
+    ledgerMsg.className = "msg";
+  } else {
+    ledgerMsg.textContent = "Could not find recognizable fields in this text. Fill manually.";
+    ledgerMsg.className = "msg err";
+  }
+}
+
+// init
+onBankChange();
+populateBuildingDropdown();
+onBuildingChange();
+
+// ---------- Letter generation ----------
+// ---------- Real .docx generation ----------
+function b64ToBytes(b64){
+  const binary = atob(b64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for(let i=0;i<len;i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function ordinalParts(n){
+  const word = ordinal(n);
+  const m = word.match(/^(\d+)([a-z]+)$/);
+  if(!m) return [{text: word, sup:false}];
+  return [{text: m[1], sup:false}, {text: m[2], sup:true}];
+}
+
+async function generateLetter(){
+  const msg = document.getElementById("msg");
+  const bankKey = document.getElementById("bank").value;
+  const hdfcFormat = bankKey === "HDFC" ? document.getElementById("hdfcFormat").value : null;
+  const bank = BANKS[bankKey];
+  const bankAddress = document.getElementById("bankAddress").value;
+  const buildingName = document.getElementById("building").value;
+  const pKey = BUILDING_TO_PROJECT[buildingName];
+  const p = PROJECTS[pKey];
+  const bl = blockLetter(buildingName);
+  const wing = wingFromBuilding(buildingName);
+  // For display in the letter body, strip the trailing wing number from the
+  // building name when a separate "Wing-N" phrase will already show it
+  // (e.g. "ASTER 2" -> "ASTER", so the sentence reads "ASTER, Wing-2" not
+  // "ASTER 2, Wing-2"). Buildings without a wing number are unaffected.
+  const buildingNameDisp = (pKey === "PARK" && wing) ? buildingName.replace(/\s*\d+\s*$/,"") : buildingName;
+  const flatNo = document.getElementById("flatNo").value.trim();
+  // Eternity Park flat numbers include a wing prefix (e.g. "A2-203"); strip
+  // it before deriving floor, same logic as onFlatNoChange.
+  const floorInput = (pKey === "PARK") ? flatNo.replace(/^[A-Za-z]+\d*-?/,"") : flatNo;
+  const floorNum = deriveFloor(floorInput);
+  const buyerName = document.getElementById("buyerName").value.trim();
+  const carpetArea = document.getElementById("carpetArea").value.trim();
+  const washArea = (pKey === "PARK") ? document.getElementById("washArea").value.trim() : "";
+  const balconyArea = document.getElementById("balconyArea").value.trim();
+  const totalAmount = parseFloat(document.getElementById("totalAmount").value)||0;
+  const paidAmount = parseFloat(document.getElementById("paidAmount").value)||0;
+  const remainingAmount = totalAmount - paidAmount;
+  const agreementDate = fmtDateDMY(document.getElementById("agreementDate").value);
+  const letterDate = fmtDateDMY(document.getElementById("letterDate").value);
+
+  if(!buyerName || !flatNo || !totalAmount || !letterDate){
+    msg.textContent = "Please fill Buyer Name, Flat No., Total Amount and Letter Date.";
+    msg.className = "msg err";
+    return;
+  }
+
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+          ImageRun, Header, Footer, AlignmentType, WidthType, LevelFormat,
+          HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom,
+          TextWrappingType, TextWrappingSide } = docx;
+
+  const flatNoDisp = displayFlatNo(flatNo, pKey === "PARK");
+  const totalWords = numToWords(totalAmount);
+  const paidWords = numToWords(paidAmount);
+  const remainingWords = numToWords(remainingAmount);
+  const bodySize = bankKey === "ICICI" ? 20 : 18; // half-points: 10pt / 9pt
+  const paraSpacing = bankKey === "ICICI" ? {before:57, after:57, line:276, lineRule:"auto"} : {before:0, after:120, line:276, lineRule:"auto"};
+  const noBorder = { style: "none", size: 0, color: "FFFFFF" };
+  const noBorders = { top:noBorder, bottom:noBorder, left:noBorder, right:noBorder };
+
+  function R(text, opts={}){
+    return new TextRun(Object.assign({ text, font:"Verdana", size: bodySize }, opts));
+  }
+  // Sample's bold runs for buyer name / amount omit an explicit size, so they
+  // render at Word's default (11pt) instead of the paragraph's 9pt body size.
+  // Replicate that exactly rather than "fixing" it.
+  function RBoldNoSize(text, opts={}){
+    return new TextRun(Object.assign({ text, font:"Verdana", bold:true }, opts));
+  }
+  function ordRuns(n, opts={}){
+    return ordinalParts(n).map(part => new TextRun(Object.assign({ text: part.text, font:"Verdana", size: bodySize, superScript: part.sup }, opts)));
+  }
+  function para(children, opts={}){
+    return new Paragraph(Object.assign({ alignment: AlignmentType.JUSTIFIED, spacing: paraSpacing, children }, opts));
+  }
+  // Date line uses different formatting per bank, verified against original files:
+  // HDFC: Times New Roman 12pt, centered. ICICI: Verdana 10pt, centered.
+  function dateLine(text){
+    const run = bankKey === "ICICI"
+      ? new TextRun({ text, font:"Verdana", size:20 })
+      : new TextRun({ text, font:"Times New Roman", size:24 });
+    return new Paragraph({ alignment: AlignmentType.RIGHT, spacing: paraSpacing, children:[run] });
+  }
+
+  // Letterhead: real Word header region (company name + floating logo),
+  // matching the sample letters' actual structure (header1.xml with an
+  // anchored/floating image), not an in-body bordered table.
+  // Matches sample's real 3-paragraph header: [image anchor], [empty 8pt spacer], [company name]
+  const logoBytes = b64ToBytes(NAGJUA_LOGO_B64);
+  const letterheadHeader = new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new ImageRun({
+            data: logoBytes,
+            type: "png",
+            transformation: { width: 209, height: 63 },
+            floating: {
+              horizontalPosition: { relative: HorizontalPositionRelativeFrom.COLUMN, offset: 4301490 },
+              verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: 93677 },
+              wrap: { type: TextWrappingType.SQUARE, side: TextWrappingSide.BOTH_SIDES }
+            }
+          })
+        ]
+      }),
+      new Paragraph({ children: [ new TextRun({ text: "", size: 16 }) ] }),
+      new Paragraph({
+        spacing: { after: 960 },
+        children: [ new TextRun({ text: p.company, bold: true, size: 28, font: "Verdana" }) ]
+      })
+    ]
+  });
+
+  // Real Word footer: pin image + Times New Roman text + Wingdings phone/envelope glyphs
+  const pinBytes = b64ToBytes(NAGJUA_PIN_B64);
+  const footer = new Footer({ children: [ new Paragraph({ children: [
+    new ImageRun({ data: pinBytes, type:"png", transformation:{ width:13, height:13 } }),
+    new TextRun({ text:"    Shop No. 29-32, Garden City, Samarvarni, Silvassa\u2013396230", font:"Times New Roman", size:22 }),
+    new TextRun({ text:"\uF029", font:"Wingdings", size:22 }),
+    new TextRun({ text:"+91-7621006666    ", font:"Times New Roman", size:22 }),
+    new TextRun({ text:"\uF02A", font:"Wingdings", size:22 }),
+    new TextRun({ text:" info@nagjua.com", font:"Times New Roman", size:22 })
+  ]})]});
+
+  const toBlockParas = [
+    para([ R("To,") ]),
+    para([ R(bank.nameCaps) ])
+  ];
+  if(bankAddress){
+    // Sample splits the address into two fixed lines at "Hazira Road," — replicate that break
+    const addrParts = bankAddress.split(/(?<=Hazira Road,)\s*/);
+    if(addrParts.length === 2){
+      toBlockParas.push(para([ R(`Address: ${addrParts[0]}`) ]));
+      toBlockParas.push(para([ R(addrParts[1]) ]));
+    } else {
+      toBlockParas.push(para([ R(`Address: ${bankAddress}`) ]));
+    }
+  }
+
+  // Format A (HDFC branch copy) needs tight after:0 spacing for To/Bank/Address
+  // block, then a blank paragraph before Dear Sirs, matching the sample exactly.
+  const tightSpacing = {before:0, after:0, line:276, lineRule:"auto"};
+  function paraTight(children, opts={}){ return new Paragraph(Object.assign({ alignment: AlignmentType.JUSTIFIED, spacing: tightSpacing, children }, opts)); }
+  const formatAToBlock = [
+    paraTight([ R("To,") ]),
+    paraTight([ R(bank.nameCaps) ])
+  ];
+  if(bankAddress){
+    // Sample hard-splits the address at a fixed point rather than natural wrap;
+    // split on the first comma after "Hazira Road" style breakpoint if present,
+    // otherwise fall back to a single line.
+    const addr = bankAddress;
+    const splitIdx = addr.indexOf(", Adajan, ") >= 0 ? addr.indexOf(", Adajan, ") + 2 : -1;
+    if(splitIdx > 0){
+      formatAToBlock.push(paraTight([ R(`Address: ${addr.slice(0, splitIdx)}`) ]));
+      formatAToBlock.push(paraTight([ R(addr.slice(splitIdx)) ]));
+    } else {
+      formatAToBlock.push(paraTight([ R(`Address: ${addr}`) ]));
+    }
+  }
+  formatAToBlock.push(paraTight([]));
+
+  const balconyRuns = balconyArea
+    ? (pKey === "PARK"
+        ? [ R(", exclusive balcony area "), R(`${balconyArea} sft.`, {bold:true}) ]
+        : [ R(" and Balcony Area "), R(`${balconyArea} sq.ft.`, {bold:true}) ])
+    : [];
+  const washRuns = washArea ? [ R(" and exclusive wash area "), R(`${washArea} sft.`, {bold:true}) ] : [];
+  const agreementRuns = agreementDate ? [ R(` dated ${agreementDate}.`) ] : [ R(" dated") ];
+
+  let children = [];
+  const topSpacer = new Paragraph({ indent:{right:-54}, spacing:{line:240, lineRule:"auto"}, children:[ new TextRun({ text:"", font:"Times New Roman", size:24 }) ] });
+  // ICICI: date embedded in 2nd spacer paragraph (leading spaces + center align, matches sample exactly)
+  const iciciDateSpacer = new Paragraph({
+    tabStops: [{type:"left",position:397},{type:"left",position:794},{type:"left",position:1191}],
+    spacing: {before:57, after:57},
+    alignment: AlignmentType.CENTER,
+    children: [ new TextRun({ text: " ".repeat(112) + `Date: ${letterDate}`, font:"Verdana", size:20 }) ]
+  });
+  // HDFC: date embedded in 3rd spacer paragraph (leading+trailing spaces + center align + right indent, matches sample exactly)
+  const hdfcDateSpacer = new Paragraph({
+    indent: {left:-142, right:1399},
+    tabStops: [{type:"left",position:8370},{type:"left",position:9090}],
+    spacing: {line:240, lineRule:"auto"},
+    alignment: AlignmentType.CENTER,
+    children: [ new TextRun({ text: " ".repeat(116) + `Date: ${letterDate}` + " ".repeat(109), font:"Times New Roman", size:24 }) ]
+  });
+  const topSpacer2 = new Paragraph({ indent:{left:-142, right:-54}, spacing:{line:240, lineRule:"auto"}, children:[ new TextRun({ text:"", font:"Times New Roman", size:24 }) ] });
+
+  if(bankKey === "ICICI"){
+    children = [
+      topSpacer,
+      iciciDateSpacer,
+      para([ R(`Place: ${pKey === "PARK" ? "Vapi" : "Silvassa"}`) ], { alignment: AlignmentType.RIGHT }),
+      ...toBlockParas,
+      para([R("")], { spacing: {...paraSpacing, after:57} }),
+      para([ R(" Dear Sir,") ]),
+      pKey === "PARK" ? para([
+        R("Re: Permission to mortgage Flat No. "), R(flatNoDisp, {bold:true}), R(" on the "),
+        ...ordRuns(floorNum, {bold:true}),
+        R(" Floor of the building proposed to be named as / named as "), R(buildingNameDisp, {bold:true}),
+        ...(wing ? [ R(", Wing-"), R(wing, {bold:true}) ] : []),
+        R(", "), R(p.projectName, {bold:true}), R(" situated at "), R(p.addressLine, {bold:true}), R(".")
+      ]) : para([
+        R("Re: Permission to mortgage flat no. "), R(flatNoDisp, {bold:true}), R(" on the "),
+        ...ordRuns(floorNum, {bold:true}),
+        R(" Floor of the building proposed to be named as / named as "), R(buildingNameDisp, {bold:true}),
+        R(", Building \u2013 "), R(bl, {bold:true}), R(" situated at "), R(p.projectName, {bold:true}),
+        R(", Survey No. "), R(p.surveyShort, {bold:true}), R(" and Others, Amli, Silvassa, Dadra and Nagar Haveli.")
+      ]),
+
+      para([R("")], { spacing: {...paraSpacing, after:57} }),
+      para([
+        R("This is to confirm that we have allotted/sold flat no. "), R(flatNoDisp, {bold:true}),
+        R(" admeasuring "), R(`${carpetArea} sq. ft.`, {bold:true}), R(pKey === "PARK" ? " (Rera carpet/built-up area)" : " (carpet/built-up area)"),
+        ...balconyRuns, ...washRuns, R(" on the "), ...ordRuns(floorNum, {bold:true}),
+        R(" floor of the building proposed to be named as / known as "), R(buildingNameDisp, {bold:true}),
+        R(" situated at "), R(p.projectName, {bold:true}),
+        R(" which is under construction / constructed by us to "), R(buyerName, {bold:true}),
+        R(" for a total consideration of "), R(`Rs.${fmtAmount(totalAmount)}/- (Rupees: ${totalWords} Only)`, {bold:true}),
+        R(" under an Agreement for Sale/Sale Deed"), ...agreementRuns
+      ], { numbering: { reference:"icici-points", level:0 } }),
+      para([R("")], { spacing: {...paraSpacing, after:57} }),
+      para([ R("We confirm that we have obtained necessary permissions/approvals/sanctions for construction of the said building from all the concerned competent authorities and the construction of the building as well as of the flat are in accordance with the approved plans. We have a clear, legal and marketable title to the said property and every part thereof") ], { numbering:{reference:"icici-points", level:0} }),
+      para([ R("We assure that the said flat as well as the said building and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable.") ], { numbering:{reference:"icici-points", level:1} }),
+      para([R("")], { spacing: {...paraSpacing, after:57} }),
+      para([
+        R(buyerName, {bold:true}), R(" has paid an amount of "), R(`Rs.${fmtAmount(paidAmount)}/- (Rupees: ${paidWords} Only)`, {bold:true}),
+        R(" and a sum of "), R(`Rs.${fmtAmount(remainingAmount)}/- (Rupees: ${remainingWords} Only)`, {bold:true}),
+        R(" remains to be paid towards the cost of the said flat.")
+      ], { numbering:{reference:"icici-points", level:0} }),
+      para([R("")], { spacing: {...paraSpacing, after:57} }),
+      para([
+        R("We are aware that the said Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
+        R(" has approached ICICI Bank Ltd for a loan for purchasing/acquiring the said Flat and that ICICI Bank Ltd has agreed to sanction/grant the loan to Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
+        R(" to purchase / acquire the above Flat and Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
+        R(" has agreed to mortgage the said Flat in your favour / in favour of your security trustee as security for the said loan. We hereby confirm that we have no objection to Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
+        R(" mortgaging the said Flat to ICICI Bank / in favour of your security trustee by way of security for repayment of the said loan. Notwithstanding anything to the contrary contained in the said Agreement for Sale, we hereby agree to note the aforesaid charge in our books in respect of the said Flat and Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
+        R(" will not be permitted to transfer, assign, sell off / cancel or in any other way / manner deal with the said Flat prejudicial to the interest of the aforesaid mortgagee without the prior written consent of the aforesaid mortgagee.")
+      ], { numbering:{reference:"icici-points", level:0} }),
+      para([R("")], { spacing: {...paraSpacing, after:57} }),
+      para([
+        R("We further agree that in case the Flat purchase transaction or the allotment/Agreement for sale of the Flat is terminated for any reason whatsoever, then ICICI Bank shall have a first charge and priority over the money advanced to "), R(buyerName, {bold:true}),
+        R(" and received by us, and we hereby undertake to forthwith refund such money received by us.")
+      ], { numbering:{reference:"icici-points", level:0} }),
+      para([R("")], { spacing: {...paraSpacing, after:57} }),
+      para([ R("Yours faithfully,") ])
+    ];
+  } else if(hdfcFormat === "A"){
+    // Format A: Branch copy - Verdana 9pt, addressed to local branch
+    children = [
+      topSpacer,
+      topSpacer2,
+      hdfcDateSpacer,
+      ...formatAToBlock,
+      para([ R("Dear Sirs,") ], { spacing: {...paraSpacing, after:120} }),
+      para([ R("Re: Loan to Mr./Mrs. "), RBoldNoSize(buyerName) ], { spacing: {...paraSpacing, after:120} }),
+      para([
+        R(`Sub:  Flat/ Tenement/ Plot No. ${flatNoDisp} on `), ...ordRuns(floorNum),
+        R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230.`)
+      ], { spacing: {...paraSpacing, after:120} }),
+      para([
+        R("This is to confirm that we have Allotted / Agreed to sell the above flat / tenement / plot to the above Allottee  / Purchaser for a total consideration of "),
+        RBoldNoSize(`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only)`),
+        R(" vide Allotment Letter / Agreement for Sale"), ...agreementRuns
+      ], { spacing: {...paraSpacing, after:120} }),
+      para([R("")], { spacing: {...paraSpacing, after:120} }),
+      para([
+        R("We further confirm that construction of the above building / tenement is being carried in terms of the Development Permission No. "),
+        R(p.devPermissionNo, {bold:true, size:16}),
+        R(" issued by the competent Authority, and that there is no deviating from approved plan and permission to start construction etc.  and also that the said permission is still valid.")
+      ], { spacing: {...paraSpacing, after:120} }),
+      para([ R(`We also confirm that we are in possession of the above land vide Development Agreement / Power of Attorney dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, Sale, etc. .And that the same have not been revoked by the land owners.`) ], { spacing: {...paraSpacing, after:0} }),
+      para([R("")], { spacing: {...paraSpacing, after:0} }),
+      para([ R("We state that we are Co-Operative Housing Society We hereby assure you that said Land / Tenement / Flat / Building and land appurtenant there to are not subject to any encumbrance, charge or liability of any kind what so ever and that our title to the said property is clear and marketable and that no loan of any nature has been raised by ourselves / landowners by offering the above property as a primary / secondary / collateral security with any Banks / Financial institutions.") ], { spacing: {...paraSpacing, after:120} }),
+      para([ R(`We have no objection to your giving a housing loan to the said allottee / transferee / buyer and his/her/their mortgaging the said Tenement / Flat with you by security for repayment, not with standing anything to the contrary contained in the said Allotment /  Agreement. We also assure to submit the sale Deed for the aforesaid unit With ${bank.name.replace(/Ltd$/,"ltd")}. As and when executed with the borrower/s.`) ], { spacing: {...paraSpacing, after:120} }),
+      para([ R(`We also undertake to inform and give proper notice to the Co-Op. Housing Society / Association as and when it is formed about the Flat / tenement being so mortgaged and that we shall not accept any notice of transfer of Flat / Tenements unless it is confirmed by ${bank.name}`) ], { spacing: {...paraSpacing, after:0} }),
+      para([R("")], { spacing: {...paraSpacing, after:0} }),
+      para([ R("Yours Faithfully") ], { spacing: {...paraSpacing, after:0} })
+    ];
+  } else {
+    // Format B: Head Office copy - Times New Roman 12pt, addressed to HDFC House, Vadodara
+    function RB(text, opts={}){ return new TextRun(Object.assign({ text, font:"Times New Roman", size:24 }, opts)); }
+    function RBBoldNoSize(text, opts={}){ return new TextRun(Object.assign({ text, font:"Times New Roman", bold:true }, opts)); }
+    function paraB(children, opts={}){ return new Paragraph(Object.assign({ alignment: AlignmentType.JUSTIFIED, spacing:{before:0,after:0,line:276,lineRule:"auto"}, indent:{left:-142,right:-54}, children }, opts)); }
+    const totalWordsB = totalWords, remainingWordsB = remainingWords;
+    children = [
+      topSpacer,
+      topSpacer2,
+      hdfcDateSpacer,
+      paraB([ RB("To,") ]),
+      paraB([ RB("HDFC Bank Ltd.") ]),
+      paraB([ RB("\u201cHDFC House\u201d") ]),
+      paraB([ RB("Trident, Racecourse") ]),
+      paraB([ RB("Vadodara-390007") ]),
+      paraB([ RB("Dear Sir,") ], { indent:{} }),
+      paraB([ RB("Re: Loan to "), RBBoldNoSize(buyerName) ], { indent:{left:1985, hanging:1265} }),
+      paraB([
+        RB(`Sub: Flat No. ${flatNoDisp}, `),
+        ...ordinalParts(floorNum).map(part => new TextRun({ text: part.text, font:"Times New Roman", size:24, superScript: part.sup })),
+        RB(` FLOOR in the Building - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201c${p.projectName}\u201d, Srv. No. ${p.surveyShort} & others,   Amli, Silvassa. (D& N. H & DD)`)
+      ], { indent:{left:1985, hanging:1265} }),
+      paraB([
+        RB("This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration "),
+        RBBoldNoSize(`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWordsB} Only).`)
+      ], { indent:{} }),
+      paraB([ RB("We confirm that we have obtained necessary permission/ approvals/ sanctions for construction of the Project from all the concerned competent authorities and the construction of the Project as well as of the flat in the Project is in accordance with the approved plans.") ]),
+      paraB([ RB(`We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`) ]),
+      paraB([ RB("We hereby assure you that the said Project as well as Flats in the said Project and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable and that no loan of any nature has been raised by/ availed by ourselves and/or Landowners against the security of the above property.") ]),
+      paraB([ RB("We have no objection to your giving loans to the said allotee /transferee/buyer and his/her/their mortgaging the said flat by way of security for repayment for the loan availed/to be availed by him/her, notwithstanding anything to the contrary contained in the agreements which we will be entering with the said allotee/transferee/buyer. We undertake that in the event of the cancellation of the allotment/transfer/agreement for sale of the above stated unit with the said allotee/transferee/buyer for any reason whatsoever, we shall refund the amount of loan disbursed by HDFC Bank Ltd. on the above stated unit to the said allotee/transferee/buyer, directly to HDFC bank Ltd. ") ], { indent:{left:-142, right:-45} }),
+      paraB([ RB("We also undertake to Inform and give proper notice to the Co-operative housing society/ Association of Apartments / Body corporate etc., as and when formed, about the charge of HDFC bank Ltd. on the above stated Flat and we shall not accept any notice of transfer of above stated Flat unless it is confirmed by HDFC bank Ltd.") ]),
+      paraB([ RB("Yours faithfully,") ], { indent:{left:-142} })
+    ];
+  }
+
+  const doc = new Document({
+    numbering: {
+      config: [{
+        reference: "icici-points",
+        levels: [
+          { level:0, format: LevelFormat.DECIMAL, text:"%1.", alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left:397, hanging:397 } } } },
+          { level:1, format: LevelFormat.UPPER_LETTER, text:"%2.", alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left:794, hanging:397 } } } }
+        ]
+      }]
+    },
+    sections: [{
+      properties: { page: {
+        size: { width:11907, height:16839 },
+        margin: { top:142, right:567, bottom:720, left:1418, header:153 }
+      }},
+      headers: { default: letterheadHeader },
+      footers: { default: footer },
+      children
+    }]
+  });
+
+  try{
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Mortgage_Letter_${buyerName.replace(/[^a-zA-Z0-9]/g,"_") || "Letter"}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    msg.textContent = "Letter downloaded (.docx).";
+    msg.className = "msg";
+  }catch(err){
+    msg.textContent = "Could not generate the document: " + err.message;
+    msg.className = "msg err";
+  }
+}
+</script>
+</body>
+</html>
