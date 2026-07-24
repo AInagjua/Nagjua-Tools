@@ -252,10 +252,16 @@
     <div class="msg" id="msg"></div>
 
     <div id="previewPanel" style="display:none; margin-top:16px;">
-      <div style="font-size:13px;color:#475569;margin-bottom:8px;">This is a read-only preview — formatting may differ slightly from the final Word document.</div>
+      <div style="font-size:13px;color:#475569;margin-bottom:8px;">This is a read-only preview of the full letter (letterhead, footer, and formatting) — matches the final Word document.</div>
       <div style="background:#d1d5db;padding:16px;border-radius:8px;">
         <iframe id="previewFrame" srcdoc="" style="width:100%;height:700px;border:none;border-radius:4px;background:#fff;" title="Letter Preview"></iframe>
       </div>
+    </div>
+
+    <div id="reviewPanel" style="display:none; margin-top:16px;">
+      <div class="section-title">Review &amp; Edit Body Text</div>
+      <div style="font-size:13px;color:#475569;margin-bottom:12px;">Edit any paragraph below before generating — your changes will be included in the downloaded letter. The letterhead, footer, and other fixed formatting stay exactly as shown above.</div>
+      <div id="reviewFields"></div>
     </div>
 
   </div>
@@ -274,6 +280,8 @@ const PROJECTS = {
     company: "MICROMEGA PROJECTS",
     projectName: "TROPICAL GREEN PHASE - 2A, NAGJUA",
     surveyShort: "90/3/1/1",
+    addressLine: "S.NO. 90/3/1/1 And Others, Off Ring Road, Kamli Faliya, Silvassa- 396230",
+    reLabel: "TROPICAL GREENS PHASE-2A",
     devPermissionNo: "No. SMC/RCP/Srv.No.90/3/1/1, 89, 90/6, 90/5, 90/4, 90/3/2, 88, 86, 90/2, 85/1/SLV/2021/700 dated 09-03-2022",
     devAgreementDate: "25/01/2020",
     buildings: { HOSTA:"HT", ILEX:"IL", JADE:"JD" }
@@ -283,6 +291,8 @@ const PROJECTS = {
     company: "MICROMEGA PROJECTS",
     projectName: "TROPICAL GREEN PHASE - 2B, NAGJUA",
     surveyShort: "90/3/1/1",
+    addressLine: "S.NO. 90/3/1/1 And Others, Off Ring Road, Kamli Faliya, Silvassa- 396230",
+    reLabel: "TROPICAL GREENS PHASE-2B",
     devPermissionNo: "No. SMC/RCP/Srv.No.90/3/1/1, 89, 90/6, 90/5, 90/4, 90/3/2, 88, 86, 90/2, 85/1/SLV/2021/700 dated 09-03-2022",
     devAgreementDate: "25/01/2020",
     buildings: { KESTRAL:"KT", LILAC:"LA", MAYFLOWER:"MF", NIGELLA:"NG" }
@@ -292,6 +302,7 @@ const PROJECTS = {
     company: "MICROMEGA PROJECTS",
     projectName: "NAGJUA ANANTA",
     surveyShort: "229/1/1",
+    addressLine: "Amli, Silvassa, Dadra and Nagar Haveli",
     devPermissionNo: "No. SMC/CP/ Srv.No.229/1/1 & 231/1 / SLV / 2021 / 909 dated 30-03-2022",
     devAgreementDate: "25/01/2020",
     buildings: { AMBER:"AM", BERYL:"BL", CYGNUS:"CG", DIVINE:"DV" }
@@ -809,7 +820,8 @@ function ordinalParts(n){
   return [{text: m[1], sup:false}, {text: m[2], sup:true}];
 }
 
-async function buildDocxBlob(){
+async function buildDocxBlob(overrides = {}){
+  const editableParas = [];
   const msg = document.getElementById("msg");
   const bankKey = document.getElementById("bank").value;
   const hdfcFormat = bankKey === "HDFC" ? document.getElementById("hdfcFormat").value : null;
@@ -882,6 +894,40 @@ async function buildDocxBlob(){
       ? new TextRun({ text, font:"Verdana", size:20 })
       : new TextRun({ text, font:"Times New Roman", size:24 });
     return new Paragraph({ alignment: AlignmentType.RIGHT, spacing: paraSpacing, children:[run] });
+  }
+
+  // Splits plain text into TextRuns, bolding any exact occurrence of the
+  // given values (used to re-apply bold formatting to known dynamic values
+  // like buyer name / amounts after the paragraph text has been hand-edited
+  // in the review step).
+  function splitBoldRuns(text, boldValues, plainRunFn, boldRunFn){
+    const vals = (boldValues||[]).filter(Boolean).sort((a,b)=>b.length-a.length);
+    let segments = [{ text, bold:false }];
+    for (const val of vals){
+      const next = [];
+      for (const seg of segments){
+        if (seg.bold || !seg.text.includes(val)) { next.push(seg); continue; }
+        let rest = seg.text;
+        while (true){
+          const i = rest.indexOf(val);
+          if (i === -1){ if (rest) next.push({ text:rest, bold:false }); break; }
+          if (i>0) next.push({ text: rest.slice(0,i), bold:false });
+          next.push({ text: val, bold:true });
+          rest = rest.slice(i+val.length);
+        }
+      }
+      segments = next;
+    }
+    return segments.filter(s=>s.text).map(s => s.bold ? boldRunFn(s.text) : plainRunFn(s.text));
+  }
+
+  // Builds an editable body-content paragraph: uses any user-supplied override
+  // text for this key (from the review step), records it for the next review
+  // screen, and applies bold formatting to any recognized dynamic values.
+  function makeContentPara(key, defaultText, boldValues, paraFn, plainRunFn, boldRunFn, opts={}){
+    const text = (overrides && overrides[key] != null) ? overrides[key] : defaultText;
+    editableParas.push({ key, text });
+    return paraFn(splitBoldRuns(text, boldValues, plainRunFn, boldRunFn), opts);
   }
 
   // Letterhead: real Word header region (company name + floating logo),
@@ -965,7 +1011,7 @@ async function buildDocxBlob(){
   const balconyRuns = balconyArea
     ? (pKey === "PARK"
         ? [ R(", exclusive balcony area "), R(`${balconyArea} sft.`, {bold:true}) ]
-        : [ R(" and Balcony Area "), R(`${balconyArea} sq.ft.`, {bold:true}) ])
+        : [ R(" and Balcony Area "), R(`${balconyArea} Sq.ft.`, {bold:true}) ])
     : [];
   const washRuns = washArea ? [ R(" and exclusive wash area "), R(`${washArea} sft.`, {bold:true}) ] : [];
   const agreementRuns = agreementDate ? [ R(` dated ${agreementDate}.`) ] : [ R(" dated") ];
@@ -1004,11 +1050,10 @@ async function buildDocxBlob(){
         ...(wing ? [ R(", Wing-"), R(wing, {bold:true}) ] : []),
         R(", "), R(p.projectName, {bold:true}), R(" situated at "), R(p.addressLine, {bold:true}), R(".")
       ]) : para([
-        R("Re: Permission to mortgage flat no. "), R(flatNoDisp, {bold:true}), R(" on the "),
+        R("Re: Permission to mortgage Flat No. "), R(flatNoDisp, {bold:true}), R(" on the "),
         ...ordRuns(floorNum, {bold:true}),
-        R(" Floor of the building proposed to be named as / named as "), R(buildingNameDisp, {bold:true}),
-        R(", Building \u2013 "), R(bl, {bold:true}), R(" situated at "), R(p.projectName, {bold:true}),
-        R(", Survey No. "), R(p.surveyShort, {bold:true}), R(" and Others, Amli, Silvassa, Dadra and Nagar Haveli.")
+        R(" floor of the building proposed to be named as / named as "), R(buildingNameDisp, {bold:true}),
+        R(", "), R(p.reLabel || p.projectName, {bold:true}), R(" situated at "), R(p.addressLine, {bold:true}), R(".")
       ]),
 
       para([R("")], { spacing: {...paraSpacing, after:57} }),
@@ -1023,30 +1068,37 @@ async function buildDocxBlob(){
         R(" under an Agreement for Sale/Sale Deed"), ...agreementRuns
       ], { numbering: { reference:"icici-points", level:0 } }),
       para([R("")], { spacing: {...paraSpacing, after:57} }),
-      para([ R("We confirm that we have obtained necessary permissions/approvals/sanctions for construction of the said building from all the concerned competent authorities and the construction of the building as well as of the flat are in accordance with the approved plans. We have a clear, legal and marketable title to the said property and every part thereof") ], { numbering:{reference:"icici-points", level:0} }),
-      para([ R("We assure that the said flat as well as the said building and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable.") ], { numbering:{reference:"icici-points", level:1} }),
+      makeContentPara(
+        'permissions',
+        "We confirm that we have obtained necessary permissions/approvals/sanctions for construction of the said building from all the concerned competent authorities and the construction of the building as well as of the flat are in accordance with the approved plans. We have a clear, legal and marketable title to the said property and every part thereof",
+        [], para, R, t=>R(t,{bold:true}), { numbering:{reference:"icici-points", level:0} }
+      ),
+      makeContentPara(
+        'assurance',
+        "We assure that the said flat as well as the said building and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable.",
+        [], para, R, t=>R(t,{bold:true}), { numbering:{reference:"icici-points", level:1} }
+      ),
       para([R("")], { spacing: {...paraSpacing, after:57} }),
-      para([
-        R(buyerName, {bold:true}), R(" has paid an amount of "), R(`Rs.${fmtAmount(paidAmount)}/- (Rupees: ${paidWords} Only)`, {bold:true}),
-        R(" and a sum of "), R(`Rs.${fmtAmount(remainingAmount)}/- (Rupees: ${remainingWords} Only)`, {bold:true}),
-        R(" remains to be paid towards the cost of the said flat.")
-      ], { numbering:{reference:"icici-points", level:0} }),
+      makeContentPara(
+        'payment_status',
+        `${buyerName} has paid an amount of Rs.${fmtAmount(paidAmount)}/- (Rupees: ${paidWords} Only) and a sum of Rs.${fmtAmount(remainingAmount)}/- (Rupees: ${remainingWords} Only) remains to be paid towards the cost of the said flat.`,
+        [buyerName, `Rs.${fmtAmount(paidAmount)}/- (Rupees: ${paidWords} Only)`, `Rs.${fmtAmount(remainingAmount)}/- (Rupees: ${remainingWords} Only)`],
+        para, R, t=>R(t,{bold:true}), { numbering:{reference:"icici-points", level:0} }
+      ),
       para([R("")], { spacing: {...paraSpacing, after:57} }),
-      para([
-        R("We are aware that the said Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
-        R(" has approached ICICI Bank Ltd for a loan for purchasing/acquiring the said Flat and that ICICI Bank Ltd has agreed to sanction/grant the loan to Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
-        R(" to purchase / acquire the above Flat and Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
-        R(" has agreed to mortgage the said Flat in your favour / in favour of your security trustee as security for the said loan. We hereby confirm that we have no objection to Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
-        R(" mortgaging the said Flat to ICICI Bank / in favour of your security trustee by way of security for repayment of the said loan. Notwithstanding anything to the contrary contained in the said Agreement for Sale, we hereby agree to note the aforesaid charge in our books in respect of the said Flat and Mr./Mrs./Ms. "), R(buyerName, {bold:true}),
-        R(" will not be permitted to transfer, assign, sell off / cancel or in any other way / manner deal with the said Flat prejudicial to the interest of the aforesaid mortgagee without the prior written consent of the aforesaid mortgagee.")
-      ], { numbering:{reference:"icici-points", level:0} }),
+      makeContentPara(
+        'noc_consent',
+        `We are aware that the said Mr./Mrs./Ms. ${buyerName} has approached ICICI Bank Ltd for a loan for purchasing/acquiring the said Flat and that ICICI Bank Ltd has agreed to sanction/grant the loan to Mr./Mrs./Ms. ${buyerName} to purchase / acquire the above Flat and Mr./Mrs./Ms. ${buyerName} has agreed to mortgage the said Flat in your favour / in favour of your security trustee as security for the said loan. We hereby confirm that we have no objection to Mr./Mrs./Ms. ${buyerName} mortgaging the said Flat to ICICI Bank / in favour of your security trustee by way of security for repayment of the said loan. Notwithstanding anything to the contrary contained in the said Agreement for Sale, we hereby agree to note the aforesaid charge in our books in respect of the said Flat and Mr./Mrs./Ms. ${buyerName} will not be permitted to transfer, assign, sell off / cancel or in any other way / manner deal with the said Flat prejudicial to the interest of the aforesaid mortgagee without the prior written consent of the aforesaid mortgagee.`,
+        [buyerName], para, R, t=>R(t,{bold:true}), { numbering:{reference:"icici-points", level:0} }
+      ),
       para([R("")], { spacing: {...paraSpacing, after:57} }),
-      para([
-        R("We further agree that in case the Flat purchase transaction or the allotment/Agreement for sale of the Flat is terminated for any reason whatsoever, then ICICI Bank shall have a first charge and priority over the money advanced to "), R(buyerName, {bold:true}),
-        R(" and received by us, and we hereby undertake to forthwith refund such money received by us.")
-      ], { numbering:{reference:"icici-points", level:0} }),
+      makeContentPara(
+        'refund_undertaking',
+        `We further agree that in case the Flat purchase transaction or the allotment/Agreement for sale of the Flat is terminated for any reason whatsoever, then ICICI Bank shall have a first charge and priority over the money advanced to ${buyerName} and received by us, and we hereby undertake to forthwith refund such money received by us.`,
+        [buyerName], para, R, t=>R(t,{bold:true}), { numbering:{reference:"icici-points", level:0} }
+      ),
       para([R("")], { spacing: {...paraSpacing, after:57} }),
-      para([ R("Yours faithfully,") ])
+      makeContentPara('closing', "Yours faithfully,", [], para, R, t=>R(t,{bold:true}))
     ];
   } else if(hdfcFormat === "A"){
     // Format A: Branch copy - Verdana 9pt, addressed to local branch
@@ -1059,26 +1111,42 @@ async function buildDocxBlob(){
       para([ R("Re: Loan to Mr./Mrs. "), RBoldNoSize(buyerName) ], { spacing: {...paraSpacing, after:120} }),
       para([
         R(`Sub:  Flat/ Tenement/ Plot No. ${flatNoDisp} on `), ...ordRuns(floorNum),
-        R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230.`)
+        R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at ${pKey === "ANANTA" ? "Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230" : p.addressLine}.`)
       ], { spacing: {...paraSpacing, after:120} }),
-      para([
-        R("This is to confirm that we have Allotted / Agreed to sell the above flat / tenement / plot to the above Allottee  / Purchaser for a total consideration of "),
-        RBoldNoSize(`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only)`),
-        R(" vide Allotment Letter / Agreement for Sale"), ...agreementRuns
-      ], { spacing: {...paraSpacing, after:120} }),
+      makeContentPara(
+        'allotment_confirm',
+        `This is to confirm that we have Allotted / Agreed to sell the above flat / tenement / plot to the above Allottee  / Purchaser for a total consideration of Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only) vide Allotment Letter / Agreement for Sale${agreementDate ? ` dated ${agreementDate}.` : ' dated'}`,
+        [`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only)`], para, R, t=>RBoldNoSize(t), { spacing: {...paraSpacing, after:120} }
+      ),
       para([R("")], { spacing: {...paraSpacing, after:120} }),
-      para([
-        R("We further confirm that construction of the above building / tenement is being carried in terms of the Development Permission No. "),
-        R(p.devPermissionNo, {bold:true, size:16}),
-        R(" issued by the competent Authority, and that there is no deviating from approved plan and permission to start construction etc.  and also that the said permission is still valid.")
-      ], { spacing: {...paraSpacing, after:120} }),
-      para([ R(`We also confirm that we are in possession of the above land vide Development Agreement / Power of Attorney dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, Sale, etc. .And that the same have not been revoked by the land owners.`) ], { spacing: {...paraSpacing, after:0} }),
+      makeContentPara(
+        'dev_permission',
+        `We further confirm that construction of the above building / tenement is being carried in terms of the Development Permission No. ${p.devPermissionNo} issued by the competent Authority, and that there is no deviating from approved plan and permission to start construction etc.  and also that the said permission is still valid.`,
+        [p.devPermissionNo], para, R, t=>R(t,{bold:true,size:16}), { spacing: {...paraSpacing, after:120} }
+      ),
+      makeContentPara(
+        'possession_confirm',
+        `We also confirm that we are in possession of the above land vide Development Agreement / Power of Attorney dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, Sale, etc. .And that the same have not been revoked by the land owners.`,
+        [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:0} }
+      ),
       para([R("")], { spacing: {...paraSpacing, after:0} }),
-      para([ R("We state that we are Co-Operative Housing Society We hereby assure you that said Land / Tenement / Flat / Building and land appurtenant there to are not subject to any encumbrance, charge or liability of any kind what so ever and that our title to the said property is clear and marketable and that no loan of any nature has been raised by ourselves / landowners by offering the above property as a primary / secondary / collateral security with any Banks / Financial institutions.") ], { spacing: {...paraSpacing, after:120} }),
-      para([ R(`We have no objection to your giving a housing loan to the said allottee / transferee / buyer and his/her/their mortgaging the said Tenement / Flat with you by security for repayment, not with standing anything to the contrary contained in the said Allotment /  Agreement. We also assure to submit the sale Deed for the aforesaid unit With ${bank.name.replace(/Ltd$/,"ltd")}. As and when executed with the borrower/s.`) ], { spacing: {...paraSpacing, after:120} }),
-      para([ R(`We also undertake to inform and give proper notice to the Co-Op. Housing Society / Association as and when it is formed about the Flat / tenement being so mortgaged and that we shall not accept any notice of transfer of Flat / Tenements unless it is confirmed by ${bank.name}`) ], { spacing: {...paraSpacing, after:0} }),
+      makeContentPara(
+        'title_assurance',
+        "We state that we are Co-Operative Housing Society We hereby assure you that said Land / Tenement / Flat / Building and land appurtenant there to are not subject to any encumbrance, charge or liability of any kind what so ever and that our title to the said property is clear and marketable and that no loan of any nature has been raised by ourselves / landowners by offering the above property as a primary / secondary / collateral security with any Banks / Financial institutions.",
+        [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:120} }
+      ),
+      makeContentPara(
+        'mortgage_noc',
+        `We have no objection to your giving a housing loan to the said allottee / transferee / buyer and his/her/their mortgaging the said Tenement / Flat with you by security for repayment, not with standing anything to the contrary contained in the said Allotment /  Agreement. We also assure to submit the sale Deed for the aforesaid unit With ${bank.name.replace(/Ltd$/,"ltd")}. As and when executed with the borrower/s.`,
+        [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:120} }
+      ),
+      makeContentPara(
+        'notice_undertaking',
+        `We also undertake to inform and give proper notice to the Co-Op. Housing Society / Association as and when it is formed about the Flat / tenement being so mortgaged and that we shall not accept any notice of transfer of Flat / Tenements unless it is confirmed by ${bank.name}`,
+        [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:0} }
+      ),
       para([R("")], { spacing: {...paraSpacing, after:0} }),
-      para([ R("Yours Faithfully") ], { spacing: {...paraSpacing, after:0} })
+      makeContentPara('closing', "Yours Faithfully", [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:0} })
     ];
   } else {
     // Format B: Head Office copy - Times New Roman 12pt, addressed to HDFC House, Vadodara
@@ -1109,9 +1177,37 @@ async function buildDocxBlob(){
       paraB([ RB("We confirm that we have obtained necessary permission/ approvals/ sanctions for construction of the Project from all the concerned competent authorities and the construction of the Project as well as of the flat in the Project is in accordance with the approved plans.") ]),
       paraB([ RB(`We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`) ]),
       paraB([ RB("We hereby assure you that the said Project as well as Flats in the said Project and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable and that no loan of any nature has been raised by/ availed by ourselves and/or Landowners against the security of the above property.") ]),
-      paraB([ RB("We have no objection to your giving loans to the said allotee /transferee/buyer and his/her/their mortgaging the said flat by way of security for repayment for the loan availed/to be availed by him/her, notwithstanding anything to the contrary contained in the agreements which we will be entering with the said allotee/transferee/buyer. We undertake that in the event of the cancellation of the allotment/transfer/agreement for sale of the above stated unit with the said allotee/transferee/buyer for any reason whatsoever, we shall refund the amount of loan disbursed by HDFC Bank Ltd. on the above stated unit to the said allotee/transferee/buyer, directly to HDFC bank Ltd. ") ], { indent:{left:-142, right:-45} }),
-      paraB([ RB("We also undertake to Inform and give proper notice to the Co-operative housing society/ Association of Apartments / Body corporate etc., as and when formed, about the charge of HDFC bank Ltd. on the above stated Flat and we shall not accept any notice of transfer of above stated Flat unless it is confirmed by HDFC bank Ltd.") ]),
-      paraB([ RB("Yours faithfully,") ], { indent:{left:-142} })
+      makeContentPara(
+        'allotment_confirm',
+        `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWordsB} Only).`,
+        [`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWordsB} Only).`], paraB, RB, t=>RBBoldNoSize(t), { indent:{} }
+      ),
+      makeContentPara(
+        'permissions',
+        "We confirm that we have obtained necessary permission/ approvals/ sanctions for construction of the Project from all the concerned competent authorities and the construction of the Project as well as of the flat in the Project is in accordance with the approved plans.",
+        [], paraB, RB, t=>RB(t,{bold:true})
+      ),
+      makeContentPara(
+        'possession_confirm',
+        `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`,
+        [], paraB, RB, t=>RB(t,{bold:true})
+      ),
+      makeContentPara(
+        'title_assurance',
+        "We hereby assure you that the said Project as well as Flats in the said Project and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable and that no loan of any nature has been raised by/ availed by ourselves and/or Landowners against the security of the above property.",
+        [], paraB, RB, t=>RB(t,{bold:true})
+      ),
+      makeContentPara(
+        'mortgage_noc',
+        "We have no objection to your giving loans to the said allotee /transferee/buyer and his/her/their mortgaging the said flat by way of security for repayment for the loan availed/to be availed by him/her, notwithstanding anything to the contrary contained in the agreements which we will be entering with the said allotee/transferee/buyer. We undertake that in the event of the cancellation of the allotment/transfer/agreement for sale of the above stated unit with the said allotee/transferee/buyer for any reason whatsoever, we shall refund the amount of loan disbursed by HDFC Bank Ltd. on the above stated unit to the said allotee/transferee/buyer, directly to HDFC bank Ltd. ",
+        [], paraB, RB, t=>RB(t,{bold:true}), { indent:{left:-142, right:-45} }
+      ),
+      makeContentPara(
+        'notice_undertaking',
+        "We also undertake to Inform and give proper notice to the Co-operative housing society/ Association of Apartments / Body corporate etc., as and when formed, about the charge of HDFC bank Ltd. on the above stated Flat and we shall not accept any notice of transfer of above stated Flat unless it is confirmed by HDFC bank Ltd.",
+        [], paraB, RB, t=>RB(t,{bold:true})
+      ),
+      makeContentPara('closing', "Yours faithfully,", [], paraB, RB, t=>RB(t,{bold:true}), { indent:{left:-142} })
     ];
   }
 
@@ -1140,7 +1236,7 @@ async function buildDocxBlob(){
 
   try{
     const blob = await Packer.toBlob(doc);
-    return { blob, buyerName };
+    return { blob, buyerName, editableParas };
   }catch(err){
     msg.textContent = "Could not generate the document: " + err.message;
     msg.className = "msg err";
@@ -1148,9 +1244,44 @@ async function buildDocxBlob(){
   }
 }
 
+const PARA_LABELS = {
+  allotment_confirm: "Allotment Confirmation",
+  permissions: "Permissions & Approvals Confirmation",
+  dev_permission: "Development Permission",
+  possession_confirm: "Land Possession Confirmation",
+  assurance: "Assurance (No Encumbrance)",
+  title_assurance: "Title Assurance",
+  payment_status: "Payment Status",
+  noc_consent: "Mortgage No-Objection Consent",
+  mortgage_noc: "Mortgage No-Objection Consent",
+  refund_undertaking: "Refund Undertaking",
+  notice_undertaking: "Notice Undertaking",
+  closing: "Closing"
+};
+
+function renderReviewFields(editableParas){
+  const container = document.getElementById("reviewFields");
+  container.innerHTML = editableParas.map(({key, text}) => `
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-weight:600;font-size:12.5px;color:#0b1f3f;margin-bottom:4px;">${PARA_LABELS[key] || key}</label>
+      <textarea data-key="${key}" rows="3" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-family:Verdana,sans-serif;font-size:13px;line-height:1.5;resize:vertical;">${text.replace(/</g,"&lt;")}</textarea>
+    </div>
+  `).join('');
+  document.getElementById("reviewPanel").style.display = '';
+}
+
+function collectOverrides(){
+  const overrides = {};
+  document.querySelectorAll("#reviewFields textarea[data-key]").forEach(ta => {
+    overrides[ta.getAttribute("data-key")] = ta.value;
+  });
+  return overrides;
+}
+
 async function generateLetter(){
   const msg = document.getElementById("msg");
-  const result = await buildDocxBlob();
+  const overrides = collectOverrides();
+  const result = await buildDocxBlob(overrides);
   if(!result) return;
   const { blob, buyerName } = result;
   const url = URL.createObjectURL(blob);
@@ -1171,7 +1302,9 @@ async function previewLetter(){
   const frame = document.getElementById("previewFrame");
   msg.textContent = "Generating preview...";
   msg.className = "msg";
-  const result = await buildDocxBlob();
+  // Re-use any edits already made in the review section, if this is a re-preview
+  const overrides = collectOverrides();
+  const result = await buildDocxBlob(overrides);
   if(!result) return;
   try{
     const arrayBuffer = await result.blob.arrayBuffer();
@@ -1182,8 +1315,9 @@ async function previewLetter(){
       strong,b{font-weight:bold;}
     </style></head><body>${conversion.value}</body></html>`;
     panel.style.display = '';
+    renderReviewFields(result.editableParas);
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    msg.textContent = "Preview generated below.";
+    msg.textContent = "Preview generated below — review and edit the body text before downloading.";
     msg.className = "msg";
   }catch(err){
     msg.textContent = "Could not generate preview: " + err.message;
