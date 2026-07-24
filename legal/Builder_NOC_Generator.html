@@ -8,30 +8,31 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
   :root{
-    --navy:#1b3a5c;
-    --navy-dark:#122a44;
-    --gold:#b8893f;
-    --bg:#f3f4f6;
+    --navy:#0b1f3f;
+    --navy-dark:#071633;
+    --gold:#c9a24a;
+    --bg:#f7f5f0;
     --card:#ffffff;
-    --text:#1f2430;
+    --text:#1c2333;
     --muted:#6b7280;
-    --border:#dbe0e6;
+    --border:#e1ddd0;
     --green:#2f7d52;
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    font-family:Arial, Helvetica, sans-serif;
+    font-family:'Segoe UI', Verdana, Arial, sans-serif;
     background:var(--bg);
     color:var(--text);
     padding:28px 16px 60px;
   }
   .wrap{max-width:720px;margin:0 auto;}
   .head{
-    background:var(--navy);
+    background:linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%);
     color:#fff;
     padding:22px 26px;
     border-radius:10px 10px 0 0;
+    border-bottom:3px solid var(--gold);
   }
   .head h1{margin:0;font-size:20px;letter-spacing:.3px;}
   .head p{margin:4px 0 0;font-size:13px;color:#cfd9e4;}
