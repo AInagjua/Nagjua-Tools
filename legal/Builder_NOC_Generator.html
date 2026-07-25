@@ -552,21 +552,35 @@ function parseLedger(text){
     }
   }
 
-  // Unit/Building/Floor: line with "Unit (Flat)" and "Unit Cost"
-  // Two known layouts:
-  //  Micromega/Ananta: "BL203 Unit (Flat) Unit Cost BERYL 2 0.000 0.000 0.000 1 0"
+  // Unit/Building/Floor: line with "Unit (...)" and "Unit Cost"
+  // Three known layouts:
+  //  Micromega/Ananta (older exports): "BL203 Unit (Flat) Unit Cost BERYL 2 0.000 0.000 0.000 1 0"
   //    -> unit token = "BL203", building = "BERYL", floor = next integer token
+  //  Micromega/Ananta (RERA-area exports): "CG506-B Unit (RERA BALCONY AREA) Unit Cost CYGNUS 5 0.000 ..."
+  //    or "CG506-Rcarpet Unit (RERA CARPET AREA) Unit Cost CYGNUS 0.000 ..."
+  //    -> unit token has a trailing "-<letters>" suffix (e.g. "-B", "-Rcarpet")
+  //       that must be stripped to get the true flat number "CG506"
   //  Eternity Park:    "A2 203 Unit (Flat) Unit Cost ASTER 2 1385.000 0.000 846.000 0 0"
   //    -> unit tokens = "A2","203" (wing+flat split), building = "ASTER",
   //       the "2" right after it is the WING number, not floor - floor
   //       must come from the flat number's own digits instead.
+  let bestFloor = "";
   for(const line of lines){
-    if(/Unit\s*\(Flat\)/.test(line) && /Unit Cost/i.test(line)){
+    if(/Unit\s*\([^)]*\)/.test(line) && /Unit Cost/i.test(line)){
       const tokens = line.trim().split(/\s+/);
-      const flatIdx = tokens.findIndex(t=>/^Unit$/i.test(t) && tokens[tokens.indexOf(t)+1]==="(Flat)");
-      // Everything before "Unit (Flat)" is the unit-number token(s).
-      const unitTokens = tokens.slice(0, flatIdx);
-      r.unitNo = unitTokens.join("-").replace(/-+/g,"-");
+      const flatIdx = tokens.findIndex((t,i)=>/^Unit$/i.test(t) && /^\(/.test(tokens[i+1]||""));
+      if(flatIdx<0) continue;
+      // Everything before "Unit (...)" is the unit-number token(s).
+      let unitTokens = tokens.slice(0, flatIdx);
+      // Strip a trailing "-<letters>" suffix from a single-token flat number
+      // (e.g. "CG506-B" / "CG506-Rcarpet" -> "CG506"). Eternity Park's
+      // wing+flat split ("A2","203") is two separate tokens, so it's
+      // unaffected by this check.
+      if(unitTokens.length===1){
+        const m = unitTokens[0].match(/^([A-Za-z]*\d+)-[A-Za-z]+$/);
+        if(m) unitTokens = [m[1]];
+      }
+      if(!r.unitNo) r.unitNo = unitTokens.join("-").replace(/-+/g,"-");
       const idx = tokens.findIndex(t=>t.toLowerCase()==="cost");
       if(idx>=0 && tokens.length>idx+1){
         let bKey = tokens[idx+1].toUpperCase();
@@ -578,18 +592,21 @@ function parseLedger(text){
         // flat number's own digits instead of this line.
         if(unitTokens.length>=2 && nextTok && /^\d+$/.test(nextTok)){
           bKey = bKey + " " + nextTok;
-          r.floor = deriveFloor(unitTokens[unitTokens.length-1]);
+          bestFloor = bestFloor || deriveFloor(unitTokens[unitTokens.length-1]);
         } else {
           // Micromega/Ananta style: next integer token after building name is floor.
           for(let k=idx+2;k<tokens.length;k++){
-            if(/^\d+$/.test(tokens[k])){ r.floor = tokens[k]; break; }
+            if(/^\d+$/.test(tokens[k])){ bestFloor = bestFloor || tokens[k]; break; }
           }
         }
-        r.buildingKey = bKey;
+        if(!r.buildingKey) r.buildingKey = bKey;
       }
-      break;
     }
   }
+  if(bestFloor) r.floor = bestFloor;
+  // Fallback: if no line gave a floor number directly, derive it from the
+  // flat number's own digits (matches Ananta's "CG506" -> floor 5).
+  if(!r.floor && r.unitNo) r.floor = deriveFloor(r.unitNo);
 
   // Carpet / Balcony / Wash area: third-from-last numeric token on the
   // relevant line. Balcony wording differs by project: "RERA BALCONY AREA"
