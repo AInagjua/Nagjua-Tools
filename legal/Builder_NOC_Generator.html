@@ -620,13 +620,19 @@ function parseLedger(text){
         let bKey = tokens[idx+1].toUpperCase();
         const nextTok = tokens[idx+2];
         // If the ledger's unit line had 2+ leading tokens (wing+flat split,
-        // e.g. "A2","203"), this is Eternity Park style: the token right
-        // after the building name is a WING number, so fold it into the
-        // building key ("ASTER"+"2" -> "ASTER 2") and derive floor from the
-        // flat number's own digits instead of this line.
-        if(unitTokens.length>=2 && nextTok && /^\d+$/.test(nextTok)){
-          bKey = bKey + " " + nextTok;
-          bestFloor = bestFloor || deriveFloor(unitTokens[unitTokens.length-1]);
+        // e.g. "A1","301"), this is Eternity Park style. The wing number
+        // comes from the wing-prefix token itself (e.g. "A1" -> wing "1"),
+        // NOT from the number that follows the building name — that number
+        // is actually the FLOOR in this layout (confirmed against a real
+        // ledger: "A1 301 Unit (Flat) Unit Cost ASTER 3 ..." -> floor 3).
+        const wingMatch = unitTokens.length>=2 ? unitTokens[0].match(/(\d+)$/) : null;
+        if(wingMatch){
+          bKey = bKey + " " + wingMatch[1];
+          if(nextTok && /^\d+$/.test(nextTok)){
+            bestFloor = bestFloor || nextTok;
+          } else {
+            bestFloor = bestFloor || deriveFloor(unitTokens[unitTokens.length-1]);
+          }
         } else {
           // Micromega/Ananta style: next integer token after building name is floor.
           for(let k=idx+2;k<tokens.length;k++){
@@ -649,15 +655,15 @@ function parseLedger(text){
   for(const line of lines){
     if(/RERA CARPET AREA/i.test(line)){
       const nums = line.match(/[\d,]*\.\d+|\d+/g);
-      if(nums && nums.length>=3) r.carpet = parseFloat(nums[nums.length-3].replace(/,/g,""));
+      if(nums && nums.length>=3) r.carpet += parseFloat(nums[nums.length-3].replace(/,/g,""));
     }
     if(/RERA BALCONY AREA/i.test(line) || /EXCLUSIVE BALCONY/i.test(line)){
       const nums = line.match(/[\d,]*\.\d+|\d+/g);
-      if(nums && nums.length>=3) r.balcony = parseFloat(nums[nums.length-3].replace(/,/g,""));
+      if(nums && nums.length>=3) r.balcony += parseFloat(nums[nums.length-3].replace(/,/g,""));
     }
     if(/EXCLUSIVE WASH AREA/i.test(line)){
       const nums = line.match(/[\d,]*\.\d+|\d+/g);
-      if(nums && nums.length>=3) r.washArea = parseFloat(nums[nums.length-3].replace(/,/g,""));
+      if(nums && nums.length>=3) r.washArea += parseFloat(nums[nums.length-3].replace(/,/g,""));
     }
   }
 
