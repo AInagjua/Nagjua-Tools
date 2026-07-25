@@ -326,6 +326,16 @@ function ordinal(n){
   return n + (s[(v-20)%10] || s[v] || s[0]);
 }
 
+// Word-form ordinal (First, Second, ... ), used by the HDFC Format B "Sub:"
+// line which spells floors out as words rather than 1st/2nd/3rd.
+const WORD_ORDINALS = ["Ground","First","Second","Third","Fourth","Fifth","Sixth","Seventh","Eighth","Ninth","Tenth",
+  "Eleventh","Twelfth","Thirteenth","Fourteenth","Fifteenth","Sixteenth","Seventeenth","Eighteenth","Nineteenth","Twentieth"];
+function wordOrdinal(n){
+  n = parseInt(n,10);
+  if(isNaN(n)) return "";
+  return (WORD_ORDINALS[n] || ordinal(n)).toUpperCase();
+}
+
 // Same as ordinal() but wraps the suffix in <sup> for use inside the generated letter
 function ordinalHtml(n){
   const word = ordinal(n);
@@ -1189,9 +1199,12 @@ async function buildDocxBlob(overrides = {}){
       paraB([ RB("Dear Sir,") ], { indent:{} }),
       paraB([ RB("Re: Loan to "), RBBoldNoSize(buyerName) ], { indent:{left:1985, hanging:1265} }),
       paraB([
-        RB(`Sub: Flat No. ${flatNoDisp}, `),
-        ...ordinalParts(floorNum).map(part => new TextRun({ text: part.text, font:"Times New Roman", size:24, superScript: part.sup })),
-        RB(` FLOOR in the Building - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201c${p.projectName}\u201d, Srv. No. ${p.surveyShort} & others,   Amli, Silvassa. (D& N. H & DD)`)
+        RB(`Sub: Flat No. ${flatNoDisp}, ${wordOrdinal(floorNum)} FLOOR `),
+        pKey === "ANANTA"
+          ? RB(`in the Building - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cNAGJUA, ANANTA\u201d, Srv. No. ${p.surveyShort} & others,   Amli, Silvassa. (D& N. H & DD)`)
+          : pKey === "PARK"
+          ? RB(`in the Building \u2013 ${bl} Known as \u2013 ${buildingName === "BLUEBELL" ? "BLUE BELL" : buildingName}, in \u201cTHE ETERNITY PARK PHASE 2\u201d, City Survey no. ${p.surveyShort}, Chala, Vapi, Gujarat.`)
+          : RB(`in the Building \u2013 ${bl} known as ${buildingName} situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230.`)
       ], { indent:{left:1985, hanging:1265} }),
       paraB([
         RB("This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration "),
