@@ -129,7 +129,7 @@
 
   <div class="card">
 
-    <div class="section-title" style="margin-top:0;">Quick Fill from Ledger (optional)</div>
+    <div class="section-title" style="margin-top:0;">1. Upload Ledger</div>
     <div class="row">
       <div class="field" style="flex:1 1 100%;">
         <label>Upload Ledger PDF</label>
@@ -141,31 +141,7 @@
     <button class="btn" style="margin-top:8px;background:var(--gold);" onclick="readLedger()">Read Ledger &amp; Fill Fields</button>
     <div class="msg" id="ledgerMsg"></div>
 
-    <div class="section-title">1. Selections</div>
-
-    <div class="row">
-      <div class="field">
-        <label>Bank</label>
-        <select id="bank" onchange="onBankChange()">
-          <option value="ICICI">ICICI Bank Limited</option>
-          <option value="HDFC">HDFC Bank Ltd</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Bank Address</label>
-        <input id="bankAddress" placeholder="Auto-filled, editable">
-      </div>
-    </div>
-
-    <div class="row" id="hdfcFormatRow" style="display:none;">
-      <div class="field">
-        <label>HDFC Letter Format</label>
-        <select id="hdfcFormat">
-          <option value="A">Branch copy (Verdana, addressed to local HDFC branch)</option>
-          <option value="B">Head Office copy (Times New Roman, addressed to HDFC House, Vadodara)</option>
-        </select>
-      </div>
-    </div>
+    <div class="section-title">2. Info Columns</div>
 
     <div class="row">
       <div class="field">
@@ -189,8 +165,6 @@
     <div class="auto-box" id="lookupBox">
       Project/building details (survey no., development permission, block letter, company) will appear here once a building is selected.
     </div>
-
-    <div class="section-title">2. Buyer &amp; Flat Details</div>
 
     <div class="row">
       <div class="field" style="flex:1 1 100%;">
@@ -243,8 +217,35 @@
       </div>
     </div>
 
+    <div class="section-title">3. Bank &amp; Format</div>
+
+    <div class="row">
+      <div class="field">
+        <label>Bank</label>
+        <select id="bank" onchange="onBankChange()">
+          <option value="ICICI">ICICI Bank Limited</option>
+          <option value="HDFC">HDFC Bank Ltd</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Bank Address</label>
+        <input id="bankAddress" placeholder="Auto-filled, editable">
+      </div>
+    </div>
+
+    <div class="row" id="hdfcFormatRow" style="display:none;">
+      <div class="field">
+        <label>HDFC Letter Format</label>
+        <select id="hdfcFormat">
+          <option value="A">Branch copy (Verdana, addressed to local HDFC branch)</option>
+          <option value="B">Head Office copy (Times New Roman, addressed to HDFC House, Vadodara)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">4. Preview</div>
+
     <button class="btn" style="background:#5a6a7a;" onclick="previewLetter()">👁 Preview Letter</button>
-    <button class="btn" onclick="generateLetter()">Generate Letter (.doc)</button>
     <div class="msg" id="msg"></div>
 
     <div id="previewPanel" style="display:none; margin-top:16px;">
@@ -259,6 +260,9 @@
       <div style="font-size:13px;color:#475569;margin-bottom:12px;">Edit any paragraph below before generating — your changes will be included in the downloaded letter. The letterhead, footer, and other fixed formatting stay exactly as shown above.</div>
       <div id="reviewFields"></div>
     </div>
+
+    <div class="section-title">5. Generate</div>
+    <button class="btn" onclick="generateLetter()">Generate Letter (.doc)</button>
 
   </div>
 </div>
