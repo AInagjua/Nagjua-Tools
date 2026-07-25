@@ -468,6 +468,10 @@ function detectBuildingFromFlatNo(flatNo){
 function populateBuildingDropdown(){
   const sel = document.getElementById("building");
   sel.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "-- Select building --";
+  sel.appendChild(placeholder);
   Object.keys(PROJECTS).forEach(pKey=>{
     const p = PROJECTS[pKey];
     const grp = document.createElement("optgroup");
@@ -484,6 +488,12 @@ function populateBuildingDropdown(){
 
 function onBuildingChange(){
   const bName = document.getElementById("building").value;
+  if(!bName){
+    document.getElementById("lookupBox").innerHTML =
+      "Project/building details (survey no., development permission, block letter, company) will appear here once a building is selected.";
+    document.getElementById("floor").value = "";
+    return;
+  }
   const pKey = BUILDING_TO_PROJECT[bName];
   const p = PROJECTS[pKey];
   const bl = blockLetter(bName);
@@ -799,6 +809,8 @@ function readLedger(){
     onBuildingChange();
     filled.push("Building/Project");
   } else {
+    document.getElementById("building").value = "";
+    onBuildingChange();
     notFound.push("Building/Project");
   }
 
