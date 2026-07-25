@@ -137,12 +137,7 @@
         <div class="hint">Select the ledger PDF directly &mdash; no need to copy/paste text.</div>
       </div>
     </div>
-    <div class="row">
-      <div class="field" style="flex:1 1 100%;">
-        <label>Or Paste Ledger Text</label>
-        <textarea id="ledgerText" rows="4" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-family:inherit;" placeholder="Only needed if PDF upload doesn't work for a file."></textarea>
-      </div>
-    </div>
+    <textarea id="ledgerText" style="display:none;"></textarea>
     <button class="btn" style="margin-top:8px;background:var(--gold);" onclick="readLedger()">Read Ledger &amp; Fill Fields</button>
     <div class="msg" id="ledgerMsg"></div>
 
