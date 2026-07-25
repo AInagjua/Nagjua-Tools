@@ -889,6 +889,12 @@ async function buildDocxBlob(overrides = {}){
   const agreementDate = fmtDateDMY(document.getElementById("agreementDate").value);
   const letterDate = fmtDateDMY(document.getElementById("letterDate").value);
 
+  if(remainingAmount < 0){
+    msg.textContent = "Amount Paid (Rs." + fmtAmount(paidAmount) + ") is more than Total Consideration (Rs." + fmtAmount(totalAmount) + "). Please check these two figures before generating — one of them looks incorrect.";
+    msg.className = "msg err";
+    return null;
+  }
+
   if(!buyerName || !flatNo || !totalAmount || !letterDate){
     msg.textContent = "Please fill Buyer Name, Flat No., Total Amount and Letter Date.";
     msg.className = "msg err";
