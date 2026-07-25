@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Margin Receipt Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --navy:#1b2a4a;
+    --navy-dark:#101a30;
+    --gold:#c9a227;
+    --bg:#f4f5f7;
+    --border:#d7dae0;
+    --text:#1e2430;
+    --danger:#c0392b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:'Segoe UI',Arial,sans-serif;
+    background:var(--bg);
+    margin:0;
+    padding:24px;
+    color:var(--text);
+  }
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{
+    font-size:22px;
+    color:var(--navy);
+    margin:0 0 4px;
+  }
+  .sub{color:#6b7280;font-size:13px;margin-bottom:20px;}
+  .card{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:20px 22px;
+    margin-bottom:18px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.03);
+  }
+  .card h2{
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--navy);
+    margin:0 0 14px;
+    border-bottom:2px solid var(--gold);
+    padding-bottom:8px;
+  }
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;}
+  .field{flex:1;min-width:160px;display:flex;flex-direction:column;gap:5px;}
+  label{font-size:12px;font-weight:600;color:#4b5563;}
+  input,select{
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:5px;
+    font-size:14px;
+    background:#fff;
+    color:var(--text);
+  }
+  input:focus,select:focus{outline:none;border-color:var(--navy);}
+  .tx-table{width:100%;border-collapse:collapse;margin-top:6px;}
+  .tx-table th{
+    background:var(--navy);
+    color:#fff;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    padding:8px 6px;
+    text-align:left;
+  }
+  .tx-table td{
+    padding:6px;
+    border-bottom:1px solid var(--border);
+  }
+  .tx-table input{width:100%;padding:6px 8px;font-size:13px;}
+  .tx-table .amt{text-align:right;}
+  .rm-btn{
+    background:none;border:none;color:var(--danger);
+    cursor:pointer;font-size:16px;font-weight:700;padding:2px 8px;
+  }
+  .rm-btn:hover{background:#fdecea;border-radius:4px;}
+  .add-btn{
+    margin-top:10px;
+    background:#fff;
+    border:1px dashed var(--navy);
+    color:var(--navy);
+    padding:7px 14px;
+    border-radius:5px;
+    cursor:pointer;
+    font-size:13px;
+    font-weight:600;
+  }
+  .add-btn:hover{background:#eef1f7;}
+  .total-line{
+    display:flex;justify-content:flex-end;gap:10px;
+    margin-top:12px;font-size:14px;font-weight:700;color:var(--navy);
+  }
+  .words-line{
+    margin-top:4px;font-size:12px;color:#6b7280;text-align:right;font-style:italic;
+  }
+  .gen-btn{
+    display:block;
+    width:100%;
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    padding:13px;
+    font-size:15px;
+    font-weight:700;
+    border-radius:6px;
+    cursor:pointer;
+    letter-spacing:.02em;
+  }
+  .gen-btn:hover{background:var(--navy-dark);}
+  .gen-btn:disabled{background:#9aa3b2;cursor:not-allowed;}
+  .status{
+    margin-top:10px;font-size:13px;text-align:center;min-height:18px;
+  }
+  .status.ok{color:#1a7a3c;}
+  .status.err{color:var(--danger);}
+  .hint{font-size:11px;color:#9aa3b2;margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Margin Receipt Generator</h1>
+  <div class="sub">Nagjua Group &mdash; Cash/Bank Receipt Voucher (MMP &amp; NLS)</div>
+
+  <div class="card">
+    <h2>Ledger Upload</h2>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Upload Customer Ledger (PDF)</label>
+        <input type="file" id="ledgerFile" accept="application/pdf">
+        <div class="hint">Entity, receiver, project, and transactions (Credit side only, minus EMS/Gas/GST/Society Deposit/Stamp Duty) will be auto-filled below. Review before generating.</div>
+      </div>
+    </div>
+    <div class="status" id="ledgerStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Receipt Details</h2>
+    <div class="row">
+      <div class="field">
+        <label>Project Template</label>
+        <select id="template">
+          <option value="ananta">Micromega - Nagjua Ananta</option>
+          <option value="tg">Micromega - Tropical Green</option>
+          <option value="nls">Nagjua Lifespaces</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="receiptDate">
+      </div>
+      <div class="field">
+        <label>Payment Mode</label>
+        <select id="paymentMode">
+          <option value="Cash">Cash</option>
+          <option value="Cheque">Cheque</option>
+          <option value="NEFT">NEFT</option>
+          <option value="RTGS">RTGS</option>
+          <option value="NEFT/ cheque" selected>NEFT/ cheque</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:0 0 110px;">
+        <label>Title</label>
+        <select id="receiverPrefix">
+          <option>Mr.</option>
+          <option>Mrs.</option>
+          <option>Miss</option>
+          <option>M/s.</option>
+        </select>
+      </div>
+      <div class="field" style="flex:2;">
+        <label>Received From (Name)</label>
+        <input type="text" id="receiverName" placeholder="e.g. RAUNAK VIJAYPRATAP SINGH">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Project</label>
+        <input type="text" id="project" placeholder="e.g. Flat no.206, BERYL, NAGJUA ANANTA">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Transactions</h2>
+    <table class="tx-table" id="txTable">
+      <thead>
+        <tr>
+          <th style="width:34px;">#</th>
+          <th style="width:130px;">Date</th>
+          <th>Bank Name</th>
+          <th style="width:160px;">Instrument No.</th>
+          <th style="width:130px;">Amount</th>
+          <th style="width:34px;"></th>
+        </tr>
+      </thead>
+      <tbody id="txBody"></tbody>
+    </table>
+    <button class="add-btn" id="addRowBtn" type="button">+ Add Row</button>
+    <div class="total-line">TOTAL: <span id="totalDisplay">0.00</span></div>
+    <div class="words-line" id="wordsDisplay"></div>
+  </div>
+
+  <button class="gen-btn" id="generateBtn" type="button">Generate Receipt (.xlsx)</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+// ============================================================
+// Indian numbering helpers
+// ============================================================
+function indianGroup(numStr) {
+  if (numStr.length <= 3) return numStr;
+  let last3 = numStr.slice(-3);
+  let rest = numStr.slice(0, -3);
+  rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+  return rest + "," + last3;
+}
+function formatIndianAmount(num) {
+  const fixed = Number(num).toFixed(2);
+  const [intPart, decPart] = fixed.split(".");
+  const sign = intPart.startsWith("-") ? "-" : "";
+  const absInt = intPart.replace("-", "");
+  return sign + indianGroup(absInt) + "." + decPart;
+}
+
+const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen",
+  "Eighteen", "Nineteen"];
+const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+function twoDigits(n) {
+  if (n < 20) return ones[n];
+  return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+}
+function threeDigits(n) {
+  const h = Math.floor(n / 100);
+  const rest = n % 100;
+  let s = "";
+  if (h) s += ones[h] + " Hundred";
+  if (rest) s += (s ? " " : "") + twoDigits(rest);
+  return s;
+}
+function numberToIndianWords(num) {
+  num = Math.floor(num); // rupee words state whole rupees only, matching sample convention
+  if (num === 0) return "Zero";
+  let crore = Math.floor(num / 10000000);
+  let lakh = Math.floor((num % 10000000) / 100000);
+  let thousand = Math.floor((num % 100000) / 1000);
+  let hundred = num % 1000;
+  let parts = [];
+  if (crore) parts.push(threeDigits(crore) + " Crore");
+  if (lakh) parts.push(threeDigits(lakh) + " Lakh");
+  if (thousand) parts.push(threeDigits(thousand) + " Thousand");
+  if (hundred) parts.push(threeDigits(hundred));
+  return parts.join(" ");
+}
+
+function fmtDateDMY(d) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}.${mm}.${yyyy}`;
+}
+function fmtDateSlash(d) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+function parseLocalDate(str) {
+  // str = "YYYY-MM-DD" from <input type=date>, avoid UTC shift bugs
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// ============================================================
+// Excel generation (multi-template, verified against ANANTA/TG/RECEIPT_FORMAT samples)
+// ============================================================
+const THIN = { style: "thin" };
+const MEDIUM = { style: "medium" };
+function b(style) { return style === "thin" ? THIN : style === "medium" ? MEDIUM : undefined; }
+
+const TEMPLATES = {
+  ananta: {
+    companyName: "MICROMEGA PROJECTS",
+    columnWidths: [7.5, 15.75, 26.0, 20.375, 19.375],
+    receivedFromFont: "Arial",
+    receivedFromRowHeight: 38.25,
+    projectRowHeight: 24,
+    dateColon: "DATE: ",
+    projectRightBorder: "thin",
+    projectVerticalAlign: undefined,
+    projectPhrase: (flatNo, projectName) => `Flat no.${flatNo}, ${projectName}`,
+    spacerCount: 2,
+    headerFont: "Times New Roman",
+    headerVerticalAlign: "middle",
+    headerTopBorder: "thin",
+    txColFonts: ["Verdana", "Verdana", "Verdana", "Verdana", "Verdana"],
+    txColSizes: [11, 11, 11, 11, 11],
+    dateIsRealDate: false,
+    totalStyle: "indian-text",
+    totalFontName: "Verdana",
+    totalFontSize: 11,
+    wordsRowBordered: false,
+    wordsPhrase: (words) => `₹ (In words):  ${words} Only.`,
+    paymentSeparateField: false,
+  },
+  tg: {
+    companyName: "MICROMEGA PROJECTS",
+    columnWidths: [7.5, 11.25, 28.625, 21.875, 19.75],
+    receivedFromFont: "Georgia",
+    receivedFromRowHeight: 27.75,
+    projectRowHeight: 39,
+    dateColon: "DATE:",
+    projectRightBorder: "medium",
+    projectVerticalAlign: "top",
+    projectPhrase: (flatNo, projectName) => `Flat no. ${flatNo}  in Building ${projectName}`,
+    spacerCount: 0,
+    headerFont: "Arial",
+    headerVerticalAlign: "middle",
+    headerTopBorder: "medium",
+    txColFonts: ["Arial", "Arial", "Verdana", "Arial", "Verdana"],
+    txColSizes: [12, 11, 11, 11, 11],
+    dateIsRealDate: true,
+    totalStyle: "currency-symbol-western",
+    totalFontName: "Arial",
+    totalFontSize: 18,
+    wordsRowBordered: true,
+    wordsPhrase: (words) => `₹ (In words) : ${words} Only `,
+    paymentSeparateField: true,
+  },
+  nls: {
+    companyName: "NAGJUA LIFESPACES",
+    columnWidths: [7.5, 11.25, 28.625, 21.0, 18.25],
+    receivedFromFont: "Georgia",
+    receivedFromRowHeight: 27.75,
+    projectRowHeight: 24,
+    dateColon: "DATE:",
+    projectRightBorder: "thin",
+    projectVerticalAlign: undefined,
+    projectPhrase: (flatNo, projectName) => `Flat no. ${flatNo} In ${projectName}`,
+    spacerCount: 2,
+    headerFont: "Arial",
+    headerVerticalAlign: undefined,
+    headerTopBorder: "thin",
+    txColFonts: ["Arial", "Arial", "Arial", "Arial", "Arial"],
+    txColSizes: [12, 11, 11, 11, 11],
+    dateIsRealDate: true,
+    totalStyle: "plain-western",
+    totalFontName: "Arial",
+    totalFontSize: 18,
+    wordsRowBordered: false,
+    wordsPhrase: (words) => `₹ (In Words):  ${words} Only `,
+    paymentSeparateField: true,
+  }
+};
+
+async function buildReceipt({ templateKey, receiverPrefix, receiverName, projectText, date, transactions, paymentMode }) {
+  const T = TEMPLATES[templateKey];
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Sheet1", {
+    pageSetup: {
+      orientation: "portrait", paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      margins: { left: 0.25, right: 0.25, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 }
+    }
+  });
+  ws.columns = T.columnWidths.map(w => ({ width: w }));
+
+  const N = transactions.length;
+  let beingRow, headerRow, txStart;
+  if (T.spacerCount === 2) { beingRow = 9; headerRow = 11; txStart = 12; }
+  else { beingRow = 8; headerRow = 9; txStart = 10; }
+
+  const txEnd = txStart - 1 + N;
+  const blankFiller = txEnd + 1;
+  const totalRow = blankFiller + 1;
+  const spacerA = totalRow + 1, spacerB = totalRow + 2;
+  const wordsRow1 = totalRow + 3;
+  const wordsRowCount = T.wordsRowBordered ? 1 : 2;
+  const wordsRow2 = wordsRow1 + wordsRowCount - 1; // only meaningful when not bordered
+  const spacerC = wordsRow1 + wordsRowCount, spacerD = spacerC + 1;
+  const paymentRow = spacerD + 1;
+  const spacerE = paymentRow + 1, spacerF = paymentRow + 2, spacerG = paymentRow + 3;
+  const signRow = spacerG + 1;
+  const bottomRow = signRow + 1;
+
+  function setCell(addr, value, { font, align, border, numFmt } = {}) {
+    const cell = ws.getCell(addr);
+    if (value !== undefined) cell.value = value;
+    if (font) cell.font = font;
+    if (align) cell.alignment = align;
+    if (border) cell.border = border;
+    if (numFmt) cell.numFmt = numFmt;
+    return cell;
+  }
+
+  // --- Fixed header rows 1-5 ---
+  ws.mergeCells("A1:E1"); ws.getRow(1).height = 23.25;
+  setCell("A1", "RECEIPT", { font: { name: "Arial", size: 18, bold: true }, align: { horizontal: "center" }, border: { top: MEDIUM, left: MEDIUM, right: MEDIUM } });
+
+  ws.mergeCells("A2:E2"); ws.getRow(2).height = 45;
+  setCell("A2", T.companyName, { font: { name: "Arial Black", size: 29 }, align: { horizontal: "center" }, border: { left: MEDIUM, right: MEDIUM } });
+
+  ws.mergeCells("A3:E3"); ws.getRow(3).height = 15;
+  setCell("A3", "Reg. Off.: Nagjua 29/32, Garden City Samrvarni, Silvassa -396230. D&NH.(U.T).", { font: { name: "Arial", size: 11, bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { left: MEDIUM, right: MEDIUM } });
+
+  ws.mergeCells("A4:E4"); ws.getRow(4).height = 39.75;
+  setCell("A4", "CASH/BANK RECEIPT VOUCHER", { font: { name: "Arial", size: 12, bold: true }, align: { horizontal: "center", vertical: "middle" }, border: { top: MEDIUM, left: MEDIUM, right: MEDIUM } });
+
+  ws.getRow(5).height = 26.25;
+  setCell("A5", undefined, { align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM } });
+  setCell("E5", `${T.dateColon}${fmtDateSlash(date).replace(/\//g, '.')}`, { font: { name: "Arial", size: 12, bold: true }, border: { right: MEDIUM } });
+
+  // Row 6: Received From
+  ws.mergeCells("A6:E6"); ws.getRow(6).height = T.receivedFromRowHeight;
+  setCell("A6", `Received From:      ${receiverPrefix} ${receiverName}`, { font: { name: T.receivedFromFont, size: 12, bold: true }, align: { horizontal: "left", vertical: "middle" }, border: { top: MEDIUM, bottom: THIN, left: MEDIUM, right: THIN } });
+
+  // Row 7: Project
+  ws.mergeCells("A7:E7"); ws.getRow(7).height = T.projectRowHeight;
+  setCell("A7", `Project: ${projectText}`, {
+    font: { name: "Arial", size: 14, bold: true },
+    align: { horizontal: "left", vertical: T.projectVerticalAlign, wrapText: true },
+    border: { top: THIN, bottom: THIN, left: MEDIUM, right: b(T.projectRightBorder) }
+  });
+
+  // Spacer / Being-the-amount / Header
+  if (T.spacerCount === 2) {
+    setCell("A8", undefined, { align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM } });
+    setCell("E8", undefined, { align: { horizontal: "left", wrapText: true }, border: { right: MEDIUM } });
+  }
+  ws.mergeCells(`A${beingRow}:E${beingRow}`); ws.getRow(beingRow).height = 23.25;
+  setCell(`A${beingRow}`, "Being the amount received towards the following:", { font: { name: "Arial", size: 12, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { left: MEDIUM, right: MEDIUM } });
+  if (T.spacerCount === 2) {
+    setCell(`A${beingRow + 1}`, undefined, { align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM } });
+    setCell(`E${beingRow + 1}`, undefined, { align: { horizontal: "left", wrapText: true }, border: { right: MEDIUM } });
+  }
+
+  ws.getRow(headerRow).height = 18;
+  const headers = ["SR.NO.", "DATE", " BANK NAME", "INSTRUMENT NO.", "AMOUNT"];
+  ["A", "B", "C", "D", "E"].forEach((col, i) => {
+    setCell(`${col}${headerRow}`, headers[i], {
+      font: { name: T.headerFont, size: 12, bold: true },
+      align: { horizontal: "center", vertical: T.headerVerticalAlign || "middle", wrapText: true },
+      border: { top: b(T.headerTopBorder), bottom: THIN, left: col === "A" ? MEDIUM : THIN, right: col === "E" ? MEDIUM : THIN }
+    });
+  });
+
+  // Transaction rows
+  transactions.forEach((tx, idx) => {
+    const r = txStart + idx;
+    ws.getRow(r).height = 21;
+    setCell(`A${r}`, idx + 1, { font: { name: T.txColFonts[0], size: T.txColSizes[0], bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
+
+    if (T.dateIsRealDate) {
+      setCell(`B${r}`, tx.date, { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN }, numFmt: "mm-dd-yy" });
+    } else {
+      setCell(`B${r}`, fmtDateSlash(tx.date), { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN } });
+    }
+
+    setCell(`C${r}`, tx.bank, { font: { name: T.txColFonts[2], size: T.txColSizes[2], bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN } });
+    setCell(`D${r}`, tx.instrument, { font: { name: T.txColFonts[3], size: T.txColSizes[3], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN }, numFmt: "@" });
+    setCell(`E${r}`, tx.amount, { font: { name: T.txColFonts[4], size: T.txColSizes[4], bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: "#,##0.00" });
+  });
+
+  // Blank filler row
+  ws.getRow(blankFiller).height = 18;
+  setCell(`A${blankFiller}`, undefined, { font: { name: T.txColFonts[0], size: T.txColSizes[0], bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
+  ["B", "C", "D"].forEach((col, i) => setCell(`${col}${blankFiller}`, undefined, { font: { name: T.txColFonts[i + 1], size: T.txColSizes[i + 1], bold: true }, align: { horizontal: col === "C" ? "left" : "center", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN } }));
+  setCell(`E${blankFiller}`, undefined, { font: { name: T.txColFonts[4], size: T.txColSizes[4], bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM } });
+
+  // TOTAL row
+  const total = transactions.reduce((s, t) => s + Number(t.amount), 0);
+  ws.mergeCells(`A${totalRow}:D${totalRow}`); ws.getRow(totalRow).height = 22.5;
+  setCell(`A${totalRow}`, "TOTAL" + (T.totalStyle === "indian-text" ? "" : ":"), { font: { name: "Arial", size: 12, bold: true }, align: { horizontal: "center", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
+
+  if (T.totalStyle === "indian-text") {
+    setCell(`E${totalRow}`, formatIndianAmount(total), { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM } });
+  } else if (T.totalStyle === "currency-symbol-western") {
+    setCell(`E${totalRow}`, total, { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: '"₹"\\ #,##0.00' });
+  } else {
+    setCell(`E${totalRow}`, total, { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: "#,##0" });
+  }
+
+  // Spacers after total
+  ws.getRow(spacerA).height = 22.5;
+  setCell(`A${spacerA}`, undefined, { align: { horizontal: "right", wrapText: true }, border: { left: MEDIUM } });
+  setCell(`E${spacerA}`, undefined, { align: { horizontal: "right", wrapText: true }, border: { right: MEDIUM } });
+  setCell(`A${spacerB}`, undefined, { align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM } });
+  setCell(`E${spacerB}`, undefined, { border: { right: MEDIUM } });
+
+  // Words row
+  const wordsText = T.wordsPhrase(numberToIndianWords(total));
+  if (T.wordsRowBordered) {
+    ws.mergeCells(`A${wordsRow1}:E${wordsRow1}`); ws.getRow(wordsRow1).height = 39.75;
+    setCell(`A${wordsRow1}`, wordsText, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: MEDIUM, bottom: THIN, left: MEDIUM, right: THIN } });
+  } else {
+    ws.mergeCells(`A${wordsRow1}:E${wordsRow2}`);
+    ws.getRow(wordsRow1).height = 18; ws.getRow(wordsRow2).height = 18;
+    setCell(`A${wordsRow1}`, wordsText, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM, right: MEDIUM } });
+  }
+
+  [spacerC, spacerD].forEach(r => {
+    ws.getRow(r).height = 18;
+    setCell(`A${r}`, undefined, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM } });
+    setCell(`E${r}`, undefined, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { right: MEDIUM } });
+  });
+
+  // Payment row
+  if (T.paymentSeparateField) {
+    ws.mergeCells(`A${paymentRow}:C${paymentRow}`); ws.getRow(paymentRow).height = 18;
+    setCell(`A${paymentRow}`, "Received by Cash/ Cheque:", { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true } });
+    setCell(`D${paymentRow}`, paymentMode, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true } });
+    setCell(`E${paymentRow}`, undefined, { border: { right: MEDIUM } });
+    setCell(`A${paymentRow}`, "Received by Cash/ Cheque:", { border: { left: MEDIUM } });
+  } else {
+    ws.mergeCells(`A${paymentRow}:D${paymentRow}`); ws.getRow(paymentRow).height = 18;
+    setCell(`A${paymentRow}`, `Received by Cash/ Cheque: ${paymentMode}`, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
+    setCell(`E${paymentRow}`, undefined, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM } });
+  }
+
+  [spacerE, spacerF, spacerG].forEach(r => {
+    ws.getRow(r).height = 18;
+    setCell(`A${r}`, undefined, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM } });
+    setCell(`E${r}`, undefined, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { right: MEDIUM } });
+  });
+
+  // Sign row
+  ws.mergeCells(`A${signRow}:B${signRow}`); ws.getRow(signRow).height = 54;
+  setCell(`A${signRow}`, "Prepared  by", { font: { name: "Arial", size: 13, bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { left: MEDIUM } });
+  setCell(`C${signRow}`, "Approved by", { font: { name: "Arial", size: 13, bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true } });
+  setCell(`E${signRow}`, "Receiver's Sign", { font: { name: "Arial", size: 13, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { right: MEDIUM } });
+
+  // Bottom
+  ws.getRow(bottomRow).height = 15;
+  ["A", "B", "C", "D", "E"].forEach(col => setCell(`${col}${bottomRow}`, undefined, { border: { bottom: MEDIUM, left: col === "A" ? MEDIUM : undefined, right: col === "E" ? MEDIUM : undefined } }));
+
+  return { workbook: wb, total };
+}
+
+
+// ============================================================
+// Ledger PDF parsing (verified against real Nagjua ledger export)
+// ============================================================
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const EXCLUDE_PATTERNS = [/\(EMS\b/i, /\(GAS\b/i, /\(GST\b/i, /\(SOCIETY DEP/i, /\(STAMP DUTY/i];
+
+async function extractLedgerLines(file) {
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+  let allLines = [];
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    const page = await doc.getPage(pageNum);
+    const content = await page.getTextContent();
+    const items = content.items.map(it => ({
+      str: it.str, x: it.transform[4], y: Math.round(it.transform[5])
+    }));
+    const lineMap = new Map();
+    for (const it of items) {
+      if (!it.str.trim()) continue;
+      const key = it.y;
+      if (!lineMap.has(key)) lineMap.set(key, []);
+      lineMap.get(key).push(it);
+    }
+    const sortedYs = Array.from(lineMap.keys()).sort((a, b) => b - a);
+    for (const y of sortedYs) {
+      const lineItems = lineMap.get(y).sort((a, b) => a.x - b.x);
+      const lineText = lineItems.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim();
+      if (lineText) allLines.push(lineText);
+    }
+  }
+  return allLines;
+}
+
+function parseLedgerLines(lines) {
+  const companyName = lines[0] || "";
+  const entity = /NAGJUA LIFESPACES/i.test(companyName) ? "NLS" :
+                 /MICROMEGA PROJECTS/i.test(companyName) ? "MMP" : null;
+
+  let receiverFull = "";
+  let projectName = "";
+  for (let i = 0; i < lines.length; i++) {
+    if (/^Name of party/i.test(lines[i]) && i > 0) receiverFull = lines[i - 1];
+    if (/^Name of project/i.test(lines[i]) && i > 0) projectName = lines[i - 1];
+  }
+  let receiverPrefix = "Mr.", receiverName = receiverFull;
+  const prefixMatch = receiverFull.match(/^(Mr\.|Mrs\.|Miss|M\/s\.?)\s*(.+)/i);
+  if (prefixMatch) { receiverPrefix = prefixMatch[1]; receiverName = prefixMatch[2].trim(); }
+
+  let flatNo = "";
+  const fullText = lines.join(' | ');
+  const flatMatch = fullText.match(/FLAT NO\.?:?\s*([A-Z0-9]{1,4}-\d{2,4})/i);
+  if (flatMatch) flatNo = flatMatch[1].toUpperCase();
+
+  // Template auto-detection: NLS always uses the "nls" template;
+  // MMP splits into "ananta" or "tg" based on project name keywords.
+  let templateKey = null;
+  if (entity === "NLS") templateKey = "nls";
+  else if (entity === "MMP") {
+    if (/ANANTA/i.test(projectName)) templateKey = "ananta";
+    else if (/TROPICAL/i.test(projectName)) templateKey = "tg";
+  }
+
+  const startIdx = lines.findIndex(l => /Date Particulars Doc Type Debit Credit Balance/i.test(l));
+  const endIdx = lines.findIndex(l => /Periodic Ledger Total/i.test(l));
+  const tableLines = lines.slice(startIdx === -1 ? 0 : startIdx + 1, endIdx === -1 ? lines.length : endIdx);
+
+  const entries = [];
+  let current = null;
+  const dateStartRe = /^(\d{2}\/\d{2}\/\d{4})\b/;
+  for (const line of tableLines) {
+    const m = line.match(dateStartRe);
+    if (m) {
+      if (current) entries.push(current);
+      current = { date: m[1], firstLine: line, lines: [line] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) entries.push(current);
+
+  const transactions = [];
+  const warnings = [];
+
+  for (const entry of entries) {
+    const blockText = entry.lines.join(' ');
+    if (!/\bRECEIPT\b/i.test(blockText)) continue;
+    if (EXCLUDE_PATTERNS.some(re => re.test(blockText))) continue;
+
+    const amtMatch = entry.firstLine.match(/([\d,]+\.\d{2,3})\s+([\d,]+\.\d{2,3})\s*([CD])\s*$/);
+    let amount = amtMatch ? parseFloat(amtMatch[1].replace(/,/g, '')) : null;
+
+    const bankMatch = blockText.match(/Drawn On:\s*([A-Za-z0-9 .&\-]+?)(?:\s*BRS Date|$)/i);
+    const bank = bankMatch ? bankMatch[1].trim() : "";
+
+    let instrument = "";
+    const chequeMatch = blockText.match(/Cheque No\.?:?\s*([A-Za-z0-9\/\-]+)/i);
+    if (chequeMatch) {
+      instrument = chequeMatch[1];
+    } else {
+      const fallbackMatch = blockText.match(/(?:UTR No\.?|RTGS No\.?|NEFT No\.?|Transaction No\.?|Ref(?:erence)? No\.?|UPI Ref\.?)[:\s]*([A-Za-z0-9\/\-]+)/i);
+      if (fallbackMatch) instrument = fallbackMatch[1];
+      else warnings.push(`No instrument no. detected for the ${fmtDateSlash(parseDMY(entry.date))} entry — please fill in manually.`);
+    }
+
+    if (amount === null) {
+      warnings.push(`Could not read the amount for the entry dated ${entry.date} — it was skipped. Please add it manually if needed.`);
+      continue;
+    }
+
+    transactions.push({ date: parseDMY(entry.date), bank, instrument, amount });
+  }
+
+  if (!entity) warnings.push("Could not detect entity (MMP/NLS) from the ledger header — please select the template manually.");
+  if (entity === "MMP" && !templateKey) warnings.push("Detected Micromega Projects, but couldn't tell Ananta vs Tropical Green from the project name — please select the template manually.");
+  if (!receiverName) warnings.push("Could not detect receiver name — please fill in manually.");
+  if (!projectName) warnings.push("Could not detect project name — please fill in manually.");
+  if (transactions.length === 0) warnings.push("No qualifying transactions found (Credit-side RECEIPT entries, excluding EMS/Gas/GST/Society Deposit/Stamp Duty).");
+
+  return { entity, templateKey, receiverPrefix, receiverName, projectName, flatNo, transactions, warnings };
+}
+
+function parseDMY(str) {
+  // str = "DD/MM/YYYY" from ledger
+  const [d, m, y] = str.split("/").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function toDateInputValue(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+document.getElementById("ledgerFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById("ledgerStatus");
+  statusEl.className = "status";
+  statusEl.textContent = "Reading ledger...";
+
+  try {
+    const lines = await extractLedgerLines(file);
+    const parsed = parseLedgerLines(lines);
+
+    if (parsed.templateKey) document.getElementById("template").value = parsed.templateKey;
+    if (parsed.receiverPrefix) document.getElementById("receiverPrefix").value = parsed.receiverPrefix;
+    if (parsed.receiverName) document.getElementById("receiverName").value = parsed.receiverName;
+    if (parsed.projectName) {
+      const tplForPhrase = TEMPLATES[parsed.templateKey || document.getElementById("template").value];
+      document.getElementById("project").value = (parsed.flatNo && tplForPhrase)
+        ? tplForPhrase.projectPhrase(parsed.flatNo, parsed.projectName)
+        : parsed.projectName;
+    }
+
+    // Clear existing rows, populate from parsed transactions
+    txBody.innerHTML = "";
+    rowCount = 0;
+    parsed.transactions.forEach(tx => {
+      addRow({
+        date: toDateInputValue(tx.date),
+        bank: tx.bank,
+        instrument: tx.instrument,
+        amount: tx.amount
+      });
+    });
+
+    if (parsed.warnings.length > 0) {
+      statusEl.className = "status err";
+      statusEl.innerHTML = "Parsed with notes:<br>" + parsed.warnings.map(w => "\u2022 " + w).join("<br>");
+    } else {
+      statusEl.className = "status ok";
+      statusEl.textContent = `Parsed successfully — ${parsed.transactions.length} transaction(s) added. Please review before generating.`;
+    }
+  } catch (err) {
+    console.error(err);
+    statusEl.className = "status err";
+    statusEl.textContent = "Could not read this PDF: " + err.message;
+  }
+});
+
+let rowCount = 0;
+const txBody = document.getElementById("txBody");
+
+function addRow(prefill) {
+  rowCount++;
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td class="rownum">${rowCount}</td>
+    <td><input type="date" class="tx-date" value="${prefill?.date || ''}"></td>
+    <td><input type="text" class="tx-bank" placeholder="e.g. BANK OF BARODA" value="${prefill?.bank || ''}"></td>
+    <td><input type="text" class="tx-instr" placeholder="Instrument No." value="${prefill?.instrument || ''}"></td>
+    <td><input type="number" step="0.01" class="tx-amt amt" placeholder="0.00" value="${prefill?.amount || ''}"></td>
+    <td><button class="rm-btn" type="button" title="Remove row">&times;</button></td>
+  `;
+  tr.querySelector(".rm-btn").addEventListener("click", () => {
+    tr.remove();
+    renumberRows();
+    updateTotals();
+  });
+  tr.querySelectorAll(".tx-amt").forEach(inp => inp.addEventListener("input", updateTotals));
+  txBody.appendChild(tr);
+  updateTotals();
+}
+
+function renumberRows() {
+  rowCount = 0;
+  txBody.querySelectorAll("tr").forEach(tr => {
+    rowCount++;
+    tr.querySelector(".rownum").textContent = rowCount;
+  });
+}
+
+function updateTotals() {
+  let total = 0;
+  txBody.querySelectorAll(".tx-amt").forEach(inp => {
+    total += Number(inp.value) || 0;
+  });
+  document.getElementById("totalDisplay").textContent = formatIndianAmount(total);
+  document.getElementById("wordsDisplay").textContent = total > 0
+    ? `₹ (In words): ${numberToIndianWords(total)} Only.`
+    : "";
+}
+
+document.getElementById("addRowBtn").addEventListener("click", () => addRow());
+
+// Default date = today
+document.getElementById("receiptDate").valueAsDate = new Date();
+
+document.getElementById("generateBtn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("status");
+  statusEl.textContent = "";
+  statusEl.className = "status";
+
+  const templateKey = document.getElementById("template").value;
+  const dateStr = document.getElementById("receiptDate").value;
+  const paymentMode = document.getElementById("paymentMode").value;
+  const receiverPrefix = document.getElementById("receiverPrefix").value;
+  const receiverName = document.getElementById("receiverName").value.trim();
+  const projectText = document.getElementById("project").value.trim();
+
+  if (!dateStr) { statusEl.textContent = "Please select a receipt date."; statusEl.className = "status err"; return; }
+  if (!receiverName) { statusEl.textContent = "Please enter the receiver's name."; statusEl.className = "status err"; return; }
+  if (!projectText) { statusEl.textContent = "Please enter the project."; statusEl.className = "status err"; return; }
+
+  const rows = Array.from(txBody.querySelectorAll("tr"));
+  if (rows.length === 0) { statusEl.textContent = "Add at least one transaction row."; statusEl.className = "status err"; return; }
+
+  const transactions = [];
+  for (const tr of rows) {
+    const dStr = tr.querySelector(".tx-date").value;
+    const bank = tr.querySelector(".tx-bank").value.trim();
+    const instrument = tr.querySelector(".tx-instr").value.trim();
+    const amount = Number(tr.querySelector(".tx-amt").value);
+    if (!dStr || !bank || !amount) {
+      statusEl.textContent = "Each transaction row needs a date, bank name, and amount.";
+      statusEl.className = "status err";
+      return;
+    }
+    transactions.push({ date: parseLocalDate(dStr), bank, instrument, amount });
+  }
+
+  const genBtn = document.getElementById("generateBtn");
+  genBtn.disabled = true;
+  genBtn.textContent = "Generating...";
+
+  try {
+    const { workbook } = await buildReceipt({
+      templateKey,
+      receiverPrefix,
+      receiverName,
+      projectText,
+      date: parseLocalDate(dateStr),
+      transactions,
+      paymentMode
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+
+    const safeName = receiverName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const safeDate = dateStr;
+    const filename = `Receipt_${safeName || "Receiver"}_${safeDate}.xlsx`;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    statusEl.textContent = `Downloaded: ${filename}`;
+    statusEl.className = "status ok";
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Error generating receipt: " + err.message;
+    statusEl.className = "status err";
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = "Generate Receipt (.xlsx)";
+  }
+});
+</script>
+</body>
+</html>
