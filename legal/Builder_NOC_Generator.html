@@ -1205,7 +1205,7 @@ async function buildDocxBlob(overrides = {}){
       ], { spacing: {...paraSpacing, after:120} }),
       makeContentPara(
         'allotment_confirm',
-        `This is to confirm that we have Allotted / Agreed to sell the above flat / tenement / plot to the above Allottee  / Purchaser for a total consideration of Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only) vide Allotment Letter / Agreement for Sale${agreementDate ? ` dated ${agreementDate}.` : ' dated'}`,
+        `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only)${agreementDate ? ` vide Allotment letter/ Agreement for Sale Dated ${agreementDate}.` : ' vide Allotment letter/ Agreement for Sale Dated'}`,
         [`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only)`], para, R, t=>RBoldNoSize(t), { spacing: {...paraSpacing, after:120} }
       ),
       para([R("")], { spacing: {...paraSpacing, after:120} }),
