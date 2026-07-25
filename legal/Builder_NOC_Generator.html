@@ -352,10 +352,18 @@ function deriveFloor(flatNo){
   return String(parseInt(floorDigits,10));
 }
 
-// Registered block letters for Eternity Park buildings that don't follow
-// the "first letter of name" pattern (confirmed: BLUEBELL is registered
-// as Building K, not B).
-const PARK_BLOCK_LETTER_OVERRIDES = { BLUEBELL: "K" };
+// Registered block letters for Eternity Park buildings (confirmed full list;
+// several don't follow a simple "first letter of name" pattern).
+const PARK_BLOCK_LETTER_OVERRIDES = {
+  JACINTA: "J",
+  NERINE: "N",
+  MAGNOLIA: "M",
+  "ASTER 1": "A1",
+  "ASTER 2": "A2",
+  BLUEBELL: "K",
+  "ELDA 1": "E1",
+  "ELDA 2": "E2"
+};
 
 function blockLetter(buildingName){
   if(!buildingName) return "";
