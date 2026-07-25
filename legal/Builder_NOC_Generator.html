@@ -1199,7 +1199,9 @@ async function buildDocxBlob(overrides = {}){
       para([ R("Re: Loan to Mr./Mrs. "), RBoldNoSize(buyerName) ], { spacing: {...paraSpacing, after:120} }),
       para([
         R(`Sub:  Flat/ Tenement/ Plot No. ${flatNoDisp} on `), ...ordRuns(floorNum),
-        R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at ${pKey === "ANANTA" ? "Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230" : p.addressLine}.`)
+        pKey === "PARK"
+          ? R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated at ${p.addressLine}.`)
+          : R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at ${pKey === "ANANTA" ? "Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230" : p.addressLine}.`)
       ], { spacing: {...paraSpacing, after:120} }),
       makeContentPara(
         'allotment_confirm',
