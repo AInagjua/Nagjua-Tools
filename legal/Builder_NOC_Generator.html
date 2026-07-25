@@ -789,21 +789,30 @@ function readLedger(){
   }
   const r = parseLedger(text);
   const filled = [];
+  const notFound = [];
 
   if(r.buyerName){ document.getElementById("buyerName").value = r.buyerName.toUpperCase(); filled.push("Buyer Name"); }
+  else { document.getElementById("buyerName").value = ""; notFound.push("Buyer Name"); }
 
   if(r.buildingKey && BUILDING_TO_PROJECT[r.buildingKey]){
     document.getElementById("building").value = r.buildingKey;
     onBuildingChange();
     filled.push("Building/Project");
+  } else {
+    notFound.push("Building/Project");
   }
 
   if(r.unitNo){ document.getElementById("flatNo").value = r.unitNo; onFlatNoChange(); filled.push("Flat No."); }
+  else { document.getElementById("flatNo").value = ""; onFlatNoChange(); notFound.push("Flat No."); }
   if(r.floor){ document.getElementById("floor").value = ordinal(r.floor); }
+  else { document.getElementById("floor").value = ""; }
 
   if(r.carpet){ document.getElementById("carpetArea").value = r.carpet; filled.push("Carpet Area"); }
+  else { document.getElementById("carpetArea").value = ""; }
   if(r.balcony){ document.getElementById("balconyArea").value = r.balcony; filled.push("Balcony Area"); }
+  else { document.getElementById("balconyArea").value = ""; }
   if(r.washArea){ document.getElementById("washArea").value = r.washArea; filled.push("Wash Area"); }
+  else { document.getElementById("washArea").value = ""; }
 
   let total = r.netBasicCost;
   const pKey = r.buildingKey ? BUILDING_TO_PROJECT[r.buildingKey] : "";
@@ -811,12 +820,17 @@ function readLedger(){
     total += r.clubAmount;
   }
   if(total){ document.getElementById("totalAmount").value = total; filled.push("Total Consideration"); }
+  else { document.getElementById("totalAmount").value = ""; notFound.push("Total Consideration"); }
   if(r.receivedBasic){ document.getElementById("paidAmount").value = r.receivedBasic; filled.push("Amount Paid"); }
+  else { document.getElementById("paidAmount").value = ""; notFound.push("Amount Paid"); }
 
   updateAmountPreview();
 
   if(filled.length){
     let msg = "Filled: " + filled.join(", ") + ". Please review before generating.";
+    if(notFound.length){
+      msg += "<br><br><b style=\"color:#b3261e;\">Could not detect from this ledger (cleared, please fill manually):</b> " + notFound.join(", ") + ".";
+    }
     if(r.receivedTotal){
       msg += "<br><br><b>Total Received (from ledger):</b> Rs."+r.receivedTotal.toLocaleString("en-IN")+".";
       if(r.excludedLines && r.excludedLines.length){
