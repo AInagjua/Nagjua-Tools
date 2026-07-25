@@ -151,7 +151,7 @@
       </div>
       <div class="field">
         <label>Flat / Unit No.</label>
-        <input id="flatNo" placeholder="e.g. HT103, 203" oninput="onFlatNoChange()">
+        <input id="flatNo" autocomplete="off" placeholder="e.g. HT103, 203" oninput="onFlatNoChange()">
       </div>
     </div>
 
@@ -169,36 +169,36 @@
     <div class="row">
       <div class="field" style="flex:1 1 100%;">
         <label>Buyer Name(s)</label>
-        <input id="buyerName" placeholder="e.g. MR. SOPAN VASANT DARADE & MRS. SONALI SOPAN DARADE">
+        <input id="buyerName" autocomplete="off" placeholder="e.g. MR. SOPAN VASANT DARADE & MRS. SONALI SOPAN DARADE">
       </div>
     </div>
 
     <div class="row">
       <div class="field">
         <label>Carpet / Built-up Area (sq.ft.)</label>
-        <input id="carpetArea" placeholder="e.g. 439">
+        <input id="carpetArea" autocomplete="off" placeholder="e.g. 439">
       </div>
       <div class="field">
         <label>Balcony Area (sq.ft.)</label>
-        <input id="balconyArea" placeholder="e.g. 36">
+        <input id="balconyArea" autocomplete="off" placeholder="e.g. 36">
       </div>
     </div>
 
     <div class="row" id="washAreaRow" style="display:none;">
       <div class="field">
         <label>Wash Area (sq.ft.)</label>
-        <input id="washArea" placeholder="e.g. 26.35">
+        <input id="washArea" autocomplete="off" placeholder="e.g. 26.35">
       </div>
     </div>
 
     <div class="row">
       <div class="field">
         <label>Total Consideration (Rs.)</label>
-        <input id="totalAmount" placeholder="e.g. 2151750" oninput="updateAmountPreview()">
+        <input id="totalAmount" autocomplete="off" placeholder="e.g. 2151750" oninput="updateAmountPreview()">
       </div>
       <div class="field">
         <label>Amount Paid (Rs.)</label>
-        <input id="paidAmount" placeholder="e.g. 223365" oninput="updateAmountPreview()">
+        <input id="paidAmount" autocomplete="off" placeholder="e.g. 223365" oninput="updateAmountPreview()">
       </div>
     </div>
 
@@ -229,7 +229,7 @@
       </div>
       <div class="field">
         <label>Bank Address</label>
-        <input id="bankAddress" placeholder="Auto-filled, editable">
+        <input id="bankAddress" autocomplete="off" placeholder="Auto-filled, editable">
       </div>
     </div>
 
@@ -850,6 +850,10 @@ function readLedger(){
 }
 
 // init
+["buyerName","flatNo","carpetArea","balconyArea","washArea","totalAmount","paidAmount"].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el) el.value = "";
+});
 onBankChange();
 populateBuildingDropdown();
 onBuildingChange();
