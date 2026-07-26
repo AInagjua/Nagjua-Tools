@@ -1198,45 +1198,58 @@ async function buildDocxBlob(overrides = {}){
       para([ R("Dear Sirs,") ], { spacing: {...paraSpacing, after:120} }),
       para([ R("Re: Loan to Mr./Mrs. "), RBoldNoSize(buyerName) ], { spacing: {...paraSpacing, after:120} }),
       para([
-        R(`Sub:  Flat/ Tenement/ Plot No. ${flatNoDisp} on `), ...ordRuns(floorNum),
-        pKey === "PARK"
-          ? R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated at ${p.addressLine}.`)
-          : R(`  Floor of the Building \u2013 ${bl} known as ${buildingName}  situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at ${pKey === "ANANTA" ? "Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230" : p.addressLine}.`)
+        R(`Sub: Flat No. ${flatNoDisp}, ${wordOrdinal(floorNum)} FLOOR `),
+        pKey === "ANANTA"
+          ? R(`in the Building - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cNAGJUA, ANANTA\u201d, Srv. No. ${p.surveyShort} & others,   Amli, Silvassa. (D& N. H & DD)`)
+          : pKey === "PARK"
+          ? R(`in the Building \u2013 ${bl} Known as \u2013 ${buildingName === "BLUEBELL" ? "BLUE BELL" : buildingName}, in \u201cTHE ETERNITY PARK PHASE 2\u201d, City Survey no. ${p.surveyShort}, Chala, Vapi, Gujarat.`)
+          : R(`in the Building  - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cTROPICAL GREENS PHASE ${pKey === "TG2B" ? "2B" : "2A"}\u201d, Srv. No. ${p.surveyShort} & others,   Kamlifaliya, Silvassa. (D& N. H & DD)`)
       ], { spacing: {...paraSpacing, after:120} }),
       makeContentPara(
         'allotment_confirm',
-        `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only)${agreementDate ? ` vide Allotment letter/ Agreement for Sale Dated ${agreementDate}.` : ' vide Allotment letter/ Agreement for Sale Dated'}`,
-        [`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWords} Only)`], para, R, t=>RBoldNoSize(t), { spacing: {...paraSpacing, after:120} }
+        pKey === "PARK"
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate || ""}.`
+          : pKey === "ANANTA"
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate || ""}.`
+          : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWords} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate || ""}.`,
+        [
+          pKey === "PARK" ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only)` :
+          pKey === "ANANTA" ? `Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWords} Only)` :
+          `Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWords} only)`,
+          `Agreement for Sale Dated ${agreementDate || ""}`,
+          `Agreement for Sale Dated   ${agreementDate || ""}`,
+          `Agreement for Sale Dated  ${agreementDate || ""}`
+        ], para, R, t=>RBoldNoSize(t), { spacing: {...paraSpacing, after:120} }
       ),
-      para([R("")], { spacing: {...paraSpacing, after:120} }),
       makeContentPara(
-        'dev_permission',
-        `We further confirm that construction of the above building / tenement is being carried in terms of the Development Permission No. ${p.devPermissionNo} issued by the competent Authority, and that there is no deviating from approved plan and permission to start construction etc.  and also that the said permission is still valid.`,
-        [p.devPermissionNo], para, R, t=>R(t,{bold:true,size:16}), { spacing: {...paraSpacing, after:120} }
+        'permissions',
+        "We confirm that we have obtained necessary permission/ approvals/ sanctions for construction of the Project from all the concerned competent authorities and the construction of the Project as well as of the flat in the Project is in accordance with the approved plans.",
+        [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:120} }
       ),
       makeContentPara(
         'possession_confirm',
-        `We also confirm that we are in possession of the above land vide Development Agreement / Power of Attorney dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, Sale, etc. .And that the same have not been revoked by the land owners.`,
-        [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:0} }
+        pKey === "PARK"
+          ? `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`
+          : `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`,
+        [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:120} }
       ),
-      para([R("")], { spacing: {...paraSpacing, after:0} }),
       makeContentPara(
         'title_assurance',
-        "We state that we are Co-Operative Housing Society We hereby assure you that said Land / Tenement / Flat / Building and land appurtenant there to are not subject to any encumbrance, charge or liability of any kind what so ever and that our title to the said property is clear and marketable and that no loan of any nature has been raised by ourselves / landowners by offering the above property as a primary / secondary / collateral security with any Banks / Financial institutions.",
+        "We hereby assure you that the said Project as well as Flats in the said Project and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable and that no loan of any nature has been raised by/ availed by ourselves and/or Landowners against the security of the above property.",
         [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:120} }
       ),
       makeContentPara(
         'mortgage_noc',
-        `We have no objection to your giving a housing loan to the said allottee / transferee / buyer and his/her/their mortgaging the said Tenement / Flat with you by security for repayment, not with standing anything to the contrary contained in the said Allotment /  Agreement. We also assure to submit the sale Deed for the aforesaid unit With ${bank.name.replace(/Ltd$/,"ltd")}. As and when executed with the borrower/s.`,
+        "We have no objection to your giving loans to the said allotee /transferee/buyer and his/her/their mortgaging the said flat by way of security for repayment for the loan availed/to be availed by him/her, notwithstanding anything to the contrary contained in the agreements which we will be entering with the said allotee/transferee/buyer. We undertake that in the event of the cancellation of the allotment/transfer/agreement for sale of the above stated unit with the said allotee/transferee/buyer for any reason whatsoever, we shall refund the amount of loan disbursed by HDFC Bank Ltd. on the above stated unit to the said allotee/transferee/buyer, directly to HDFC Bank Ltd. ",
         [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:120} }
       ),
       makeContentPara(
         'notice_undertaking',
-        `We also undertake to inform and give proper notice to the Co-Op. Housing Society / Association as and when it is formed about the Flat / tenement being so mortgaged and that we shall not accept any notice of transfer of Flat / Tenements unless it is confirmed by ${bank.name}`,
+        "We also undertake to Inform and give proper notice to the Co-operative housing society/ Association of Apartments / Body corporate etc., as and when formed, about the charge of HDFC Bank Ltd. on the above stated Flat and we shall not accept any notice of transfer of above stated Flat unless it is confirmed by HDFC Bank Ltd.",
         [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:0} }
       ),
       para([R("")], { spacing: {...paraSpacing, after:0} }),
-      makeContentPara('closing', "Yours Faithfully", [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:0} })
+      makeContentPara('closing', "Yours faithfully,", [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:0} })
     ];
   } else {
     // Format B: Head Office copy - Times New Roman 12pt, addressed to HDFC House, Vadodara
