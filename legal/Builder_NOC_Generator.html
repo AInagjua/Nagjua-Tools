@@ -1213,10 +1213,10 @@ async function buildDocxBlob(overrides = {}){
       makeContentPara(
         'allotment_confirm',
         pKey === "PARK"
-          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate || ""}.`
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate ? agreementDate + "." : ""}`
           : pKey === "ANANTA"
-          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate || ""}.`
-          : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWords} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate || ""}.`,
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate ? agreementDate + "." : ""}`
+          : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWords} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate ? agreementDate + "." : ""}`,
         [
           pKey === "PARK" ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only)` :
           pKey === "ANANTA" ? `Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWords} Only)` :
@@ -1284,10 +1284,10 @@ async function buildDocxBlob(overrides = {}){
       makeContentPara(
         'allotment_confirm',
         pKey === "PARK"
-          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate || ""}.`
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate ? agreementDate + "." : ""}`
           : pKey === "ANANTA"
-          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate || ""}.`
-          : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWordsB} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate || ""}.`,
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate ? agreementDate + "." : ""}`
+          : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWordsB} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate ? agreementDate + "." : ""}`,
         [
           pKey === "PARK" ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only)` :
           pKey === "ANANTA" ? `Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWordsB} Only)` :
