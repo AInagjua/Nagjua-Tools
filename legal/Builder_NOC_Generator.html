@@ -1261,19 +1261,23 @@ async function buildDocxBlob(overrides = {}){
           ? RB(`in the Building - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cNAGJUA, ANANTA\u201d, Srv. No. ${p.surveyShort} & others,   Amli, Silvassa. (D& N. H & DD)`)
           : pKey === "PARK"
           ? RB(`in the Building \u2013 ${bl} Known as \u2013 ${buildingName === "BLUEBELL" ? "BLUE BELL" : buildingName}, in \u201cTHE ETERNITY PARK PHASE 2\u201d, City Survey no. ${p.surveyShort}, Chala, Vapi, Gujarat.`)
-          : RB(`in the Building \u2013 ${bl} known as ${buildingName} situated on the land bearing Survey No. ${p.surveyShort ? p.surveyShort+"& others" : "(see permission no.)"}  at Amli, Silvassa, Dadra and Nagar Haveli \u2013 396230.`)
+          : RB(`in the Building  - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cTROPICAL GREENS PHASE ${pKey === "TG2B" ? "2B" : "2A"}\u201d, Srv. No. ${p.surveyShort} & others,   Kamlifaliya, Silvassa. (D& N. H & DD)`)
       ], { indent:{left:1985, hanging:1265} }),
-      paraB([
-        RB("This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration "),
-        RBBoldNoSize(`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWordsB} Only).`)
-      ], { indent:{} }),
-      paraB([ RB("We confirm that we have obtained necessary permission/ approvals/ sanctions for construction of the Project from all the concerned competent authorities and the construction of the Project as well as of the flat in the Project is in accordance with the approved plans.") ]),
-      paraB([ RB(`We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`) ]),
-      paraB([ RB("We hereby assure you that the said Project as well as Flats in the said Project and the land appurtenant thereto are not subject to any encumbrance, charge or liability of any kind whatsoever and that the entire property is free and marketable and that no loan of any nature has been raised by/ availed by ourselves and/or Landowners against the security of the above property.") ]),
       makeContentPara(
         'allotment_confirm',
-        `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWordsB} Only).`,
-        [`Rs.${fmtAmount(totalAmount)}/- ( Rupees: ${totalWordsB} Only).`], paraB, RB, t=>RBBoldNoSize(t), { indent:{} }
+        pKey === "PARK"
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate || ""}.`
+          : pKey === "ANANTA"
+          ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate || ""}.`
+          : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWordsB} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate || ""}.`,
+        [
+          pKey === "PARK" ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only)` :
+          pKey === "ANANTA" ? `Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWordsB} Only)` :
+          `Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWordsB} only)`,
+          `Agreement for Sale Dated ${agreementDate || ""}`,
+          `Agreement for Sale Dated   ${agreementDate || ""}`,
+          `Agreement for Sale Dated  ${agreementDate || ""}`
+        ], paraB, RB, t=>RBBoldNoSize(t), { indent:{} }
       ),
       makeContentPara(
         'permissions',
@@ -1282,7 +1286,9 @@ async function buildDocxBlob(overrides = {}){
       ),
       makeContentPara(
         'possession_confirm',
-        `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`,
+        pKey === "PARK"
+          ? `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`
+          : `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`,
         [], paraB, RB, t=>RB(t,{bold:true})
       ),
       makeContentPara(
