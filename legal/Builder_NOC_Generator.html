@@ -841,11 +841,11 @@ function readLedger(){
   if(r.floor){ document.getElementById("floor").value = ordinal(r.floor); }
   else { document.getElementById("floor").value = ""; }
 
-  if(r.carpet){ document.getElementById("carpetArea").value = r.carpet; filled.push("Carpet Area"); }
+  if(r.carpet){ document.getElementById("carpetArea").value = Math.round(r.carpet*100)/100; filled.push("Carpet Area"); }
   else { document.getElementById("carpetArea").value = ""; }
-  if(r.balcony){ document.getElementById("balconyArea").value = r.balcony; filled.push("Balcony Area"); }
+  if(r.balcony){ document.getElementById("balconyArea").value = Math.round(r.balcony*100)/100; filled.push("Balcony Area"); }
   else { document.getElementById("balconyArea").value = ""; }
-  if(r.washArea){ document.getElementById("washArea").value = r.washArea; filled.push("Wash Area"); }
+  if(r.washArea){ document.getElementById("washArea").value = Math.round(r.washArea*100)/100; filled.push("Wash Area"); }
   else { document.getElementById("washArea").value = ""; }
 
   let total = r.netBasicCost;
