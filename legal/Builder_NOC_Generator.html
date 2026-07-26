@@ -618,7 +618,18 @@ function parseLedger(text){
       const idx = tokens.findIndex(t=>t.toLowerCase()==="cost");
       if(idx>=0 && tokens.length>idx+1){
         let bKey = tokens[idx+1].toUpperCase();
-        const nextTok = tokens[idx+2];
+        let afterBuildingIdx = idx+2;
+        // Some ledgers write a building name as two separate tokens
+        // (e.g. "BLUE BELL" for what's registered as "BLUEBELL"). If the
+        // single-token reading isn't a known building, try joining it with
+        // the next token (both with and without a space) before giving up.
+        if(!BUILDING_TO_PROJECT[bKey] && tokens[idx+2]){
+          const joinedNoSpace = bKey + tokens[idx+2].toUpperCase();
+          const joinedSpace = bKey + " " + tokens[idx+2].toUpperCase();
+          if(BUILDING_TO_PROJECT[joinedNoSpace]){ bKey = joinedNoSpace; afterBuildingIdx = idx+3; }
+          else if(BUILDING_TO_PROJECT[joinedSpace]){ bKey = joinedSpace; afterBuildingIdx = idx+3; }
+        }
+        const nextTok = tokens[afterBuildingIdx];
         // If the ledger's unit line had 2+ leading tokens (wing+flat split,
         // e.g. "A1","301"), this is Eternity Park style. The wing number
         // comes from the wing-prefix token itself (e.g. "A1" -> wing "1"),
@@ -635,7 +646,7 @@ function parseLedger(text){
           }
         } else {
           // Micromega/Ananta style: next integer token after building name is floor.
-          for(let k=idx+2;k<tokens.length;k++){
+          for(let k=afterBuildingIdx;k<tokens.length;k++){
             if(/^\d+$/.test(tokens[k])){ bestFloor = bestFloor || tokens[k]; break; }
           }
         }
@@ -657,11 +668,16 @@ function parseLedger(text){
       const nums = line.match(/[\d,]*\.\d+|\d+/g);
       if(nums && nums.length>=3) r.carpet += parseFloat(nums[nums.length-3].replace(/,/g,""));
     }
-    if(/RERA BALCONY AREA/i.test(line) || /EXCLUSIVE BALCONY/i.test(line)){
+    // Balcony wording varies a lot across ledger exports: "RERA BALCONY AREA"
+    // (Micromega/Ananta), "EXCLUSIVE BALCONY" (Eternity Park - ASTER/BLUE BELL
+    // style), "RERA HALL BALCONY" / "RERA BEDROOM BALCONY" (Eternity Park -
+    // Magnolia/Nerine style, can have several balcony lines per flat that all
+    // need to be summed together).
+    if(/\bBALCONY\b/i.test(line) && /Unit Cost/i.test(line)){
       const nums = line.match(/[\d,]*\.\d+|\d+/g);
       if(nums && nums.length>=3) r.balcony += parseFloat(nums[nums.length-3].replace(/,/g,""));
     }
-    if(/EXCLUSIVE WASH AREA/i.test(line)){
+    if(/\bWASH AREA\b/i.test(line) && /Unit Cost/i.test(line)){
       const nums = line.match(/[\d,]*\.\d+|\d+/g);
       if(nums && nums.length>=3) r.washArea += parseFloat(nums[nums.length-3].replace(/,/g,""));
     }
