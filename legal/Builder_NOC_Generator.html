@@ -1003,9 +1003,14 @@ async function buildDocxBlob(overrides = {}){
   // Builds an editable body-content paragraph: uses any user-supplied override
   // text for this key (from the review step), records it for the next review
   // screen, and applies bold formatting to any recognized dynamic values.
+  // Keys are namespaced per bank/format (ICICI vs HDFC-A vs HDFC-B) so that
+  // switching between them without re-previewing can never leak stale edited
+  // text from one letter format into a different one.
+  const branchPrefix = bankKey === "HDFC" ? `HDFC_${hdfcFormat}_` : `${bankKey}_`;
   function makeContentPara(key, defaultText, boldValues, paraFn, plainRunFn, boldRunFn, opts={}){
-    const text = (overrides && overrides[key] != null) ? overrides[key] : defaultText;
-    editableParas.push({ key, text });
+    const nsKey = branchPrefix + key;
+    const text = (overrides && overrides[nsKey] != null) ? overrides[nsKey] : defaultText;
+    editableParas.push({ key: nsKey, text });
     return paraFn(splitBoldRuns(text, boldValues, plainRunFn, boldRunFn), opts);
   }
 
