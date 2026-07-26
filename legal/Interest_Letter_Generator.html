@@ -489,7 +489,7 @@ function parseLedgerPayments(text){
     // Amount: either "<amt>.000 <balance>.00 C" right at the start of the
     // block (Y-grouped layout), or "RECEIPT <amt>.000" further in (natural
     // reading-order layout).
-    let amtMatch = block.match(/^[\s\S]{0,400}?([\d,]+\.\d{3})\s*\n?\s*[\d,]+\.\d{2}\s*C/);
+    let amtMatch = block.match(/^[\s\S]{0,400}?([\d,]+\.\d{3})\s*\n?\s*[\d,]+\.\d{2}\s*[CD]/);
     if(!amtMatch) amtMatch = block.match(/RECEIPT\s*\n?\s*([\d,]+\.\d{3})/);
     if(!amtMatch) continue;
     const amount = parseFloat(amtMatch[1].replace(/,/g,""));
