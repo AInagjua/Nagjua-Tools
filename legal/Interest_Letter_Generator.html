@@ -195,6 +195,19 @@
   }
   .summary-tile .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
   .summary-tile .val{font-size:19px;font-weight:bold;color:var(--navy);margin-top:4px;}
+  .letter-preview-box{
+    background:#fff;
+    border:1px solid var(--border);
+    border-left:4px solid var(--gold);
+    border-radius:8px;
+    padding:28px 32px;
+    margin-top:10px;
+    font-family:"Times New Roman", Times, serif;
+    font-size:14px;
+    line-height:1.5;
+    color:#111;
+  }
+  .letter-preview-box p{margin:0 0 14px 0;text-align:justify;}
   .tabs{display:flex;gap:6px;margin-bottom:16px;}
   .tab{
     padding:9px 16px;
@@ -329,6 +342,9 @@
       <div class="section-title">4. Interest Calculation</div>
       <div class="summary-box" id="summaryTiles"></div>
       <div id="workingSheetTable"></div>
+
+      <div style="font-weight:bold;color:var(--navy);margin-top:24px;">Letter Preview</div>
+      <div id="letterPreview" class="letter-preview-box"></div>
 
       <button class="btn wide" onclick="generateInterestLetter()" style="margin-top:22px;">Generate Interest Letter (.doc)</button>
       <div class="msg" id="letterMsg"></div>
@@ -699,9 +715,13 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
   let totalInterest = 0;
 
   function addDaysISO(iso, days){
-    const d = new Date(iso+"T00:00:00");
-    d.setDate(d.getDate()+days);
-    return d.toISOString().slice(0,10);
+    const [y,m,d] = iso.split("-").map(Number);
+    const date = new Date(y, m-1, d);
+    date.setDate(date.getDate()+days);
+    const yy = date.getFullYear();
+    const mm = String(date.getMonth()+1).padStart(2,'0');
+    const dd = String(date.getDate()).padStart(2,'0');
+    return `${yy}-${mm}-${dd}`;
   }
 
   function accrueSegment(segStartISO, segEndISO, principal, note){
@@ -831,6 +851,9 @@ function runCalculation(){
   calcMsg.innerHTML = `Calculation complete. Total interest: <b>Rs. ${result.totalInterest.toLocaleString("en-IN")}</b>`;
   renderCalcResults(result, interestLetterDate, rate);
   document.getElementById("calcResults").style.display = "";
+
+  const previewModel = buildLetterContentModel(SELECTED_CUSTOMER, result, demandReminderLetters, interestEntry);
+  renderLetterPreview(previewModel);
 }
 
 function renderCalcResults(result, interestLetterDate, rate){
@@ -901,6 +924,72 @@ function b64ToBytes(b64){
 }
 
 // ---------- Letter generation (.docx), formatted after the AM102 sample ----------
+// ---------- Shared letter content model (used by both the on-screen
+// preview and the .doc generator, so they can never drift apart) ----------
+function buildLetterContentModel(c, result, demandReminderLetters, interestEntry){
+  const interestLetterDate = interestEntry.date;
+  const firstLetter = demandReminderLetters[0];
+
+  const addrLines = [];
+  if(c.address1) addrLines.push(c.address1);
+  if(c.address2) addrLines.push(c.address2);
+  if(c.address3) addrLines.push(c.address3);
+  const cityStatePin = [c.city, c.state, c.pin].filter(Boolean).join(", ");
+  if(cityStatePin) addrLines.push(cityStatePin);
+
+  const companyLabel = c.entity === "NLS" ? "Nagjua Lifespaces" : "Micromega Projects";
+
+  const subjectText = `Subject: Notice of Interest on Delayed Payments – Flat No. ${c.unit} ` +
+    (c.buildingName ? `in A Known as ${c.buildingName.toUpperCase()}, ` : '') +
+    `Project: ${c.businessUnit.toUpperCase()},`;
+
+  const para1 = `This is to bring to your notice that despite our previous reminders, the outstanding payment for Flat No. ${c.unit} ` +
+    (c.buildingName ? `in A Known as ${c.buildingName.toUpperCase()}, ` : '') +
+    `remains unsettled. Our first demand, sent on ${fmtDMY(firstLetter.date)}, indicated a total outstanding amount of Rs.${firstLetter.amount.toLocaleString("en-IN")}/- but the full payment has still not been received.`;
+
+  const para2 = `In accordance with the terms of the Agreement for Sale, interest is being levied on the pending amount at the rate of SBI MCLR + 2%. The total interest accrued on the outstanding amount till date is Rs.${fmtAmount(result.totalInterest)}/-. Please note that the interest amount may vary at the time of payment, as it will continue to accrue until the full and final payment is received.`;
+
+  const para3 = `Kindly note that the total interest amount, along with the pending principal, will be payable at the time of the Sale Deed process.`;
+
+  const para4 = `We urge you to treat this matter with urgency to ensure the timely execution of the Sale Deed. For any clarification or assistance, you may contact our office directly.`;
+
+  const para5 = `Thank you for your immediate attention to this matter.`;
+
+  return {
+    dateStr: fmtDMY(interestLetterDate),
+    customerName: c.customerName.toUpperCase(),
+    addrLines: addrLines.map(l=>l.toUpperCase()),
+    subjectText,
+    salutation: `Dear ${c.customerName},`,
+    bodyParagraphs: [para1, para2, para3, para4, para5],
+    companyLabel
+  };
+}
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderLetterPreview(model){
+  const el = document.getElementById("letterPreview");
+  if(!el) return;
+  let html = `<div style="text-align:right;font-weight:bold;margin-bottom:16px;">Date- ${escapeHtml(model.dateStr)}</div>`;
+  html += `<div style="margin-left:28px;">To,</div>`;
+  html += `<div style="margin-left:64px;font-weight:bold;">${escapeHtml(model.customerName)}</div>`;
+  html += `<div style="margin-left:64px;">&nbsp;</div>`;
+  model.addrLines.forEach(line=>{
+    html += `<div style="margin-left:64px;font-weight:bold;">${escapeHtml(line)}</div>`;
+  });
+  html += `<div style="margin-top:16px;margin-bottom:16px;">${escapeHtml(model.subjectText)}</div>`;
+  html += `<div style="margin-bottom:16px;">${escapeHtml(model.salutation)}</div>`;
+  model.bodyParagraphs.forEach(p=>{
+    html += `<p>${escapeHtml(p)}</p>`;
+  });
+  html += `<div style="margin-top:20px;">Yours sincerely,</div>`;
+  html += `<div style="font-weight:bold;">${escapeHtml(model.companyLabel)}</div>`;
+  el.innerHTML = html;
+}
+
 async function generateInterestLetter(){
   const letterMsg = document.getElementById("letterMsg");
   if(!SELECTED_CUSTOMER || !LAST_CALC_RESULT){
@@ -929,59 +1018,29 @@ async function generateInterestLetter(){
     return new Paragraph(Object.assign({ alignment: AlignmentType.JUSTIFIED, spacing:{before:120, after:120, line:276, lineRule:"auto"}, children }, opts));
   }
 
-  // Match the sample's condensed address style: each Address Line on its own
-  // line, then City + State + Pin combined onto one final line (comma-joined),
-  // rather than one field per line.
-  const addrLines = [];
-  if(c.address1) addrLines.push(c.address1);
-  if(c.address2) addrLines.push(c.address2);
-  if(c.address3) addrLines.push(c.address3);
-  const cityStatePin = [c.city, c.state, c.pin].filter(Boolean).join(", ");
-  if(cityStatePin) addrLines.push(cityStatePin);
-  const companyLabel = c.entity === "NLS" ? "Nagjua Lifespaces" : "Micromega Projects";
-  const companyLabelCaps = companyLabel.toUpperCase();
+  const model = buildLetterContentModel(c, result, demandReminderLetters, interestEntry);
 
   const children = [
-    new Paragraph({ alignment: AlignmentType.RIGHT, spacing:{after:200}, children:[ R(`Date- ${fmtDMY(interestLetterDate)}`, {bold:true}) ] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, spacing:{after:200}, children:[ R(`Date- ${model.dateStr}`, {bold:true}) ] }),
     new Paragraph({ indent:{left:400}, spacing:{after:0}, children:[ R("To,") ] }),
-    new Paragraph({ indent:{left:900}, spacing:{after:0}, children:[ R(c.customerName.toUpperCase(), {bold:true}) ] }),
+    new Paragraph({ indent:{left:900}, spacing:{after:0}, children:[ R(model.customerName, {bold:true}) ] }),
     new Paragraph({ indent:{left:900}, spacing:{after:0}, children:[ R("") ] }),
   ];
-  addrLines.forEach(line=>{
-    children.push(new Paragraph({ indent:{left:900}, spacing:{after:0}, children:[ R(line.toUpperCase(), {bold:true}) ] }));
+  model.addrLines.forEach(line=>{
+    children.push(new Paragraph({ indent:{left:900}, spacing:{after:0}, children:[ R(line, {bold:true}) ] }));
   });
   children.push(new Paragraph({ spacing:{after:200}, children:[ R("") ] }));
 
-  children.push(para([
-    R(`Subject: Notice of Interest on Delayed Payments – Flat No. ${c.unit} `),
-    ...(c.buildingName ? [R(`in A Known as ${c.buildingName.toUpperCase()}, `)] : []),
-    R(`Project: ${c.businessUnit.toUpperCase()},`)
-  ], {alignment: AlignmentType.LEFT, spacing:{before:0, after:200}}));
+  children.push(para([ R(model.subjectText) ], {alignment: AlignmentType.LEFT, spacing:{before:0, after:200}}));
 
-  children.push(new Paragraph({ spacing:{after:200}, children:[ R(`Dear ${c.customerName},`) ] }));
+  children.push(new Paragraph({ spacing:{after:200}, children:[ R(model.salutation) ] }));
 
-  children.push(para([
-    R(`This is to bring to your notice that despite our previous reminders, the outstanding payment for Flat No. ${c.unit} `),
-    ...(c.buildingName ? [R(`in A Known as ${c.buildingName.toUpperCase()}, `)] : []),
-    R(`remains unsettled. Our first demand, sent on ${fmtDMY(firstLetter.date)}, indicated a total outstanding amount of Rs.${firstLetter.amount.toLocaleString("en-IN")}/- but the full payment has still not been received.`)
-  ]));
-
-  children.push(para([
-    R(`In accordance with the terms of the Agreement for Sale, interest is being levied on the pending amount at the rate of SBI MCLR + 2%. The total interest accrued on the outstanding amount till date is Rs.${fmtAmount(result.totalInterest)}/-. Please note that the interest amount may vary at the time of payment, as it will continue to accrue until the full and final payment is received.`)
-  ]));
-
-  children.push(para([
-    R(`Kindly note that the total interest amount, along with the pending principal, will be payable at the time of the Sale Deed process.`)
-  ]));
-
-  children.push(para([
-    R(`We urge you to treat this matter with urgency to ensure the timely execution of the Sale Deed. For any clarification or assistance, you may contact our office directly.`)
-  ]));
-
-  children.push(para([ R(`Thank you for your immediate attention to this matter.`) ]));
+  model.bodyParagraphs.forEach(p=>{
+    children.push(para([ R(p) ]));
+  });
 
   children.push(new Paragraph({ spacing:{before:300, after:0}, children:[ R("Yours sincerely,") ] }));
-  children.push(new Paragraph({ spacing:{after:0}, children:[ R(companyLabel, {bold:true}) ] }));
+  children.push(new Paragraph({ spacing:{after:0}, children:[ R(model.companyLabel, {bold:true}) ] }));
 
   const doc = new Document({
     sections: [{
