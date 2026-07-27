@@ -686,7 +686,7 @@ function parseLedgerLines(lines) {
 
   let flatNo = "";
   const fullText = lines.join(' | ');
-  const flatMatch = fullText.match(/FLAT NO\.?:?\s*([A-Z0-9]{1,4}-\d{2,4})/i);
+  const flatMatch = fullText.match(/FLAT NO\.?:?\s*([A-Z0-9]{1,4}-?\d{2,4})/i);
   if (flatMatch) flatNo = flatMatch[1].toUpperCase();
 
   let buildingName = "";
@@ -748,7 +748,7 @@ function parseLedgerLines(lines) {
     if (chequeMatch) {
       instrument = chequeMatch[1];
     } else {
-      const fallbackMatch = blockText.match(/(?:UTR No\.?|RTGS No\.?|NEFT No\.?|Transaction No\.?|Ref(?:erence)? No\.?|UPI Ref\.?)[:\s]*([A-Za-z0-9\/\-]+)/i);
+      const fallbackMatch = blockText.match(/(?:UTR No\.?|RTGS No\.?|NEFT No\.?|UPI No\.?|Transaction No\.?|Ref(?:erence)? No\.?|UPI Ref\.?)[:\s]*([A-Za-z0-9\/\-]+)/i);
       if (fallbackMatch) instrument = fallbackMatch[1];
       else warnings.push(`No instrument no. detected for the ${fmtDateSlash(parseDMY(entry.date))} entry — please fill in manually.`);
     }
