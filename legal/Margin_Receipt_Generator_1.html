@@ -293,6 +293,12 @@ function formatIndianAmount(num) {
   const absInt = intPart.replace("-", "");
   return sign + indianGroup(absInt) + "." + decPart;
 }
+// Receipt/voucher style: no decimals, "/-" suffix (e.g. "2,00,000/-")
+function formatAmountSlash(num) {
+  const n = Math.round(Number(num) || 0);
+  const sign = n < 0 ? "-" : "";
+  return sign + indianGroup(String(Math.abs(n))) + "/-";
+}
 
 const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
   "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen",
@@ -357,6 +363,13 @@ function titleCaseWord(w) {
   return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
 }
 // "TROPICAL GREENS PHASE - 2A" -> "Tropical Greens 2A"
+function titleCasePhrase(s) {
+  return s.split(/\s+/).map(titleCaseWord).join(" ");
+}
+function formatNlsProjectName(projectName) {
+  const withPhase = projectName.replace(/PHASE\s*-?\s*(\d+)/i, "Phase-$1");
+  return withPhase.split(/\s+/).map(w => /\d/.test(w) ? w : titleCaseWord(w)).join(" ");
+}
 function shortenTgProjectName(projectName) {
   const stripped = projectName.replace(/\bPHASE\s*-?\s*/i, "").trim();
   return stripped.split(/\s+/).map(titleCaseWord).join(" ");
@@ -370,9 +383,10 @@ const TEMPLATES = {
     receivedFromRowHeight: 38.25,
     projectRowHeight: 24,
     dateColon: "DATE: ",
+    dateSeparator: "dot",
     projectRightBorder: "thin",
     projectVerticalAlign: undefined,
-    projectPhrase: (flatNo, buildingName, projectName) => `Flat no.${flatNo}${buildingName ? ` in Building ${buildingName}` : ""} in ${projectName.replace(/^NAGJUA\s+/i, "")}`,
+    projectPhrase: (flatNo, buildingName, projectName) => `Flat no. ${flatNo}, ${buildingName}, ${titleCasePhrase(projectName)}`,
     spacerCount: 2,
     headerFont: "Times New Roman",
     headerVerticalAlign: "middle",
@@ -394,9 +408,10 @@ const TEMPLATES = {
     receivedFromRowHeight: 27.75,
     projectRowHeight: 39,
     dateColon: "DATE:",
+    dateSeparator: "dot",
     projectRightBorder: "medium",
     projectVerticalAlign: "top",
-    projectPhrase: (flatNo, buildingName, projectName) => `Flat no. ${flatNo}${buildingName ? ` in Building ${buildingName}` : ""} In ${shortenTgProjectName(projectName)}`,
+    projectPhrase: (flatNo, buildingName, projectName) => `Flat no.${flatNo} in building ${buildingName} ${shortenTgProjectName(projectName)}`,
     spacerCount: 0,
     headerFont: "Arial",
     headerVerticalAlign: "middle",
@@ -418,9 +433,10 @@ const TEMPLATES = {
     receivedFromRowHeight: 27.75,
     projectRowHeight: 24,
     dateColon: "DATE:",
+    dateSeparator: "slash",
     projectRightBorder: "thin",
     projectVerticalAlign: undefined,
-    projectPhrase: (flatNo, buildingName, projectName) => `Flat no. ${flatNo}${buildingName ? ` in ${titleCaseWord(buildingName)}` : ""} in ${projectName}`,
+    projectPhrase: (flatNo, buildingName, projectName, wingNum) => `Flat No.${flatNo}${wingNum ? `,Wing-${wingNum}` : ""}, ${titleCaseWord(buildingName)}, ${formatNlsProjectName(projectName)}`,
     spacerCount: 2,
     headerFont: "Arial",
     headerVerticalAlign: undefined,
@@ -494,7 +510,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
 
   ws.getRow(5).height = 26.25;
   setCell("A5", undefined, { align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM } });
-  setCell("E5", `${T.dateColon}${fmtDateSlash(date).replace(/\//g, '.')}`, { font: { name: "Arial", size: 12, bold: true }, border: { right: MEDIUM } });
+  setCell("E5", `${T.dateColon}${T.dateSeparator === "slash" ? fmtDateSlash(date) : fmtDateSlash(date).replace(/\//g, '.')}`, { font: { name: "Arial", size: 12, bold: true }, border: { right: MEDIUM } });
 
   // Row 6: Received From
   ws.mergeCells("A6:E6"); ws.getRow(6).height = T.receivedFromRowHeight;
@@ -544,7 +560,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
 
     setCell(`C${r}`, tx.bank, { font: { name: T.txColFonts[2], size: T.txColSizes[2], bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN } });
     setCell(`D${r}`, tx.instrument, { font: { name: T.txColFonts[3], size: T.txColSizes[3], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN }, numFmt: "@" });
-    setCell(`E${r}`, tx.amount, { font: { name: T.txColFonts[4], size: T.txColSizes[4], bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: "#,##0.00" });
+    setCell(`E${r}`, formatAmountSlash(tx.amount), { font: { name: T.txColFonts[4], size: T.txColSizes[4], bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: "@" });
   });
 
   // Blank filler row
@@ -559,11 +575,11 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
   setCell(`A${totalRow}`, "TOTAL" + (T.totalStyle === "indian-text" ? "" : ":"), { font: { name: "Arial", size: 12, bold: true }, align: { horizontal: "center", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
 
   if (T.totalStyle === "indian-text") {
-    setCell(`E${totalRow}`, formatIndianAmount(total), { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM } });
+    setCell(`E${totalRow}`, formatAmountSlash(total), { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM } });
   } else if (T.totalStyle === "currency-symbol-western") {
-    setCell(`E${totalRow}`, total, { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: '"₹"\\ #,##0.00' });
+    setCell(`E${totalRow}`, `₹ ${formatAmountSlash(total)}`, { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: "@" });
   } else {
-    setCell(`E${totalRow}`, total, { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: "#,##0" });
+    setCell(`E${totalRow}`, formatAmountSlash(total), { font: { name: T.totalFontName, size: T.totalFontSize, bold: true }, align: { horizontal: "left", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM }, numFmt: "@" });
   }
 
   // Spacers after total
@@ -587,7 +603,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
   // Shortfall Margin line (red) - only present when there's a shortfall
   if (shortfallRow) {
     ws.mergeCells(`A${shortfallRow}:E${shortfallRow}`); ws.getRow(shortfallRow).height = 20;
-    setCell(`A${shortfallRow}`, `Shortfall Margin to be Collected: Rs. ${formatIndianAmount(shortfallAmount)}/-`, {
+    setCell(`A${shortfallRow}`, `Shortfall Margin to be Collected: Rs. ${formatAmountSlash(shortfallAmount)}`, {
       font: { name: "Arial", size: 13, bold: true, color: { argb: "FFFF0000" } },
       align: { horizontal: "left", wrapText: true },
       border: { left: MEDIUM, right: MEDIUM }
@@ -688,8 +704,17 @@ function parseLedgerLines(lines) {
   if (flatMatch) flatNo = flatMatch[1].toUpperCase();
 
   let buildingName = "";
-  const buildingMatch = fullText.match(/Unit Cost\s+([A-Z]+)\s+\d/);
-  if (buildingMatch) buildingName = buildingMatch[1].toUpperCase();
+  let wingNum = "";
+  // ASTER and ELDA each have two wings (e.g. "ASTER 1", "ASTER 2"); the digit
+  // there is a wing number, not the floor. Other buildings have no such digit.
+  const wingBuildingMatch = fullText.match(/Unit Cost\s+(ASTER|ELDA)\s+(\d)\s+\d/i);
+  if (wingBuildingMatch) {
+    buildingName = wingBuildingMatch[1].toUpperCase();
+    wingNum = wingBuildingMatch[2];
+  } else {
+    const buildingMatch = fullText.match(/Unit Cost\s+([A-Z]+)\s+\d/);
+    if (buildingMatch) buildingName = buildingMatch[1].toUpperCase();
+  }
 
   // Template auto-detection: NLS always uses the "nls" template;
   // MMP splits into "ananta" or "tg" based on project name keywords.
@@ -778,7 +803,7 @@ function parseLedgerLines(lines) {
   if (receivedMatch) receivedTillDate = parseFloat(receivedMatch[1].replace(/,/g, ''));
   else warnings.push("Could not detect cumulative 'Received till date' figure from the ledger — please enter Margin Paid manually.");
 
-  return { entity, templateKey, receiverPrefix, receiverName, projectName, flatNo, buildingName, transactions, warnings, netBasicCost, clubAmount, clubBhk, agreementValue, receivedTillDate };
+  return { entity, templateKey, receiverPrefix, receiverName, projectName, flatNo, buildingName, wingNum, transactions, warnings, netBasicCost, clubAmount, clubBhk, agreementValue, receivedTillDate };
 }
 
 function parseDMY(str) {
@@ -811,7 +836,7 @@ document.getElementById("ledgerFile").addEventListener("change", async (e) => {
     if (parsed.projectName) {
       const tplForPhrase = TEMPLATES[parsed.templateKey || document.getElementById("template").value];
       document.getElementById("project").value = (parsed.flatNo && tplForPhrase)
-        ? tplForPhrase.projectPhrase(parsed.flatNo, parsed.buildingName, parsed.projectName)
+        ? tplForPhrase.projectPhrase(parsed.flatNo, parsed.buildingName, parsed.projectName, parsed.wingNum)
         : parsed.projectName;
     }
 
@@ -927,7 +952,7 @@ function renderReceiptPreview() {
   const rawDiff = (agreementValueNum - loanAmountNum) - receivedTillDateNum;
   const shortfallAmount = rawDiff > 1 ? rawDiff : 0;
   const shortfallHtml = shortfallAmount > 0
-    ? `<div class="rp-shortfall">Shortfall Margin to be Collected: Rs. ${formatIndianAmount(shortfallAmount)}/-</div>`
+    ? `<div class="rp-shortfall">Shortfall Margin to be Collected: Rs. ${formatAmountSlash(shortfallAmount)}</div>`
     : "";
 
   const rowsHtml = transactions.map(tx => `
@@ -936,7 +961,7 @@ function renderReceiptPreview() {
       <td class="rp-c">${tx.date ? fmtDateSlash(tx.date) : ""}</td>
       <td>${escapeHtml(tx.bank)}</td>
       <td class="rp-c">${escapeHtml(tx.instrument)}</td>
-      <td class="rp-r">${tx.amount ? formatIndianAmount(tx.amount) : ""}</td>
+      <td class="rp-r">${tx.amount ? formatAmountSlash(tx.amount) : ""}</td>
     </tr>`).join("");
 
   el.innerHTML = `
@@ -944,7 +969,7 @@ function renderReceiptPreview() {
     <div class="rp-company">${escapeHtml(T.companyName)}</div>
     <div class="rp-addr">Reg. Off.: Nagjua 29/32, Garden City Samrvarni, Silvassa -396230. D&amp;NH.(U.T).</div>
     <div class="rp-voucher">CASH/BANK RECEIPT VOUCHER</div>
-    <div class="rp-date">${escapeHtml(T.dateColon)}${date ? fmtDateDMY(date) : ""}</div>
+    <div class="rp-date">${escapeHtml(T.dateColon)}${date ? (T.dateSeparator === "slash" ? fmtDateSlash(date) : fmtDateDMY(date)) : ""}</div>
     <div class="rp-line">Received From:&nbsp;&nbsp;&nbsp;&nbsp;${escapeHtml(receiverPrefix)} ${escapeHtml(receiverName)}</div>
     <div class="rp-line">Address: ${escapeHtml(projectText)}</div>
     <div class="rp-line">Being the amount received towards the following:</div>
@@ -952,7 +977,7 @@ function renderReceiptPreview() {
       <thead><tr><th>Sr.No.</th><th>Date</th><th>Bank Name</th><th>Instrument No.</th><th>Amount</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
       <tfoot>
-        <tr><td colspan="4" class="rp-total-label">TOTAL${T.totalStyle === "indian-text" ? "" : ":"}</td><td class="rp-r">${formatIndianAmount(total)}</td></tr>
+        <tr><td colspan="4" class="rp-total-label">TOTAL${T.totalStyle === "indian-text" ? "" : ":"}</td><td class="rp-r">${formatAmountSlash(total)}</td></tr>
       </tfoot>
     </table>
     <div class="rp-words">${wordsText}</div>
