@@ -230,6 +230,11 @@
       <div class="field">
         <label>Loan Amount (Rs.)</label>
         <input type="number" step="0.01" id="loanAmount" placeholder="Enter loan sanctioned amount">
+        <div class="hint" style="margin-top:4px;">or enter Loan % below to auto-fill</div>
+      </div>
+      <div class="field" style="flex:0 0 130px;">
+        <label>Loan % (optional)</label>
+        <input type="number" step="0.01" id="loanPercent" placeholder="e.g. 90">
       </div>
       <div class="field">
         <label>Received Till Date (Rs.)</label>
@@ -794,6 +799,7 @@ document.getElementById("ledgerFile").addEventListener("change", async (e) => {
 
     if (parsed.agreementValue !== null) document.getElementById("agreementValue").value = parsed.agreementValue;
     if (parsed.receivedTillDate !== null) document.getElementById("receivedTillDate").value = parsed.receivedTillDate;
+    syncLoanFromPercent();
 
     if (parsed.warnings.length > 0) {
       statusEl.className = "status err";
@@ -916,6 +922,14 @@ function renderReceiptPreview() {
   `;
 }
 
+function syncLoanFromPercent() {
+  const pct = document.getElementById("loanPercent").value;
+  if (pct === "" || pct === null) return;
+  const agreementValue = Number(document.getElementById("agreementValue").value) || 0;
+  const loanAmount = agreementValue * (Number(pct) / 100);
+  document.getElementById("loanAmount").value = Math.round(loanAmount * 100) / 100;
+}
+
 function updateMarginCalc() {
   const el = document.getElementById("marginResult");
   const agreementValue = Number(document.getElementById("agreementValue").value) || 0;
@@ -947,6 +961,9 @@ function updateMarginCalc() {
 
 ["agreementValue", "loanAmount", "receivedTillDate"].forEach(id => {
   document.getElementById(id).addEventListener("input", updateMarginCalc);
+});
+["agreementValue", "loanPercent"].forEach(id => {
+  document.getElementById(id).addEventListener("input", () => { syncLoanFromPercent(); updateMarginCalc(); });
 });
 
 document.getElementById("addRowBtn").addEventListener("click", () => addRow());
