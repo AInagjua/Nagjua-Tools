@@ -794,10 +794,11 @@ function parseLedgerLines(lines) {
     agreementValue = netBasicCost + (templateKey === "tg" ? clubAmount : 0);
   }
 
-  let receivedTillDate = null;
-  const receivedMatch = fullText.match(/Received till\s+\d{1,2}-[A-Za-z]{3}-\d{4}\s+([\d,]+(?:\.\d+)?)/i);
-  if (receivedMatch) receivedTillDate = parseFloat(receivedMatch[1].replace(/,/g, ''));
-  else warnings.push("Could not detect cumulative 'Received till date' figure from the ledger — please enter Margin Paid manually.");
+  // Margin Paid should reflect only genuine flat-payment receipts - the same
+  // filtered set used for the transaction table - not the ledger's raw
+  // "Received till" total, which also includes Gas/EMS/Society Deposit/GST/
+  // Stamp Duty charges that aren't part of the margin.
+  const receivedTillDate = transactions.reduce((sum, t) => sum + t.amount, 0);
 
   return { entity, templateKey, receiverPrefix, receiverName, projectName, flatNo, buildingName, wingNum, transactions, warnings, netBasicCost, clubAmount, clubBhk, agreementValue, receivedTillDate };
 }
