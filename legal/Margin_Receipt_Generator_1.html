@@ -214,7 +214,7 @@
     </div>
     <div class="row">
       <div class="field" style="flex:1 1 100%;">
-        <label>Address</label>
+        <label>Project</label>
         <input type="text" id="project" placeholder="e.g. Flat no.206, BERYL, NAGJUA ANANTA">
       </div>
     </div>
@@ -514,7 +514,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
 
   // Row 7: Project
   ws.mergeCells("A7:E7"); ws.getRow(7).height = T.projectRowHeight;
-  setCell("A7", `Address: ${projectText}`, {
+  setCell("A7", `Project: ${projectText}`, {
     font: { name: "Arial", size: 14, bold: true },
     align: { horizontal: "left", vertical: T.projectVerticalAlign, wrapText: true },
     border: { top: THIN, bottom: THIN, left: MEDIUM, right: b(T.projectRightBorder) }
@@ -948,7 +948,7 @@ function renderReceiptPreview() {
     <div class="rp-voucher">CASH/BANK RECEIPT VOUCHER</div>
     <div class="rp-date">${escapeHtml(T.dateColon)}${date ? (T.dateSeparator === "slash" ? fmtDateSlash(date) : fmtDateDMY(date)) : ""}</div>
     <div class="rp-line">Received From:&nbsp;&nbsp;&nbsp;&nbsp;${escapeHtml(receiverPrefix)} ${escapeHtml(receiverName)}</div>
-    <div class="rp-line">Address: ${escapeHtml(projectText)}</div>
+    <div class="rp-line">Project: ${escapeHtml(projectText)}</div>
     <div class="rp-line">Being the amount received towards the following:</div>
     <table class="rp-table">
       <thead><tr><th>Sr.No.</th><th>Date</th><th>Bank Name</th><th>Instrument No.</th><th>Amount</th></tr></thead>
