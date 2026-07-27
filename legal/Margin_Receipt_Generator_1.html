@@ -351,6 +351,17 @@ const THIN = { style: "thin" };
 const MEDIUM = { style: "medium" };
 function b(style) { return style === "thin" ? THIN : style === "medium" ? MEDIUM : undefined; }
 
+// Title-case a single word, leaving alphanumeric codes (e.g. "2A") unchanged
+function titleCaseWord(w) {
+  if (/\d/.test(w)) return w;
+  return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+}
+// "TROPICAL GREENS PHASE - 2A" -> "Tropical Greens 2A"
+function shortenTgProjectName(projectName) {
+  const stripped = projectName.replace(/\bPHASE\s*-?\s*/i, "").trim();
+  return stripped.split(/\s+/).map(titleCaseWord).join(" ");
+}
+
 const TEMPLATES = {
   ananta: {
     companyName: "MICROMEGA PROJECTS",
@@ -361,7 +372,7 @@ const TEMPLATES = {
     dateColon: "DATE: ",
     projectRightBorder: "thin",
     projectVerticalAlign: undefined,
-    projectPhrase: (flatNo, projectName) => `Flat no.${flatNo}, ${projectName}`,
+    projectPhrase: (flatNo, buildingName, projectName) => `Flat no.${flatNo}${buildingName ? ` in Building ${buildingName}` : ""} in ${projectName.replace(/^NAGJUA\s+/i, "")}`,
     spacerCount: 2,
     headerFont: "Times New Roman",
     headerVerticalAlign: "middle",
@@ -385,7 +396,7 @@ const TEMPLATES = {
     dateColon: "DATE:",
     projectRightBorder: "medium",
     projectVerticalAlign: "top",
-    projectPhrase: (flatNo, projectName) => `Flat no. ${flatNo}  in Building ${projectName}`,
+    projectPhrase: (flatNo, buildingName, projectName) => `Flat no. ${flatNo}${buildingName ? ` in Building ${buildingName}` : ""} In ${shortenTgProjectName(projectName)}`,
     spacerCount: 0,
     headerFont: "Arial",
     headerVerticalAlign: "middle",
@@ -409,7 +420,7 @@ const TEMPLATES = {
     dateColon: "DATE:",
     projectRightBorder: "thin",
     projectVerticalAlign: undefined,
-    projectPhrase: (flatNo, projectName) => `Flat no. ${flatNo} In ${projectName}`,
+    projectPhrase: (flatNo, buildingName, projectName) => `Flat no. ${flatNo}${buildingName ? ` in ${titleCaseWord(buildingName)}` : ""} in ${projectName}`,
     spacerCount: 2,
     headerFont: "Arial",
     headerVerticalAlign: undefined,
@@ -676,6 +687,10 @@ function parseLedgerLines(lines) {
   const flatMatch = fullText.match(/FLAT NO\.?:?\s*([A-Z0-9]{1,4}-\d{2,4})/i);
   if (flatMatch) flatNo = flatMatch[1].toUpperCase();
 
+  let buildingName = "";
+  const buildingMatch = fullText.match(/Unit Cost\s+([A-Z]+)\s+\d/);
+  if (buildingMatch) buildingName = buildingMatch[1].toUpperCase();
+
   // Template auto-detection: NLS always uses the "nls" template;
   // MMP splits into "ananta" or "tg" based on project name keywords.
   let templateKey = null;
@@ -739,6 +754,7 @@ function parseLedgerLines(lines) {
   if (entity === "MMP" && !templateKey) warnings.push("Detected Micromega Projects, but couldn't tell Ananta vs Tropical Green from the project name — please select the template manually.");
   if (!receiverName) warnings.push("Could not detect receiver name — please fill in manually.");
   if (!projectName) warnings.push("Could not detect project name — please fill in manually.");
+  if (!buildingName) warnings.push("Could not detect building name from the Property Details table — please add it to the Address field manually if needed.");
   if (transactions.length === 0) warnings.push("No qualifying transactions found (Credit-side RECEIPT entries, excluding EMS/Gas/GST/Society Deposit/Stamp Duty).");
 
   // ---- Agreement Value inputs: Net Basic Cost + (TG only) clubhouse charge ----
@@ -762,7 +778,7 @@ function parseLedgerLines(lines) {
   if (receivedMatch) receivedTillDate = parseFloat(receivedMatch[1].replace(/,/g, ''));
   else warnings.push("Could not detect cumulative 'Received till date' figure from the ledger — please enter Margin Paid manually.");
 
-  return { entity, templateKey, receiverPrefix, receiverName, projectName, flatNo, transactions, warnings, netBasicCost, clubAmount, clubBhk, agreementValue, receivedTillDate };
+  return { entity, templateKey, receiverPrefix, receiverName, projectName, flatNo, buildingName, transactions, warnings, netBasicCost, clubAmount, clubBhk, agreementValue, receivedTillDate };
 }
 
 function parseDMY(str) {
@@ -795,7 +811,7 @@ document.getElementById("ledgerFile").addEventListener("change", async (e) => {
     if (parsed.projectName) {
       const tplForPhrase = TEMPLATES[parsed.templateKey || document.getElementById("template").value];
       document.getElementById("project").value = (parsed.flatNo && tplForPhrase)
-        ? tplForPhrase.projectPhrase(parsed.flatNo, parsed.projectName)
+        ? tplForPhrase.projectPhrase(parsed.flatNo, parsed.buildingName, parsed.projectName)
         : parsed.projectName;
     }
 
