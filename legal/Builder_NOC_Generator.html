@@ -507,8 +507,10 @@ function onBuildingChange(){
      <b>Survey No.:</b> ${p.surveyShort || "(see permission no.)"}<br>
      <b>Development Permission:</b> ${p.devPermissionNo}<br>
      <b>Development Agreement date:</b> ${p.devAgreementDate}`;
-  // Wash Area field only applies to Eternity Park (Nagjua Lifespaces) letters
-  document.getElementById("washAreaRow").style.display = (pKey === "PARK") ? "" : "none";
+  // Wash Area applies to any project whose ledger has a WASH AREA line item
+  // (not just Eternity Park) - so the field is always available, left blank
+  // if not applicable to a given flat.
+  document.getElementById("washAreaRow").style.display = "";
 }
 
 function onFlatNoChange(){
@@ -933,7 +935,7 @@ async function buildDocxBlob(overrides = {}){
   const floorNum = deriveFloor(floorInput);
   const buyerName = document.getElementById("buyerName").value.trim();
   const carpetArea = document.getElementById("carpetArea").value.trim();
-  const washArea = (pKey === "PARK") ? document.getElementById("washArea").value.trim() : "";
+  const washArea = document.getElementById("washArea").value.trim();
   const balconyArea = document.getElementById("balconyArea").value.trim();
   const totalAmount = parseFloat(document.getElementById("totalAmount").value)||0;
   const paidAmount = parseFloat(document.getElementById("paidAmount").value)||0;
