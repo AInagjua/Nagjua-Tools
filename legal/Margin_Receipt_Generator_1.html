@@ -120,6 +120,27 @@
   .status.ok{color:#1a7a3c;}
   .status.err{color:var(--danger);}
   .hint{font-size:11px;color:#9aa3b2;margin-top:2px;}
+  .receipt-preview{
+    border:2px solid var(--navy);
+    font-family:Arial,sans-serif;
+    color:#000;
+    background:#fff;
+  }
+  .receipt-preview > div{padding:4px 10px;}
+  .rp-title{font-size:18px;font-weight:700;text-align:center;border-bottom:1px solid var(--navy);}
+  .rp-company{font-size:24px;font-weight:900;text-align:center;letter-spacing:.02em;}
+  .rp-addr{font-size:11px;font-weight:700;text-align:center;}
+  .rp-voucher{font-size:13px;font-weight:700;text-align:center;border-top:1px solid var(--navy);border-bottom:1px solid var(--navy);}
+  .rp-date{font-size:12px;font-weight:700;text-align:right;}
+  .rp-line{font-size:13px;font-weight:600;}
+  .rp-table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0;}
+  .rp-table th{background:var(--navy);color:#fff;font-size:10px;padding:5px 4px;text-transform:uppercase;}
+  .rp-table td{padding:4px 6px;border-bottom:1px solid var(--border);font-weight:600;}
+  .rp-c{text-align:center;}
+  .rp-r{text-align:right;}
+  .rp-total-label{text-align:center;font-weight:700;}
+  .rp-words{font-size:13px;font-weight:700;font-style:italic;}
+  .rp-signrow{display:flex;justify-content:space-between;font-size:12px;font-weight:700;padding-top:22px;}
 </style>
 </head>
 <body>
@@ -206,6 +227,11 @@
     <button class="add-btn" id="addRowBtn" type="button">+ Add Row</button>
     <div class="total-line">TOTAL: <span id="totalDisplay">0.00</span></div>
     <div class="words-line" id="wordsDisplay"></div>
+  </div>
+
+  <div class="card">
+    <h2>Preview</h2>
+    <div id="receiptPreview" class="receipt-preview"></div>
   </div>
 
   <button class="gen-btn" id="generateBtn" type="button">Generate Receipt (.xlsx)</button>
@@ -721,6 +747,7 @@ document.getElementById("ledgerFile").addEventListener("change", async (e) => {
       statusEl.className = "status ok";
       statusEl.textContent = `Parsed successfully — ${parsed.transactions.length} transaction(s) added. Please review before generating.`;
     }
+    renderReceiptPreview();
   } catch (err) {
     console.error(err);
     statusEl.className = "status err";
@@ -747,7 +774,9 @@ function addRow(prefill) {
     renumberRows();
     updateTotals();
   });
-  tr.querySelectorAll(".tx-amt").forEach(inp => inp.addEventListener("input", updateTotals));
+  tr.querySelectorAll(".tx-date, .tx-bank, .tx-instr, .tx-amt").forEach(inp => inp.addEventListener("input", () => {
+    updateTotals();
+  }));
   txBody.appendChild(tr);
   updateTotals();
 }
@@ -769,12 +798,78 @@ function updateTotals() {
   document.getElementById("wordsDisplay").textContent = total > 0
     ? `₹ (In words): ${numberToIndianWords(total)} Only.`
     : "";
+  renderReceiptPreview();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderReceiptPreview() {
+  const el = document.getElementById("receiptPreview");
+  if (!el) return;
+
+  const templateKey = document.getElementById("template").value;
+  const T = TEMPLATES[templateKey];
+  const dateStr = document.getElementById("receiptDate").value;
+  const date = dateStr ? parseLocalDate(dateStr) : null;
+  const paymentMode = document.getElementById("paymentMode").value;
+  const receiverPrefix = document.getElementById("receiverPrefix").value;
+  const receiverName = document.getElementById("receiverName").value.trim();
+  const projectText = document.getElementById("project").value.trim();
+
+  const rows = Array.from(txBody.querySelectorAll("tr"));
+  const transactions = rows.map((tr, idx) => {
+    const dStr = tr.querySelector(".tx-date").value;
+    const bank = tr.querySelector(".tx-bank").value.trim();
+    const instrument = tr.querySelector(".tx-instr").value.trim();
+    const amount = Number(tr.querySelector(".tx-amt").value) || 0;
+    return { idx: idx + 1, date: dStr ? parseLocalDate(dStr) : null, bank, instrument, amount };
+  });
+  const total = transactions.reduce((s, t) => s + t.amount, 0);
+  const wordsText = total > 0 ? T.wordsPhrase(numberToIndianWords(total)) : "";
+
+  const rowsHtml = transactions.map(tx => `
+    <tr>
+      <td class="rp-c">${tx.idx}</td>
+      <td class="rp-c">${tx.date ? fmtDateSlash(tx.date) : ""}</td>
+      <td>${escapeHtml(tx.bank)}</td>
+      <td class="rp-c">${escapeHtml(tx.instrument)}</td>
+      <td class="rp-r">${tx.amount ? formatIndianAmount(tx.amount) : ""}</td>
+    </tr>`).join("");
+
+  el.innerHTML = `
+    <div class="rp-title">RECEIPT</div>
+    <div class="rp-company">${escapeHtml(T.companyName)}</div>
+    <div class="rp-addr">Reg. Off.: Nagjua 29/32, Garden City Samrvarni, Silvassa -396230. D&amp;NH.(U.T).</div>
+    <div class="rp-voucher">CASH/BANK RECEIPT VOUCHER</div>
+    <div class="rp-date">${escapeHtml(T.dateColon)}${date ? fmtDateDMY(date) : ""}</div>
+    <div class="rp-line">Received From:&nbsp;&nbsp;&nbsp;&nbsp;${escapeHtml(receiverPrefix)} ${escapeHtml(receiverName)}</div>
+    <div class="rp-line">Project: ${escapeHtml(projectText)}</div>
+    <div class="rp-line">Being the amount received towards the following:</div>
+    <table class="rp-table">
+      <thead><tr><th>Sr.No.</th><th>Date</th><th>Bank Name</th><th>Instrument No.</th><th>Amount</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot>
+        <tr><td colspan="4" class="rp-total-label">TOTAL${T.totalStyle === "indian-text" ? "" : ":"}</td><td class="rp-r">${formatIndianAmount(total)}</td></tr>
+      </tfoot>
+    </table>
+    <div class="rp-words">${wordsText}</div>
+    <div class="rp-line">Received by Cash/ Cheque: ${escapeHtml(paymentMode)}</div>
+    <div class="rp-signrow"><div>Prepared by</div><div>Approved by</div><div>Receiver's Sign</div></div>
+  `;
 }
 
 document.getElementById("addRowBtn").addEventListener("click", () => addRow());
 
+["template", "receiptDate", "paymentMode", "receiverPrefix", "receiverName", "project"].forEach(id => {
+  document.getElementById(id).addEventListener("input", renderReceiptPreview);
+  document.getElementById(id).addEventListener("change", renderReceiptPreview);
+});
+
 // Default date = today
 document.getElementById("receiptDate").valueAsDate = new Date();
+renderReceiptPreview();
 
 document.getElementById("generateBtn").addEventListener("click", async () => {
   const statusEl = document.getElementById("status");
