@@ -686,6 +686,16 @@ function parseLedgerLines(lines) {
 
   let flatNo = "";
   const fullText = lines.join(' | ');
+
+  // Co-Allottee: ledger lists this as a separate field; append to the
+  // receiver name so "Received From" shows both parties, e.g.
+  // "Mr. BHUPENDRA BUGALIYA & Mrs. POOJA DARA" (matches reference receipts).
+  const coAllotteeMatch = fullText.match(/Co-Allotees?\s*:\s*([^|]+)/i);
+  if (coAllotteeMatch) {
+    const coRaw = coAllotteeMatch[1].trim();
+    if (coRaw) receiverName = `${receiverName} & ${coRaw}`;
+  }
+
   const flatMatch = fullText.match(/FLAT NO\.?:?\s*([A-Z0-9]{1,4}-?\d{2,4})/i);
   if (flatMatch) flatNo = flatMatch[1].toUpperCase();
 
