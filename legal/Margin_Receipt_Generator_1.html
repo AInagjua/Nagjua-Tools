@@ -151,7 +151,6 @@
   .rp-r{text-align:right;}
   .rp-total-label{text-align:center;font-weight:700;}
   .rp-words{font-size:13px;font-weight:700;font-style:italic;}
-  .rp-shortfall{font-size:13px;font-weight:700;color:#c0392b;}
   .rp-signrow{display:flex;justify-content:space-between;font-size:12px;font-weight:700;padding-top:22px;}
 </style>
 </head>
@@ -453,7 +452,7 @@ const TEMPLATES = {
   }
 };
 
-async function buildReceipt({ templateKey, receiverPrefix, receiverName, projectText, date, transactions, paymentMode, shortfallAmount }) {
+async function buildReceipt({ templateKey, receiverPrefix, receiverName, projectText, date, transactions, paymentMode }) {
   const T = TEMPLATES[templateKey];
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Sheet1", {
@@ -463,8 +462,6 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
     }
   });
   ws.columns = T.columnWidths.map(w => ({ width: w }));
-
-  const hasShortfall = !!(shortfallAmount && shortfallAmount > 0);
 
   const N = transactions.length;
   let beingRow, headerRow, txStart;
@@ -478,8 +475,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
   const wordsRow1 = totalRow + 3;
   const wordsRowCount = T.wordsRowBordered ? 1 : 2;
   const wordsRow2 = wordsRow1 + wordsRowCount - 1; // only meaningful when not bordered
-  const shortfallRow = hasShortfall ? (wordsRow1 + wordsRowCount) : null;
-  const spacerC = wordsRow1 + wordsRowCount + (hasShortfall ? 1 : 0), spacerD = spacerC + 1;
+  const spacerC = wordsRow1 + wordsRowCount, spacerD = spacerC + 1;
   const paymentRow = spacerD + 1;
   const spacerE = paymentRow + 1, spacerF = paymentRow + 2, spacerG = paymentRow + 3;
   const signRow = spacerG + 1;
@@ -598,16 +594,6 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
     ws.mergeCells(`A${wordsRow1}:E${wordsRow2}`);
     ws.getRow(wordsRow1).height = 18; ws.getRow(wordsRow2).height = 18;
     setCell(`A${wordsRow1}`, wordsText, { font: { name: "Arial", size: 14, bold: true }, align: { horizontal: "left", wrapText: true }, border: { left: MEDIUM, right: MEDIUM } });
-  }
-
-  // Shortfall Margin line (red) - only present when there's a shortfall
-  if (shortfallRow) {
-    ws.mergeCells(`A${shortfallRow}:E${shortfallRow}`); ws.getRow(shortfallRow).height = 20;
-    setCell(`A${shortfallRow}`, `Shortfall Margin to be Collected: Rs. ${formatAmountSlash(shortfallAmount)}`, {
-      font: { name: "Arial", size: 13, bold: true, color: { argb: "FFFF0000" } },
-      align: { horizontal: "left", wrapText: true },
-      border: { left: MEDIUM, right: MEDIUM }
-    });
   }
 
   [spacerC, spacerD].forEach(r => {
@@ -946,15 +932,6 @@ function renderReceiptPreview() {
   const total = transactions.reduce((s, t) => s + t.amount, 0);
   const wordsText = total > 0 ? T.wordsPhrase(numberToIndianWords(total)) : "";
 
-  const agreementValueNum = Number(document.getElementById("agreementValue").value) || 0;
-  const loanAmountNum = Number(document.getElementById("loanAmount").value) || 0;
-  const receivedTillDateNum = Number(document.getElementById("receivedTillDate").value) || 0;
-  const rawDiff = (agreementValueNum - loanAmountNum) - receivedTillDateNum;
-  const shortfallAmount = rawDiff > 1 ? rawDiff : 0;
-  const shortfallHtml = shortfallAmount > 0
-    ? `<div class="rp-shortfall">Shortfall Margin to be Collected: Rs. ${formatAmountSlash(shortfallAmount)}</div>`
-    : "";
-
   const rowsHtml = transactions.map(tx => `
     <tr>
       <td class="rp-c">${tx.idx}</td>
@@ -981,7 +958,6 @@ function renderReceiptPreview() {
       </tfoot>
     </table>
     <div class="rp-words">${wordsText}</div>
-    ${shortfallHtml}
     <div class="rp-line">Received by Cash/ Cheque: ${escapeHtml(paymentMode)}</div>
     <div class="rp-signrow"><div>Prepared by</div><div>Approved by</div><div>Receiver's Sign</div></div>
   `;
@@ -1082,13 +1058,6 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
   genBtn.disabled = true;
   genBtn.textContent = "Generating...";
 
-  const agreementValueNum = Number(document.getElementById("agreementValue").value) || 0;
-  const loanAmountNum = Number(document.getElementById("loanAmount").value) || 0;
-  const receivedTillDateNum = Number(document.getElementById("receivedTillDate").value) || 0;
-  const marginRequiredNum = agreementValueNum - loanAmountNum;
-  const rawDiff = marginRequiredNum - receivedTillDateNum;
-  const shortfallAmount = rawDiff > 1 ? rawDiff : 0;
-
   try {
     const { workbook } = await buildReceipt({
       templateKey,
@@ -1097,8 +1066,7 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
       projectText,
       date: parseLocalDate(dateStr),
       transactions,
-      paymentMode,
-      shortfallAmount
+      paymentMode
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
