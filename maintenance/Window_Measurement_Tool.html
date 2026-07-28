@@ -72,9 +72,9 @@
   table.grid thead tr.group-row th.plain{background:#EEF2F7;color:var(--navy-dark);}
   table.grid th.hall-hd{background:#3C5A8A;color:#fff;}
   table.grid th.kitchen-hd{background:var(--s18);color:#fff;}
-  table.grid td input[type=text]{width:78px;border:1px solid var(--steel-line);border-radius:5px;padding:5px 6px;font-size:12.5px;}
-  table.grid td select{width:64px;border:1px solid var(--steel-line);border-radius:5px;padding:5px 4px;font-size:12.5px;background:#fff;}
-  table.grid td input[type=number]{width:56px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--steel-line);border-radius:5px;padding:5px 4px;font-size:12.5px;}
+  table.grid td input[type=text]{width:100px;border:1px solid var(--steel-line);border-radius:5px;padding:5px 6px;font-size:12.5px;}
+  table.grid td select{width:80px;border:1px solid var(--steel-line);border-radius:5px;padding:5px 4px;font-size:12.5px;background:#fff;}
+  table.grid td input[type=number]{width:72px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--steel-line);border-radius:5px;padding:5px 4px;font-size:12.5px;}
   table.grid td input:disabled{background:#F2F4F6;color:#AEB8C2;}
   td.sft-cell{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy-dark);background:#F7F9FB;white-space:nowrap;}
   td.domal-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--domal);background:var(--domal-bg);}
@@ -195,9 +195,8 @@
       </div>
       <div class="export-card">
         <h3>Add To Existing Sheet</h3>
-        <p>Upload a file this tool made earlier — the new flats above get appended before the TOTAL row, and totals update automatically.</p>
-        <input type="file" id="existing-file-input" accept=".xlsx">
-        <button class="export-btn append" id="append-btn">Append &amp; Download</button>
+        <p>Pick a file this tool made earlier — the new flats above get appended before the TOTAL row, totals update, and the <b>same file is updated directly</b> (no re-download).</p>
+        <button class="export-btn append" id="append-btn">Update Existing Sheet</button>
       </div>
     </div>
     <div class="status-msg" id="status-msg"></div>
@@ -206,6 +205,7 @@
 </div>
 
 <script>
+const TOWER_OPTIONS = ['H Tower','I Tower','J Tower','K Tower','L Tower','M Tower','N Tower'];
 let idCounter = 0;
 let flats = [];
 
@@ -253,11 +253,15 @@ function render(){
 function roomCells(flatId, groupKey, room, disabled){
   const d = disabled ? 'disabled' : '';
   const sft = disabled ? 0 : roomSft(room);
+  const nosVal = disabled ? '' : room.nos;
+  const widthVal = disabled ? '' : room.width;
+  const heightVal = disabled ? '' : room.height;
+  const sftDisplay = disabled ? '' : sft.toFixed(2);
   return `
-    <td><input type="number" min="0" step="1" value="${room.nos}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.nos"></td>
-    <td><input type="number" min="0" step="0.01" value="${room.width}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.width"></td>
-    <td><input type="number" min="0" step="0.01" value="${room.height}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.height"></td>
-    <td class="sft-cell" data-sft="${groupKey}">${sft.toFixed(2)}</td>`;
+    <td><input type="number" min="0" step="1" value="${nosVal}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.nos"></td>
+    <td><input type="number" min="0" step="0.01" value="${widthVal}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.width"></td>
+    <td><input type="number" min="0" step="0.01" value="${heightVal}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.height"></td>
+    <td class="sft-cell" data-sft="${groupKey}">${sftDisplay}</td>`;
 }
 
 function renderFlatRow(flat){
@@ -265,7 +269,12 @@ function renderFlatRow(flat){
   const s18 = flat18x60Sft(flat);
   return `
   <tr data-flat-id="${flat.id}">
-    <td><input type="text" value="${escapeHtml(flat.tower)}" data-flat-id="${flat.id}" data-field="tower" placeholder="M Tower"></td>
+    <td>
+      <select data-flat-id="${flat.id}" data-field="tower">
+        <option value="" ${flat.tower===''?'selected':''}>Select</option>
+        ${TOWER_OPTIONS.map(t=>`<option value="${t}" ${flat.tower===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </td>
     <td><input type="text" value="${escapeHtml(flat.flatNo)}" data-flat-id="${flat.id}" data-field="flatNo" placeholder="304"></td>
     <td>
       <select data-flat-id="${flat.id}" data-field="bhk">
@@ -295,8 +304,11 @@ function updateRowDisplay(tr, flat){
     const disabled = key.startsWith('bed') ? !bedEnabled(flat, parseInt(key.slice(3))) : false;
     const cell = tr.querySelector(`td.sft-cell[data-sft="${key}"]`);
     const sft = disabled ? 0 : roomSft(flat[key]);
-    if(cell) cell.textContent = sft.toFixed(2);
-    tr.querySelectorAll(`input[data-field^="${key}."]`).forEach(inp=>{ inp.disabled = disabled; });
+    if(cell) cell.textContent = disabled ? '' : sft.toFixed(2);
+    tr.querySelectorAll(`input[data-field^="${key}."]`).forEach(inp=>{
+      inp.disabled = disabled;
+      if(disabled) inp.value = '';
+    });
   });
   tr.querySelector('[data-louver]').textContent = flat.bhk;
   tr.querySelector('[data-domal]').textContent = flatDomalSft(flat).toFixed(2);
@@ -502,11 +514,23 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
 });
 
 document.getElementById('append-btn').addEventListener('click', async ()=>{
-  const fileInput = document.getElementById('existing-file-input');
-  if(!fileInput.files.length){ showStatus('Choose an existing file first.', false); return; }
   if(!hasData()){ showStatus('Add at least one new flat to append.', false); return; }
+  if(!window.showOpenFilePicker){
+    showStatus('Your browser doesn\'t support updating files in place (needs Chrome or Edge). Please use one of those browsers.', false);
+    return;
+  }
+  let handle;
   try{
-    const file = fileInput.files[0];
+    [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Excel Files', accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']} }],
+      excludeAcceptAllOption: false,
+      multiple: false
+    });
+  }catch(err){
+    return; // user cancelled the picker
+  }
+  try{
+    const file = await handle.getFile();
     const buffer = await file.arrayBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
@@ -544,11 +568,16 @@ document.getElementById('append-btn').addEventListener('click', async ()=>{
     writeTotalRow(worksheet, r, domalTotal, s18Total, louverTotal);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
-    triggerDownload(outBuffer, 'Window_Measurements_Updated.xlsx');
-    showStatus('Appended and downloaded Window_Measurements_Updated.xlsx', true);
+
+    // Write straight back to the same file handle - no download dialog, no new file.
+    const writable = await handle.createWritable();
+    await writable.write(outBuffer);
+    await writable.close();
+
+    showStatus('Updated "' + handle.name + '" directly — no new file created.', true);
   }catch(err){
     console.error(err);
-    showStatus('Could not append to that file: ' + err.message, false);
+    showStatus('Could not update that file: ' + err.message, false);
   }
 });
 
