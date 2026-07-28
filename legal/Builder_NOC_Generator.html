@@ -573,6 +573,27 @@ function parseLedger(text){
     if(name){ r.buyerName = name; break; }
   }
 
+  // Fallback: some ledgers show the buyer's name bare, with no Mr./Mrs./Ms.
+  // prefix at all (e.g. just "AMIT KUMAR SINGH"). Scan backward from the
+  // "Application" label for a run of all-caps name-like tokens.
+  if(!r.buyerName){
+    for(let i=0;i<allTokens.length;i++){
+      if(/^application$/i.test(allTokens[i].replace(/[:.]/g,""))){
+        const nameTokens = [];
+        for(let j=i-1;j>=0 && nameTokens.length<10;j--){
+          const t = allTokens[j];
+          const clean = t.replace(/[.:]/g,"").toUpperCase();
+          if(/[a-z]/.test(t)) break;
+          if(!/^[A-Z.&-]+$/.test(t)) break;
+          if(NAME_STOPWORDS.has(clean)) break;
+          nameTokens.unshift(t);
+        }
+        if(nameTokens.length) r.buyerName = nameTokens.join(" ");
+        break;
+      }
+    }
+  }
+
   // Co-Allottee: scan a SHORT window of tokens after the "Co-Allotees" label
   // for a second Mr./Mrs./Ms. name. Bounded to avoid scanning past a blank
   // field into later receipt lines that re-mention the primary buyer's name.
