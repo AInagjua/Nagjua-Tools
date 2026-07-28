@@ -574,21 +574,19 @@ function parseLedger(text){
   }
 
   // Fallback: some ledgers show the buyer's name bare, with no Mr./Mrs./Ms.
-  // prefix at all (e.g. just "AMIT KUMAR SINGH"). Scan backward from the
-  // "Application" label for a run of all-caps name-like tokens.
+  // prefix at all (e.g. just "AMIT KUMAR SINGH"). In the real pdf.js
+  // Y-coordinate extraction, that bare name sits on its own line, and the
+  // NEXT line merges "Name of party" together with "Application no" (same
+  // row) - so token-adjacency to "Application" doesn't work, but the name
+  // reliably being the line right before "Name of party" does.
   if(!r.buyerName){
-    for(let i=0;i<allTokens.length;i++){
-      if(/^application$/i.test(allTokens[i].replace(/[:.]/g,""))){
-        const nameTokens = [];
-        for(let j=i-1;j>=0 && nameTokens.length<10;j--){
-          const t = allTokens[j];
-          const clean = t.replace(/[.:]/g,"").toUpperCase();
-          if(/[a-z]/.test(t)) break;
-          if(!/^[A-Z.&-]+$/.test(t)) break;
-          if(NAME_STOPWORDS.has(clean)) break;
-          nameTokens.unshift(t);
+    const rawLines = text.split(/\n/).map(l=>l.trim());
+    for(let i=0;i<rawLines.length;i++){
+      if(/^Name of party\b/i.test(rawLines[i]) && i>0){
+        const candidate = rawLines[i-1];
+        if(candidate && candidate.length>1 && !/[a-z]/.test(candidate) && /^[A-Z0-9 .&-]+$/.test(candidate)){
+          r.buyerName = candidate;
         }
-        if(nameTokens.length) r.buyerName = nameTokens.join(" ");
         break;
       }
     }
