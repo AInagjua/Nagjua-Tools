@@ -555,7 +555,7 @@ function parseLedger(text){
   const allTokens = text.split(/\s+/);
 
   function captureName(startIdx){
-    if(!/^(Mr\.|Mrs\.|Ms\.)$/i.test(allTokens[startIdx])) return null;
+    if(!/^(Mr\.|Mrs\.|Ms\.|Miss|M\/s\.?|Smt\.?|Shri|Dr\.|Kum\.?|Er\.?|Adv\.?|Prof\.?|Capt\.?|Col\.?|Major)$/i.test(allTokens[startIdx])) return null;
     const nameTokens = [allTokens[startIdx]];
     for(let j=startIdx+1;j<allTokens.length && nameTokens.length<10;j++){
       const t = allTokens[j];
