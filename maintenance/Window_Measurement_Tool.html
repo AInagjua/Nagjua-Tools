@@ -195,8 +195,9 @@
       </div>
       <div class="export-card">
         <h3>Add To Existing Sheet</h3>
-        <p>Pick a file this tool made earlier — the new flats above get appended before the TOTAL row, totals update, and the <b>same file is updated directly</b> (no re-download).</p>
-        <button class="export-btn append" id="append-btn">Update Existing Sheet</button>
+        <p>Upload a file this tool made earlier — the new flats above get appended before the TOTAL row, and totals update automatically.</p>
+        <input type="file" id="existing-file-input" accept=".xlsx">
+        <button class="export-btn append" id="append-btn">Append &amp; Download</button>
       </div>
     </div>
     <div class="status-msg" id="status-msg"></div>
@@ -215,12 +216,12 @@ function newFlat(){
   return {
     id: 'flat_'+(idCounter++),
     tower: '', flatNo: '', bhk: 1,
-    hall: newRoom(1,0,0),
-    bed1: newRoom(1,0,0),
-    bed2: newRoom(0,0,0),
-    bed3: newRoom(0,0,0),
-    bed4: newRoom(0,0,0),
-    kitchen: newRoom(1,0,0)
+    hall: newRoom('','',''),
+    bed1: newRoom('','',''),
+    bed2: newRoom('','',''),
+    bed3: newRoom('','',''),
+    bed4: newRoom('','',''),
+    kitchen: newRoom('','','')
   };
 }
 
@@ -333,7 +334,7 @@ gridBody.addEventListener('input',(e)=>{
   if(!field) return;
   if(field.includes('.')){
     const [group, prop] = field.split('.');
-    flat[group][prop] = parseFloat(t.value)||0;
+    flat[group][prop] = t.value === '' ? '' : (parseFloat(t.value)||0);
   } else if(field === 'tower' || field === 'flatNo'){
     flat[field] = t.value;
     return;
@@ -514,23 +515,11 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
 });
 
 document.getElementById('append-btn').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('existing-file-input');
+  if(!fileInput.files.length){ showStatus('Choose an existing file first.', false); return; }
   if(!hasData()){ showStatus('Add at least one new flat to append.', false); return; }
-  if(!window.showOpenFilePicker){
-    showStatus('Your browser doesn\'t support updating files in place (needs Chrome or Edge). Please use one of those browsers.', false);
-    return;
-  }
-  let handle;
   try{
-    [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'Excel Files', accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']} }],
-      excludeAcceptAllOption: false,
-      multiple: false
-    });
-  }catch(err){
-    return; // user cancelled the picker
-  }
-  try{
-    const file = await handle.getFile();
+    const file = fileInput.files[0];
     const buffer = await file.arrayBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
@@ -568,16 +557,11 @@ document.getElementById('append-btn').addEventListener('click', async ()=>{
     writeTotalRow(worksheet, r, domalTotal, s18Total, louverTotal);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
-
-    // Write straight back to the same file handle - no download dialog, no new file.
-    const writable = await handle.createWritable();
-    await writable.write(outBuffer);
-    await writable.close();
-
-    showStatus('Updated "' + handle.name + '" directly — no new file created.', true);
+    triggerDownload(outBuffer, file.name);
+    showStatus('Downloaded updated ' + file.name, true);
   }catch(err){
     console.error(err);
-    showStatus('Could not update that file: ' + err.message, false);
+    showStatus('Could not append to that file: ' + err.message, false);
   }
 });
 
