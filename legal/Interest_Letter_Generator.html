@@ -966,6 +966,25 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
 // ---------- Run calculation: UI wiring ----------
 let LAST_CALC_RESULT = null;
 
+function checkLetterAmountConsistency(letters, payments){
+  const warnings = [];
+  for(let i=1;i<letters.length;i++){
+    const prev = letters[i-1];
+    const curr = letters[i];
+    const paidBetween = payments
+      .filter(p => p.date > prev.date && p.date <= curr.date)
+      .reduce((s,p)=> s + p.amount, 0);
+    const expected = prev.amount - paidBetween;
+    if(Math.abs(expected - curr.amount) > 1){
+      const label = curr.type === "reminder" ? "Reminder Letter" : "Demand Letter";
+      warnings.push(
+        `${label} dated ${fmtDMY(curr.date)}: you entered Rs. ${curr.amount.toLocaleString("en-IN")}, but Rs. ${prev.amount.toLocaleString("en-IN")} minus Rs. ${paidBetween.toLocaleString("en-IN")} paid since the previous letter = Rs. ${expected.toLocaleString("en-IN")}. If a new charge was added, this is fine — otherwise please double check.`
+      );
+    }
+  }
+  return warnings;
+}
+
 function runCalculation(){
   const calcMsg = document.getElementById("calcMsg");
 
@@ -992,7 +1011,14 @@ function runCalculation(){
   const result = calculateInterest(demandReminderLetters, LEDGER_PAYMENTS, interestLetterDate, rate);
   LAST_CALC_RESULT = result;
 
+  const consistencyWarnings = checkLetterAmountConsistency(demandReminderLetters, LEDGER_PAYMENTS);
+
   calcMsg.innerHTML = `Calculation complete. Total interest: <b>Rs. ${result.totalInterest.toLocaleString("en-IN")}</b>`;
+  if(consistencyWarnings.length){
+    calcMsg.innerHTML += `<div style="margin-top:6px;color:var(--gold);">` +
+      consistencyWarnings.map(w=>`⚠ ${w}`).join('<br>') +
+      `</div>`;
+  }
   renderCalcResults(result, interestLetterDate, rate);
   document.getElementById("calcResults").style.display = "";
 
