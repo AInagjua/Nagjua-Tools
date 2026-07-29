@@ -310,11 +310,6 @@
         <input type="date" id="demand2Date">
       </div>
       <div class="field">
-        <label>Outstanding Amount (Rs.)</label>
-        <input type="number" id="demand2Amount" placeholder="Leave blank if not applicable">
-        <div id="demand2Hint" style="font-size:11px;color:var(--muted);margin-top:3px;"></div>
-      </div>
-      <div class="field">
         <label>Grace Period</label>
         <select id="demand2Grace">
           <option value="0">0 days</option>
@@ -329,11 +324,6 @@
       <div class="field">
         <label>Letter Date</label>
         <input type="date" id="reminderDate">
-      </div>
-      <div class="field">
-        <label>Outstanding Amount (Rs.)</label>
-        <input type="number" id="reminderAmount" placeholder="Cumulative total as on this letter">
-        <div id="reminderHint" style="font-size:11px;color:var(--muted);margin-top:3px;"></div>
       </div>
       <div class="field">
         <label>Grace Period</label>
@@ -615,7 +605,6 @@ async function handleLedgerUpload(event){
     ledgerMsg.innerHTML = msg;
     ledgerMsg.className = "msg";
     renderPaymentsPreview();
-    refreshLetterSuggestions();
   }catch(err){
     ledgerMsg.innerHTML = '<span style="color:var(--red);">Could not read this PDF: '+err.message+'</span>';
     ledgerMsg.className = "msg err";
@@ -777,18 +766,30 @@ function collectLetters(){
   if(d1Date && d1Amt){
     letters.push({ type:"demand", date:d1Date, amount:d1Amt, graceDays: parseInt(document.getElementById("demand1Grace").value,10) });
   }
+
+  let prevDate = d1Date, prevAmt = d1Amt;
+
   const d2Date = document.getElementById("demand2Date").value;
-  const d2Amt = parseFloat(document.getElementById("demand2Amount").value);
-  if(d2Date && d2Amt){
+  if(d2Date && prevDate && !isNaN(prevAmt)){
+    const d2Amt = prevAmt - paymentsBetween(prevDate, d2Date);
     letters.push({ type:"demand", date:d2Date, amount:d2Amt, graceDays: parseInt(document.getElementById("demand2Grace").value,10) });
+    prevDate = d2Date; prevAmt = d2Amt;
   }
+
   const rDate = document.getElementById("reminderDate").value;
-  const rAmt = parseFloat(document.getElementById("reminderAmount").value);
-  if(rDate && rAmt){
+  if(rDate && prevDate && !isNaN(prevAmt)){
+    const rAmt = prevAmt - paymentsBetween(prevDate, rDate);
     letters.push({ type:"reminder", date:rDate, amount:rAmt, graceDays: parseInt(document.getElementById("reminderGrace").value,10) });
   }
+
   letters.sort((a,b)=> a.date.localeCompare(b.date));
   return letters;
+}
+
+function paymentsBetween(fromDateExclusive, toDateInclusive){
+  return LEDGER_PAYMENTS
+    .filter(p => p.date > fromDateExclusive && p.date <= toDateInclusive)
+    .reduce((s,p)=> s + p.amount, 0);
 }
 
 function getInterestLetterEntry(){
@@ -797,84 +798,6 @@ function getInterestLetterEntry(){
   if(!date || !rate) return null;
   return { date, rate };
 }
-
-// ---------- Auto-suggest each subsequent letter's outstanding, so a payment
-// received in between letters can't silently get missed by re-typing the
-// same old total. Still editable - this is a suggestion, not a lock. ----------
-function paymentsBetween(fromDateExclusive, toDateInclusive){
-  return LEDGER_PAYMENTS
-    .filter(p => p.date > fromDateExclusive && p.date <= toDateInclusive)
-    .reduce((s,p)=> s + p.amount, 0);
-}
-
-function previousLetterFor(fieldKey){
-  const d1Date = document.getElementById("demand1Date").value;
-  const d1Amt = parseFloat(document.getElementById("demand1Amount").value);
-  const d2Date = document.getElementById("demand2Date").value;
-  const d2Amt = parseFloat(document.getElementById("demand2Amount").value);
-
-  if(fieldKey === "demand2"){
-    if(d1Date && d1Amt) return { date: d1Date, amount: d1Amt };
-    return null;
-  }
-  if(fieldKey === "reminder"){
-    if(d2Date && d2Amt) return { date: d2Date, amount: d2Amt };
-    if(d1Date && d1Amt) return { date: d1Date, amount: d1Amt };
-    return null;
-  }
-  return null;
-}
-
-function autoFillSuggestedAmount(fieldKey){
-  const dateFieldId = fieldKey === "demand2" ? "demand2Date" : "reminderDate";
-  const amountFieldId = fieldKey === "demand2" ? "demand2Amount" : "reminderAmount";
-  const hintId = fieldKey === "demand2" ? "demand2Hint" : "reminderHint";
-  const hintEl = document.getElementById(hintId);
-  const amountEl = document.getElementById(amountFieldId);
-
-  const thisDate = document.getElementById(dateFieldId).value;
-  const prev = previousLetterFor(fieldKey);
-
-  if(!thisDate || !prev){ if(hintEl) hintEl.textContent = ""; return; }
-
-  const paid = paymentsBetween(prev.date, thisDate);
-  const suggested = prev.amount - paid;
-
-  if(hintEl){
-    hintEl.textContent = paid > 0
-      ? `Suggested: Rs. ${suggested.toLocaleString("en-IN")} (Rs. ${prev.amount.toLocaleString("en-IN")} minus Rs. ${paid.toLocaleString("en-IN")} paid since last letter — adjust if a new charge applies)`
-      : `Suggested: Rs. ${suggested.toLocaleString("en-IN")} (no payments received since last letter — adjust if a new charge applies)`;
-  }
-
-  // Only overwrite if the field is empty or still holds a value we auto-filled
-  // earlier - never silently override a figure the user deliberately typed
-  // (e.g. because a new charge changed the real outstanding).
-  if(!amountEl.value || amountEl.dataset.autoFilled === "true"){
-    amountEl.value = suggested;
-    amountEl.dataset.autoFilled = "true";
-  }
-}
-
-["demand2Amount","reminderAmount"].forEach(id=>{
-  document.getElementById(id).addEventListener("input", (e)=>{
-    e.target.dataset.autoFilled = "false"; // real user keystroke - stop auto-overwriting
-  });
-});
-
-function refreshLetterSuggestions(){
-  autoFillSuggestedAmount("demand2");
-  autoFillSuggestedAmount("reminder");
-}
-
-["demand1Date","demand1Amount","demand2Date"].forEach(id=>{
-  document.getElementById(id).addEventListener("change", refreshLetterSuggestions);
-});
-document.getElementById("reminderDate").addEventListener("change", ()=> autoFillSuggestedAmount("reminder"));
-
-// Some browsers restore old form values on page reload (even for read-only
-// fields, without firing change events) - force a correct recalculation on
-// load so a stale figure from an earlier session can never linger.
-document.addEventListener("DOMContentLoaded", refreshLetterSuggestions);
 
 
 // ============================================================
