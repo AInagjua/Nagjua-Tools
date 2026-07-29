@@ -310,6 +310,10 @@
         <input type="date" id="demand2Date">
       </div>
       <div class="field">
+        <label>Outstanding Amount (Rs.)</label>
+        <input type="number" id="demand2Amount" placeholder="Leave blank if not applicable">
+      </div>
+      <div class="field">
         <label>Grace Period</label>
         <select id="demand2Grace">
           <option value="0">0 days</option>
@@ -324,6 +328,10 @@
       <div class="field">
         <label>Letter Date</label>
         <input type="date" id="reminderDate">
+      </div>
+      <div class="field">
+        <label>Outstanding Amount (Rs.)</label>
+        <input type="number" id="reminderAmount" placeholder="Cumulative total as on this letter">
       </div>
       <div class="field">
         <label>Grace Period</label>
@@ -766,30 +774,18 @@ function collectLetters(){
   if(d1Date && d1Amt){
     letters.push({ type:"demand", date:d1Date, amount:d1Amt, graceDays: parseInt(document.getElementById("demand1Grace").value,10) });
   }
-
-  let prevDate = d1Date, prevAmt = d1Amt;
-
   const d2Date = document.getElementById("demand2Date").value;
-  if(d2Date && prevDate && !isNaN(prevAmt)){
-    const d2Amt = prevAmt - paymentsBetween(prevDate, d2Date);
+  const d2Amt = parseFloat(document.getElementById("demand2Amount").value);
+  if(d2Date && d2Amt){
     letters.push({ type:"demand", date:d2Date, amount:d2Amt, graceDays: parseInt(document.getElementById("demand2Grace").value,10) });
-    prevDate = d2Date; prevAmt = d2Amt;
   }
-
   const rDate = document.getElementById("reminderDate").value;
-  if(rDate && prevDate && !isNaN(prevAmt)){
-    const rAmt = prevAmt - paymentsBetween(prevDate, rDate);
+  const rAmt = parseFloat(document.getElementById("reminderAmount").value);
+  if(rDate && rAmt){
     letters.push({ type:"reminder", date:rDate, amount:rAmt, graceDays: parseInt(document.getElementById("reminderGrace").value,10) });
   }
-
   letters.sort((a,b)=> a.date.localeCompare(b.date));
   return letters;
-}
-
-function paymentsBetween(fromDateExclusive, toDateInclusive){
-  return LEDGER_PAYMENTS
-    .filter(p => p.date > fromDateExclusive && p.date <= toDateInclusive)
-    .reduce((s,p)=> s + p.amount, 0);
 }
 
 function getInterestLetterEntry(){
