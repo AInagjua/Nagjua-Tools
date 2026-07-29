@@ -942,18 +942,23 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
     const ev = events[i];
 
     if(ev.kind === "letter"){
+      // An intermediate letter (Demand/Reminder) only gets its own day counted
+      // inclusively when it happens to be dated the same as the Interest
+      // Letter itself (i.e. it IS today, the day this is being drafted).
+      // A genuine earlier letter stays exclusive, per rule 4.
+      const closingOnDraftDay = (ev.date === interestLetterDate);
       // Close out any interest accruing on the previous outstanding up to this letter's date.
       if(graceEndDate && outstanding > 0){
         if(graceBroken && interestAccrualStart){
           // Grace was already broken by an earlier payment - close out the
           // segment that's been accruing since then.
-          accrueSegment(interestAccrualStart, ev.date, outstanding, `Interest till ${ev.letterType} letter dated ${fmtDMY(ev.date)}`, true);
+          accrueSegment(interestAccrualStart, ev.date, outstanding, `Interest till ${ev.letterType} letter dated ${fmtDMY(ev.date)}`, closingOnDraftDay);
         } else if(!graceBroken && ev.date > graceEndDate){
           // No payment ever broke this grace period, but time itself has now
           // passed grace-end before this new letter arrived - interest is
           // still owed for that gap (same rule as the final interest-letter
           // checkpoint: no payment received -> calculate after grace period).
-          accrueSegment(addDaysISO(graceEndDate,1), ev.date, outstanding, `Interest till ${ev.letterType} letter dated ${fmtDMY(ev.date)}`, true);
+          accrueSegment(addDaysISO(graceEndDate,1), ev.date, outstanding, `Interest till ${ev.letterType} letter dated ${fmtDMY(ev.date)}`, closingOnDraftDay);
         }
         // else: new letter arrives within the previous letter's still-active
         // grace period - no interest for this gap, per the grace-period rule.
