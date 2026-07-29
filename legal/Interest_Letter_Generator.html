@@ -310,10 +310,6 @@
         <input type="date" id="demand2Date">
       </div>
       <div class="field">
-        <label>Outstanding Amount (Rs.)</label>
-        <input type="number" id="demand2Amount" placeholder="Leave blank if not applicable">
-      </div>
-      <div class="field">
         <label>Grace Period</label>
         <select id="demand2Grace">
           <option value="0">0 days</option>
@@ -328,10 +324,6 @@
       <div class="field">
         <label>Letter Date</label>
         <input type="date" id="reminderDate">
-      </div>
-      <div class="field">
-        <label>Outstanding Amount (Rs.)</label>
-        <input type="number" id="reminderAmount" placeholder="Cumulative total as on this letter">
       </div>
       <div class="field">
         <label>Grace Period</label>
@@ -569,6 +561,58 @@ function parseLedgerPayments(text){
 
 let LEDGER_PAYMENTS = [];
 let LEDGER_EXCLUDED = [];
+let LEDGER_BALANCE_HISTORY = [];
+
+// Reads the ledger's own running Balance column (which already reflects
+// every charge AND every payment, not just flat payments) so we can look up
+// the true outstanding as of any date - correctly whether it went up (new
+// charge) or down (payment) since the previous letter.
+function parseLedgerBalanceHistory(text){
+  const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
+  const dateStartRe = /^(\d{2}\/\d{2}\/\d{4})\b/;
+
+  let startIdx = lines.findIndex(l => /^Date\s+Particulars/i.test(l));
+  if(startIdx === -1) startIdx = 0;
+
+  const entries = [];
+  let current = null;
+  for(let i = startIdx; i < lines.length; i++){
+    const line = lines[i];
+    if(/Periodic Ledger Total/i.test(line)) break;
+    const m = line.match(dateStartRe);
+    if(m){
+      if(current) entries.push(current);
+      current = { date: m[1], firstLine: line };
+    }
+  }
+  if(current) entries.push(current);
+
+  const byDate = {};
+  entries.forEach(entry=>{
+    const m = entry.firstLine.match(/([\d,]+\.\d{2,3})\s+([\d,]+\.\d{2,3})\s*([CD])\s*$/);
+    if(!m) return;
+    const balanceRaw = parseFloat(m[2].replace(/,/g,""));
+    const suffix = m[3];
+    const [dd,mm,yyyy] = entry.date.split("/");
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    // "D" = amount owed (outstanding); "C" = customer in credit, nothing owed.
+    byDate[dateStr] = suffix === "D" ? balanceRaw : 0;
+  });
+
+  return Object.keys(byDate).sort().map(date=>({date, outstanding: byDate[date]}));
+}
+
+// Latest known balance on or before the target date - null if the ledger
+// has no entries that early (letter predates all ledger activity).
+function outstandingAsOf(targetDateISO){
+  let result = null;
+  for(const h of LEDGER_BALANCE_HISTORY){
+    if(h.date <= targetDateISO) result = h.outstanding;
+    else break;
+  }
+  return result;
+}
+
 
 async function handleLedgerUpload(event){
   const file = event.target.files[0];
@@ -588,6 +632,7 @@ async function handleLedgerUpload(event){
     const { payments, excluded } = parseLedgerPayments(fullText);
     LEDGER_PAYMENTS = payments;
     LEDGER_EXCLUDED = excluded;
+    LEDGER_BALANCE_HISTORY = parseLedgerBalanceHistory(fullText);
 
     if(payments.length === 0){
       ledgerMsg.innerHTML = '<span style="color:var(--red);">No dated flat-payment entries found. Check the PDF or contact for format review.</span>';
@@ -775,14 +820,18 @@ function collectLetters(){
     letters.push({ type:"demand", date:d1Date, amount:d1Amt, graceDays: parseInt(document.getElementById("demand1Grace").value,10) });
   }
   const d2Date = document.getElementById("demand2Date").value;
-  const d2Amt = parseFloat(document.getElementById("demand2Amount").value);
-  if(d2Date && d2Amt){
-    letters.push({ type:"demand", date:d2Date, amount:d2Amt, graceDays: parseInt(document.getElementById("demand2Grace").value,10) });
+  if(d2Date){
+    const d2Amt = outstandingAsOf(d2Date);
+    if(d2Amt !== null){
+      letters.push({ type:"demand", date:d2Date, amount:d2Amt, graceDays: parseInt(document.getElementById("demand2Grace").value,10) });
+    }
   }
   const rDate = document.getElementById("reminderDate").value;
-  const rAmt = parseFloat(document.getElementById("reminderAmount").value);
-  if(rDate && rAmt){
-    letters.push({ type:"reminder", date:rDate, amount:rAmt, graceDays: parseInt(document.getElementById("reminderGrace").value,10) });
+  if(rDate){
+    const rAmt = outstandingAsOf(rDate);
+    if(rAmt !== null){
+      letters.push({ type:"reminder", date:rDate, amount:rAmt, graceDays: parseInt(document.getElementById("reminderGrace").value,10) });
+    }
   }
   letters.sort((a,b)=> a.date.localeCompare(b.date));
   return letters;
@@ -966,19 +1015,14 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
 // ---------- Run calculation: UI wiring ----------
 let LAST_CALC_RESULT = null;
 
-function checkLetterAmountConsistency(letters, payments){
+function checkLetterAmountConsistency(letters){
   const warnings = [];
-  for(let i=1;i<letters.length;i++){
-    const prev = letters[i-1];
-    const curr = letters[i];
-    const paidBetween = payments
-      .filter(p => p.date > prev.date && p.date <= curr.date)
-      .reduce((s,p)=> s + p.amount, 0);
-    const expected = prev.amount - paidBetween;
-    if(Math.abs(expected - curr.amount) > 1){
-      const label = curr.type === "reminder" ? "Reminder Letter" : "Demand Letter";
+  const demand1 = letters.find(l => l.type === "demand" && l.date === document.getElementById("demand1Date").value);
+  if(demand1){
+    const ledgerBalance = outstandingAsOf(demand1.date);
+    if(ledgerBalance !== null && Math.abs(ledgerBalance - demand1.amount) > 1){
       warnings.push(
-        `${label} dated ${fmtDMY(curr.date)}: you entered Rs. ${curr.amount.toLocaleString("en-IN")}, but Rs. ${prev.amount.toLocaleString("en-IN")} minus Rs. ${paidBetween.toLocaleString("en-IN")} paid since the previous letter = Rs. ${expected.toLocaleString("en-IN")}. If a new charge was added, this is fine — otherwise please double check.`
+        `Demand 1 dated ${fmtDMY(demand1.date)}: you entered Rs. ${demand1.amount.toLocaleString("en-IN")}, but the ledger's own balance as of that date is Rs. ${ledgerBalance.toLocaleString("en-IN")}. Please double check.`
       );
     }
   }
@@ -1011,7 +1055,7 @@ function runCalculation(){
   const result = calculateInterest(demandReminderLetters, LEDGER_PAYMENTS, interestLetterDate, rate);
   LAST_CALC_RESULT = result;
 
-  const consistencyWarnings = checkLetterAmountConsistency(demandReminderLetters, LEDGER_PAYMENTS);
+  const consistencyWarnings = checkLetterAmountConsistency(demandReminderLetters);
 
   calcMsg.innerHTML = `Calculation complete. Total interest: <b>Rs. ${result.totalInterest.toLocaleString("en-IN")}</b>`;
   if(consistencyWarnings.length){
