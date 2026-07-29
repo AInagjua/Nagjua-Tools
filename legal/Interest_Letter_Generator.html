@@ -246,7 +246,39 @@
 
     <div class="section-title">2. Customer &amp; Unit</div>
     <div class="auto-box" id="customerBox">
-      Customer, unit, project, entity and address will be auto-detected once the ledger PDF is uploaded above.
+      Customer, unit, project, entity and agreement value will be auto-detected from the ledger PDF above.
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Address Line 1</label>
+        <input type="text" id="custAddr1" placeholder="Auto-filled from booking register when available, otherwise enter manually">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Address Line 2</label>
+        <input type="text" id="custAddr2">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Address Line 3</label>
+        <input type="text" id="custAddr3">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>City</label>
+        <input type="text" id="custCity">
+      </div>
+      <div class="field">
+        <label>State</label>
+        <input type="text" id="custState">
+      </div>
+      <div class="field">
+        <label>PIN</label>
+        <input type="text" id="custPin">
+      </div>
     </div>
 
     <div class="section-title">3. Letters — Demand / Reminder / Interest</div>
@@ -569,16 +601,13 @@ async function handleLedgerUpload(event){
       msg += `<br>Excluded ${excluded.length} charge entrie(s) (Gas/EMS/Society Deposit/Stamp Duty/GST) totalling Rs. ${exSum.toLocaleString("en-IN")} — not counted toward interest principal.`;
     }
 
-    const flatNo = extractFlatNoFromLedger(fullText);
-    if(flatNo){
-      const matched = autoSelectCustomerByFlatNo(flatNo);
-      if(matched){
-        msg += `<br>Customer auto-selected from ledger: <b>Flat ${flatNo}</b>.`;
-      } else {
-        msg += `<br><span style="color:var(--red);">Flat ${flatNo} found in ledger, but no matching record in the booking register. Tell your AI assistant to refresh the booking register data.</span>`;
-      }
+    const matched = buildCustomerFromLedger(fullText);
+    if(matched === null){
+      msg += `<br><span style="color:var(--red);">Could not detect customer name and/or flat number from this ledger PDF.</span>`;
+    } else if(matched){
+      msg += `<br>Customer, unit, project and agreement value auto-detected from ledger. Address found in booking register.`;
     } else {
-      msg += `<br><span style="color:var(--red);">Could not detect flat number from ledger PDF.</span>`;
+      msg += `<br>Customer, unit, project and agreement value auto-detected from ledger. <span style="color:var(--red);">Address not in booking register — please fill in below.</span>`;
     }
 
     ledgerMsg.innerHTML = msg;
@@ -590,32 +619,98 @@ async function handleLedgerUpload(event){
   }
 }
 
-// Extract the unit/flat number from the receipt narration, e.g.
-// "RECEIVED FROM Mrs. JYOTI RATHI OF FLAT NO.JD108" -> "JD108"
-// This appears once per receipt (far more reliably than the "Unit (Flat)"
-// property-details line, whose column order can get scrambled by PDF text
-// extraction).
-function extractFlatNoFromLedger(text){
-  const m = text.match(/FLAT NO\.?\s*([A-Za-z0-9\-]+)/i);
-  return m ? m[1].toUpperCase() : null;
+// Derive customer name, unit, building, project, entity, and agreement value
+// directly from the uploaded ledger - no booking register match required for
+// these. Address (not present in ledgers) is still looked up from the
+// booking register separately, with a manual-entry fallback.
+function parseLedgerCustomerInfo(text){
+  const lines = text.split("\n").map(l=>l.trim());
+
+  let companyName = "";
+  if(/MICROMEGA PROJECTS/i.test(lines[0]||"")) companyName = "MICROMEGA PROJECTS";
+  else if(/NAGJUA LIFESPACES/i.test(lines[0]||"")) companyName = "NAGJUA LIFESPACES";
+  const entity = COMPANY_TO_ENTITY[companyName] || "";
+
+  let customerName = "", businessUnit = "";
+  for(let i=0;i<lines.length;i++){
+    if(/^Name of party/i.test(lines[i]) && i>0) customerName = lines[i-1];
+    if(/^Name of project/i.test(lines[i]) && i>0) businessUnit = lines[i-1];
+  }
+
+  const flatMatch = text.match(/FLAT NO\.?:?\s*([A-Z0-9]{1,4}-?\d{2,4})/i);
+  const unit = flatMatch ? flatMatch[1].toUpperCase() : "";
+
+  const buildingName = buildingNameFromUnit(unit, businessUnit);
+
+  let netBasicCost = null;
+  const basicMatch = text.match(/Net Basic Cost\s*:\s*([\d,]+(?:\.\d+)?)/i);
+  if(basicMatch) netBasicCost = parseFloat(basicMatch[1].replace(/,/g, ''));
+
+  let clubAmount = 0;
+  const clubMatch = text.match(/CLUB\s+\d?BHK\s+[\d,]+(?:\.\d+)?\s+\d+\s+\d+\s+\d+\s+([\d,]+(?:\.\d+)?)/i);
+  if(clubMatch) clubAmount = parseFloat(clubMatch[1].replace(/,/g, ''));
+
+  const pKey = BUSINESS_UNIT_TO_PROJECT[businessUnit];
+  const isTG = pKey === "TG2A" || pKey === "TG2B";
+  const agreementValue = netBasicCost !== null ? netBasicCost + (isTG ? clubAmount : 0) : null;
+
+  return { customerName, unit, businessUnit, companyName, entity, buildingName, agreementValue };
 }
 
-function autoSelectCustomerByFlatNo(flatNo){
-  if(!flatNo) return false;
-  const idx = BOOKING_ROWS.findIndex(r => r.unit.toUpperCase() === flatNo.toUpperCase());
-  if(idx === -1) return false;
-  SELECTED_CUSTOMER = BOOKING_ROWS[idx];
+function buildCustomerFromLedger(fullText){
+  const info = parseLedgerCustomerInfo(fullText);
+  if(!info.customerName || !info.unit) return null;
+
+  const regRow = BOOKING_ROWS.find(r => r.unit.toUpperCase() === info.unit.toUpperCase());
+
+  SELECTED_CUSTOMER = {
+    customerName: info.customerName,
+    unit: info.unit,
+    businessUnit: info.businessUnit,
+    companyName: info.companyName,
+    entity: info.entity,
+    buildingName: info.buildingName,
+    agreementValue: info.agreementValue,
+    address1: regRow ? regRow.address1 : "",
+    address2: regRow ? regRow.address2 : "",
+    address3: regRow ? regRow.address3 : "",
+    city: regRow ? regRow.city : "",
+    state: regRow ? regRow.state : "",
+    pin: regRow ? regRow.pin : ""
+  };
+
+  document.getElementById("custAddr1").value = SELECTED_CUSTOMER.address1;
+  document.getElementById("custAddr2").value = SELECTED_CUSTOMER.address2;
+  document.getElementById("custAddr3").value = SELECTED_CUSTOMER.address3;
+  document.getElementById("custCity").value = SELECTED_CUSTOMER.city;
+  document.getElementById("custState").value = SELECTED_CUSTOMER.state;
+  document.getElementById("custPin").value = SELECTED_CUSTOMER.pin;
+
+  renderCustomerBox();
+  return !!regRow;
+}
+
+function renderCustomerBox(){
   const c = SELECTED_CUSTOMER;
+  if(!c){ return; }
   const addrParts = [c.address1, c.address2, c.address3, c.city, c.state, c.pin].filter(Boolean);
   document.getElementById("customerBox").innerHTML = `
     <b>${c.customerName}</b><br>
     Flat No.: <b>${c.unit}</b> in ${c.buildingName ? "Building known as "+c.buildingName : ""}, Project: <b>${c.businessUnit}</b><br>
     Entity: <b>${c.entity || c.companyName}</b><br>
-    Address: ${addrParts.join(", ") || "<i>not found in booking register</i>"}<br>
+    Address: ${addrParts.join(", ") || '<i style="color:var(--red);">Not found in booking register - please fill in below.</i>'}<br>
     Agreement Value: Rs. ${c.agreementValue ? c.agreementValue.toLocaleString("en-IN") : "-"}
   `;
-  return true;
 }
+
+const ADDR_FIELD_MAP = { custAddr1:"address1", custAddr2:"address2", custAddr3:"address3", custCity:"city", custState:"state", custPin:"pin" };
+Object.keys(ADDR_FIELD_MAP).forEach(id=>{
+  document.getElementById(id).addEventListener("input", (e)=>{
+    if(!SELECTED_CUSTOMER) return;
+    SELECTED_CUSTOMER[ADDR_FIELD_MAP[id]] = e.target.value;
+    renderCustomerBox();
+  });
+});
 
 function renderPaymentsPreview(){
   const el = document.getElementById("paymentsPreview");
