@@ -47,6 +47,18 @@
   }
   .topbar button:hover{border-color:var(--danger);color:var(--danger);}
 
+  .header-corner{display:flex;align-items:center;gap:8px;}
+  .header-corner input[type=password]{
+    width:200px;font-size:12px;padding:7px 10px;border:1px solid var(--steel-line);
+    border-radius:6px;background:#FAFBFD;
+  }
+  .header-corner .save-key-btn{
+    background:var(--navy);color:#fff;border:none;padding:7px 12px;border-radius:6px;
+    font-size:12px;font-weight:600;cursor:pointer;
+  }
+  .header-corner .save-key-btn:hover{background:var(--navy-dark);}
+  #key-status-msg{text-align:right;margin-top:6px;}
+
   .section-label{display:flex;align-items:center;gap:10px;margin:0 0 14px;}
   .section-label .num{
     width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;
@@ -122,14 +134,30 @@
 
   <div class="topbar">
     <div>
-      <h1>Window Measurement Calculator</h1>
+      <div class="section-label" style="margin-bottom:6px;"><div class="num">1</div><h1 style="font-size:22px;margin:0;color:var(--navy-dark);letter-spacing:0.2px;">Window Measurement Calculator</h1></div>
       <div class="sub">Sft = (Width × Height × Nos) / 144 · Fixed Louvers = BHK number</div>
     </div>
-    <button id="reset-btn">Reset all</button>
+    <div>
+      <div class="header-corner">
+        <input type="password" id="gemini-key-input" placeholder="Gemini API Key">
+        <button class="save-key-btn" id="save-key-btn">Save Key</button>
+        <button id="reset-btn">Reset all</button>
+      </div>
+      <div class="status-msg" id="key-status-msg"></div>
+    </div>
   </div>
 
   <section class="block" id="entry-section">
-    <div class="section-label"><div class="num">1</div><h2>Your Flats</h2></div>
+    <div class="section-label"><div class="num">2</div><h2>Upload &amp; Extract</h2></div>
+    <div class="export-grid" style="margin-bottom:20px;">
+      <div class="export-card">
+        <h3>Upload Measurement Photo</h3>
+        <p>Upload a photo of a handwritten or printed measurement sheet. The AI reads it and adds the rows directly into the table below for you to review and correct.</p>
+        <input type="file" id="ai-photo-input" accept="image/*">
+        <button class="export-btn append" id="extract-photo-btn">Extract From Photo</button>
+        <div class="status-msg" id="ai-status-msg"></div>
+      </div>
+    </div>
     <div class="grid-wrap">
       <div class="table-scroll">
         <table class="grid">
@@ -175,53 +203,6 @@
         <div class="label">Total Fixed Louvers</div>
         <div class="value"><span id="louver-total">0</span> Nos</div>
       </div>
-    </div>
-  </section>
-
-  
-  <section class="block" id="ai-import-section">
-    <div class="section-label"><div class="num">2</div><h2>Import From Photo (AI)</h2></div>
-    <div class="export-grid">
-      <div class="export-card">
-        <h3>1. Gemini API Key</h3>
-        <p>Paste your own free Gemini API key from Google AI Studio. It is saved only in this browser and sent directly from your browser to Google's API - never anywhere else.</p>
-        <input type="password" id="gemini-key-input" placeholder="Paste your Gemini API key" style="width:100%;font-size:12.5px;padding:8px;border:1px solid var(--steel-line);border-radius:6px;margin-bottom:12px;background:#FAFBFD;">
-        <button class="export-btn new" id="save-key-btn">Save Key</button>
-        <div class="status-msg" id="key-status-msg"></div>
-      </div>
-      <div class="export-card">
-        <h3>2. Upload Measurement Photo</h3>
-        <p>Upload a photo of a handwritten or printed measurement sheet. The AI reads it and pre-fills an editable table below for you to check before adding it to your list.</p>
-        <input type="file" id="ai-photo-input" accept="image/*">
-        <button class="export-btn append" id="extract-photo-btn">Extract From Photo</button>
-        <div class="status-msg" id="ai-status-msg"></div>
-      </div>
-    </div>
-
-    <div id="ai-preview-wrap" style="display:none;margin-top:20px;">
-      <div class="grid-wrap">
-        <div class="table-scroll">
-          <table class="grid" id="ai-preview-table">
-            <thead>
-              <tr class="group-row">
-                <th class="plain">Tower</th>
-                <th class="plain">Flat No.</th>
-                <th class="plain">BHK</th>
-                <th class="hall-hd" colspan="3">Hall (Nos/W/H)</th>
-                <th colspan="3">Bed-1</th>
-                <th colspan="3">Bed-2</th>
-                <th colspan="3">Bed-3</th>
-                <th colspan="3">Bed-4</th>
-                <th class="kitchen-hd" colspan="3">Kitchen</th>
-                <th class="plain">Use?</th>
-              </tr>
-            </thead>
-            <tbody id="ai-preview-body"></tbody>
-          </table>
-        </div>
-      </div>
-      <button id="add-ai-rows-btn" class="export-btn append" style="width:auto;padding:11px 18px;margin-top:14px;">+ Add Checked Rows To List</button>
-      <button id="discard-ai-rows-btn" class="export-btn" style="width:auto;padding:11px 18px;margin-top:14px;margin-left:10px;background:#8a97a6;">Discard</button>
     </div>
   </section>
 
@@ -639,7 +620,6 @@ document.getElementById('import-file-input').addEventListener('change', async (e
 // ================== AI PHOTO IMPORT (Gemini) ==================
 const GEMINI_KEY_STORAGE = 'nagjua_gemini_api_key';
 const GEMINI_MODEL = 'gemini-3-flash-preview';
-let aiDraftFlats = [];
 
 const geminiKeyInput = document.getElementById('gemini-key-input');
 const savedGeminiKey = localStorage.getItem(GEMINI_KEY_STORAGE);
@@ -731,102 +711,29 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
     const rows = parseGeminiJson(text);
     if(!Array.isArray(rows) || !rows.length) throw new Error('AI did not find any flat rows in this photo.');
 
-    aiDraftFlats = rows.map(r => ({
-      tower: r.tower || '',
-      flatNo: r.flatNo || '',
-      bhk: Number(r.bhk) || 1,
-      hall: normalizeRoom(r.hall),
-      bed1: normalizeRoom(r.bed1),
-      bed2: normalizeRoom(r.bed2),
-      bed3: normalizeRoom(r.bed3),
-      bed4: normalizeRoom(r.bed4),
-      kitchen: normalizeRoom(r.kitchen),
-      _use: true
-    }));
+    rows.forEach(r => {
+      flats.push({
+        id: 'flat_'+(idCounter++),
+        tower: r.tower || '', flatNo: r.flatNo || '', bhk: Number(r.bhk) || 1,
+        hall: normalizeRoom(r.hall),
+        bed1: normalizeRoom(r.bed1),
+        bed2: normalizeRoom(r.bed2),
+        bed3: normalizeRoom(r.bed3),
+        bed4: normalizeRoom(r.bed4),
+        kitchen: normalizeRoom(r.kitchen)
+      });
+    });
 
-    renderAiPreview();
-    showAiStatus('Extracted ' + aiDraftFlats.length + ' row(s). Please review and correct before adding.', true);
+    saveFlats();
+    render();
+    fileInput.value = '';
+    showAiStatus('Added ' + rows.length + ' flat(s) below. Please review and correct.', true);
   }catch(err){
     console.error(err);
     showAiStatus('Could not read that photo: ' + err.message, false);
   }finally{
     btn.disabled = false;
   }
-});
-
-function aiRoomCells(idx, groupKey, room){
-  return '<td><input type="number" min="0" step="1" value="' + room.nos + '" data-ai-idx="' + idx + '" data-ai-field="' + groupKey + '.nos"></td>' +
-    '<td><input type="number" min="0" step="0.01" value="' + room.width + '" data-ai-idx="' + idx + '" data-ai-field="' + groupKey + '.width"></td>' +
-    '<td><input type="number" min="0" step="0.01" value="' + room.height + '" data-ai-idx="' + idx + '" data-ai-field="' + groupKey + '.height"></td>';
-}
-
-function renderAiPreview(){
-  const wrap = document.getElementById('ai-preview-wrap');
-  const body = document.getElementById('ai-preview-body');
-  if(!aiDraftFlats.length){ wrap.style.display = 'none'; body.innerHTML=''; return; }
-  wrap.style.display = 'block';
-  body.innerHTML = aiDraftFlats.map((f, idx) => (
-    '<tr>' +
-      '<td><input type="text" value="' + f.tower + '" data-ai-idx="' + idx + '" data-ai-field="tower"></td>' +
-      '<td><input type="text" value="' + f.flatNo + '" data-ai-idx="' + idx + '" data-ai-field="flatNo"></td>' +
-      '<td><input type="number" min="1" max="4" value="' + f.bhk + '" data-ai-idx="' + idx + '" data-ai-field="bhk"></td>' +
-      aiRoomCells(idx,'hall',f.hall) +
-      aiRoomCells(idx,'bed1',f.bed1) +
-      aiRoomCells(idx,'bed2',f.bed2) +
-      aiRoomCells(idx,'bed3',f.bed3) +
-      aiRoomCells(idx,'bed4',f.bed4) +
-      aiRoomCells(idx,'kitchen',f.kitchen) +
-      '<td><input type="checkbox" ' + (f._use? 'checked':'') + ' data-ai-idx="' + idx + '" data-ai-field="_use"></td>' +
-    '</tr>'
-  )).join('');
-}
-
-document.getElementById('ai-preview-body').addEventListener('input', (e) => {
-  const idx = e.target.getAttribute('data-ai-idx');
-  const field = e.target.getAttribute('data-ai-field');
-  if(idx === null || !field) return;
-  const flat = aiDraftFlats[Number(idx)];
-  if(!flat) return;
-  if(field === '_use'){
-    flat._use = e.target.checked;
-  } else if(field === 'tower' || field === 'flatNo'){
-    flat[field] = e.target.value;
-  } else if(field === 'bhk'){
-    flat.bhk = Number(e.target.value) || 1;
-  } else {
-    const parts2 = field.split('.');
-    flat[parts2[0]][parts2[1]] = Number(e.target.value) || 0;
-  }
-});
-
-document.getElementById('add-ai-rows-btn').addEventListener('click', () => {
-  const chosen = aiDraftFlats.filter(f => f._use);
-  if(!chosen.length){ showAiStatus('No rows checked to add.', false); return; }
-  chosen.forEach(f => {
-    flats.push({
-      id: 'flat_'+(idCounter++),
-      tower: f.tower, flatNo: f.flatNo, bhk: f.bhk,
-      hall: newRoom(f.hall.nos, f.hall.width, f.hall.height),
-      bed1: newRoom(f.bed1.nos, f.bed1.width, f.bed1.height),
-      bed2: newRoom(f.bed2.nos, f.bed2.width, f.bed2.height),
-      bed3: newRoom(f.bed3.nos, f.bed3.width, f.bed3.height),
-      bed4: newRoom(f.bed4.nos, f.bed4.width, f.bed4.height),
-      kitchen: newRoom(f.kitchen.nos, f.kitchen.width, f.kitchen.height)
-    });
-  });
-  saveFlats();
-  render();
-  aiDraftFlats = [];
-  renderAiPreview();
-  document.getElementById('ai-photo-input').value = '';
-  showAiStatus('Added ' + chosen.length + ' flat(s) to your saved list below.', true);
-});
-
-document.getElementById('discard-ai-rows-btn').addEventListener('click', () => {
-  aiDraftFlats = [];
-  renderAiPreview();
-  document.getElementById('ai-photo-input').value = '';
-  showAiStatus('Discarded.', true);
 });
 
 
