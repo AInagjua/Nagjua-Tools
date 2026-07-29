@@ -681,7 +681,7 @@ function parseLedgerLines(lines) {
     if (/^Name of project/i.test(lines[i]) && i > 0) projectName = lines[i - 1];
   }
   let receiverPrefix = "Mr.", receiverName = receiverFull;
-  const prefixMatch = receiverFull.match(/^(Mr\.|Mrs\.|Miss|M\/s\.?)\s*(.+)/i);
+  const prefixMatch = receiverFull.match(/^(Mr\.|Mrs\.|Ms\.|Miss|M\/s\.?|Smt\.?|Shri|Dr\.|Kum\.?|Er\.?|Adv\.?|Prof\.?|Capt\.?|Col\.?|Major)\s*(.+)/i);
   if (prefixMatch) { receiverPrefix = prefixMatch[1]; receiverName = prefixMatch[2].trim(); }
 
   let flatNo = "";
