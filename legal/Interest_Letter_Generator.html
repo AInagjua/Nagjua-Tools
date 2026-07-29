@@ -859,6 +859,11 @@ function refreshLetterSuggestions(){
 });
 document.getElementById("reminderDate").addEventListener("change", ()=> autoFillSuggestedAmount("reminder"));
 
+// Some browsers restore old form values on page reload (even for read-only
+// fields, without firing change events) - force a correct recalculation on
+// load so a stale figure from an earlier session can never linger.
+document.addEventListener("DOMContentLoaded", refreshLetterSuggestions);
+
 
 // ============================================================
 // Core interest calculation engine
