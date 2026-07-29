@@ -415,7 +415,9 @@ const PROJECTS = {
     label: "The Park",
     company: "NAGJUA LIFESPACES",
     entity: "NLS",
-    buildings: { J:"JACINTA", N:"NERINE", M:"MAGNOLIA", A1:"ASTER 1", A2:"ASTER 2", K:"BLUEBELL", E1:"ELDA 1", E2:"ELDA 2" }
+    // NLS park buildings have no short prefix in the mortgage tool; unit
+    // numbers there are matched via booking register Business Unit / Unit text instead.
+    buildings: {}
   }
 };
 
@@ -437,20 +439,11 @@ const BUSINESS_UNIT_TO_PROJECT = {
 
 function buildingNameFromUnit(unit, businessUnit){
   if(!unit) return "";
+  const prefixMatch = unit.match(/^([A-Za-z]+)/);
+  if(!prefixMatch) return "";
+  const prefix = prefixMatch[1].toUpperCase();
   const pKey = BUSINESS_UNIT_TO_PROJECT[businessUnit];
   const proj = pKey ? PROJECTS[pKey] : null;
-  let prefix = "";
-  if(pKey === "PARK"){
-    // Park units look like "A2 203", "J 204", "E1 501", or sometimes a bare
-    // number with no building code at all - so the letter is followed by an
-    // OPTIONAL single wing digit, not the start of the flat number.
-    const m = unit.match(/^([A-Za-z]+\d?)/);
-    if(m) prefix = m[1].toUpperCase();
-  } else {
-    const m = unit.match(/^([A-Za-z]+)/);
-    if(m) prefix = m[1].toUpperCase();
-  }
-  if(!prefix) return "";
   if(proj && proj.buildings[prefix]) return proj.buildings[prefix];
   return prefix; // fallback: show the raw prefix
 }
@@ -664,11 +657,23 @@ function parseLedgerCustomerInfo(text){
   return { customerName, unit, businessUnit, companyName, entity, buildingName, agreementValue };
 }
 
+function normalizeName(s){
+  return (s||"").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+}
+
 function buildCustomerFromLedger(fullText){
   const info = parseLedgerCustomerInfo(fullText);
   if(!info.customerName || !info.unit) return null;
 
-  const regRow = BOOKING_ROWS.find(r => r.unit.toUpperCase() === info.unit.toUpperCase());
+  let regRow = BOOKING_ROWS.find(r => r.unit.toUpperCase() === info.unit.toUpperCase());
+  if(!regRow){
+    // Flat number didn't match (different format, register not yet updated,
+    // etc.) - fall back to matching by customer name.
+    const normLedgerName = normalizeName(info.customerName);
+    if(normLedgerName){
+      regRow = BOOKING_ROWS.find(r => normalizeName(r.customerName) === normLedgerName);
+    }
+  }
 
   SELECTED_CUSTOMER = {
     customerName: info.customerName,
