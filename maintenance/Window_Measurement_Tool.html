@@ -83,12 +83,6 @@
   .remove-flat-row-btn{background:none;border:none;color:#B7C0C9;font-size:15px;cursor:pointer;}
   .remove-flat-row-btn:hover{color:var(--danger);}
 
-  #add-flat-btn{
-    display:block;background:var(--navy);color:#fff;border:none;padding:11px 18px;border-radius:8px;
-    font-size:13.5px;font-weight:600;cursor:pointer;margin:16px 0;
-  }
-  #add-flat-btn:hover{background:var(--navy-dark);}
-
   .totals-bar{
     position:sticky;bottom:14px;display:flex;gap:14px;background:var(--navy-dark);
     border-radius:10px;padding:14px 20px;color:#fff;box-shadow:0 6px 18px rgba(21,42,74,0.35);margin-top:16px;
@@ -135,7 +129,7 @@
   </div>
 
   <section class="block" id="entry-section">
-    <div class="section-label"><div class="num">1</div><h2>Enter Measurements</h2></div>
+    <div class="section-label"><div class="num">1</div><h2>Your Flats</h2></div>
     <div class="grid-wrap">
       <div class="table-scroll">
         <table class="grid">
@@ -168,7 +162,6 @@
         </table>
       </div>
     </div>
-    <button id="add-flat-btn">+ Add Flat</button>
     <div class="totals-bar">
       <div class="tot domal">
         <div class="label">Total Domal Section</div>
@@ -304,7 +297,7 @@ const gridBody = document.getElementById('grid-body');
 
 function render(){
   if(flats.length === 0){
-    gridBody.innerHTML = '<tr><td colspan="31" class="empty-hint">No flats yet — click "+ Add Flat" to start.</td></tr>';
+    gridBody.innerHTML = '<tr><td colspan="31" class="empty-hint">No flats yet — use "Import From Photo (AI)" or "Import From Existing File" below to add some.</td></tr>';
   } else {
     gridBody.innerHTML = flats.map(renderFlatRow).join('');
   }
@@ -425,12 +418,6 @@ gridBody.addEventListener('click',(e)=>{
     render();
     saveFlats();
   }
-});
-
-document.getElementById('add-flat-btn').addEventListener('click',()=>{
-  flats.push(newFlat());
-  render();
-  saveFlats();
 });
 
 document.getElementById('reset-btn').addEventListener('click',()=>{
@@ -651,7 +638,7 @@ document.getElementById('import-file-input').addEventListener('change', async (e
 
 // ================== AI PHOTO IMPORT (Gemini) ==================
 const GEMINI_KEY_STORAGE = 'nagjua_gemini_api_key';
-const GEMINI_MODEL = 'gemini-3-flash-preview';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 let aiDraftFlats = [];
 
 const geminiKeyInput = document.getElementById('gemini-key-input');
