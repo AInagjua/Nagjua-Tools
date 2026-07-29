@@ -310,8 +310,8 @@
         <input type="date" id="demand2Date">
       </div>
       <div class="field">
-        <label>Outstanding Amount (Rs.) — auto-calculated</label>
-        <input type="number" id="demand2Amount" readonly style="background:#f0f0f0;color:var(--navy);font-weight:bold;cursor:not-allowed;">
+        <label>Outstanding Amount (Rs.)</label>
+        <input type="number" id="demand2Amount" placeholder="Leave blank if not applicable">
         <div id="demand2Hint" style="font-size:11px;color:var(--muted);margin-top:3px;"></div>
       </div>
       <div class="field">
@@ -331,8 +331,8 @@
         <input type="date" id="reminderDate">
       </div>
       <div class="field">
-        <label>Outstanding Amount (Rs.) — auto-calculated</label>
-        <input type="number" id="reminderAmount" readonly style="background:#f0f0f0;color:var(--navy);font-weight:bold;cursor:not-allowed;">
+        <label>Outstanding Amount (Rs.)</label>
+        <input type="number" id="reminderAmount" placeholder="Cumulative total as on this letter">
         <div id="reminderHint" style="font-size:11px;color:var(--muted);margin-top:3px;"></div>
       </div>
       <div class="field">
@@ -835,19 +835,31 @@ function autoFillSuggestedAmount(fieldKey){
   const thisDate = document.getElementById(dateFieldId).value;
   const prev = previousLetterFor(fieldKey);
 
-  if(!thisDate || !prev){ if(hintEl) hintEl.textContent = ""; amountEl.value = ""; return; }
+  if(!thisDate || !prev){ if(hintEl) hintEl.textContent = ""; return; }
 
   const paid = paymentsBetween(prev.date, thisDate);
-  const calculated = prev.amount - paid;
+  const suggested = prev.amount - paid;
 
   if(hintEl){
     hintEl.textContent = paid > 0
-      ? `Rs. ${prev.amount.toLocaleString("en-IN")} minus Rs. ${paid.toLocaleString("en-IN")} paid since last letter`
-      : `No payments received since last letter`;
+      ? `Suggested: Rs. ${suggested.toLocaleString("en-IN")} (Rs. ${prev.amount.toLocaleString("en-IN")} minus Rs. ${paid.toLocaleString("en-IN")} paid since last letter — adjust if a new charge applies)`
+      : `Suggested: Rs. ${suggested.toLocaleString("en-IN")} (no payments received since last letter — adjust if a new charge applies)`;
   }
 
-  amountEl.value = calculated;
+  // Only overwrite if the field is empty or still holds a value we auto-filled
+  // earlier - never silently override a figure the user deliberately typed
+  // (e.g. because a new charge changed the real outstanding).
+  if(!amountEl.value || amountEl.dataset.autoFilled === "true"){
+    amountEl.value = suggested;
+    amountEl.dataset.autoFilled = "true";
+  }
 }
+
+["demand2Amount","reminderAmount"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", (e)=>{
+    e.target.dataset.autoFilled = "false"; // real user keystroke - stop auto-overwriting
+  });
+});
 
 function refreshLetterSuggestions(){
   autoFillSuggestedAmount("demand2");
