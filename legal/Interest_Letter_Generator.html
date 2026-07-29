@@ -921,9 +921,14 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
     return `${yy}-${mm}-${dd}`;
   }
 
-  function accrueSegment(segStartISO, segEndISO, principal, note){
+  function accrueSegment(segStartISO, segEndISO, principal, note, inclusive){
     if(principal <= 0) return;
-    const days = daysBetween(segStartISO, segEndISO); // exclusive of end date, per rule 4
+    // Payments exclude their own day (money arrived, debt stopped that day).
+    // Letters (intermediate Demand/Reminder, or the final Interest Letter
+    // itself) are just an "as of" date, not a transaction - so that day is
+    // still owed and counts toward interest.
+    let days = daysBetween(segStartISO, segEndISO);
+    if(inclusive) days += 1;
     if(days <= 0) return;
     const interest = principal * (annualRatePct/100) * days / 365;
     totalInterest += interest;
@@ -938,8 +943,20 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
 
     if(ev.kind === "letter"){
       // Close out any interest accruing on the previous outstanding up to this letter's date.
-      if(interestAccrualStart && graceBroken && outstanding > 0){
-        accrueSegment(interestAccrualStart, ev.date, outstanding, `Interest till ${ev.letterType} letter dated ${fmtDMY(ev.date)}`);
+      if(graceEndDate && outstanding > 0){
+        if(graceBroken && interestAccrualStart){
+          // Grace was already broken by an earlier payment - close out the
+          // segment that's been accruing since then.
+          accrueSegment(interestAccrualStart, ev.date, outstanding, `Interest till ${ev.letterType} letter dated ${fmtDMY(ev.date)}`, true);
+        } else if(!graceBroken && ev.date > graceEndDate){
+          // No payment ever broke this grace period, but time itself has now
+          // passed grace-end before this new letter arrived - interest is
+          // still owed for that gap (same rule as the final interest-letter
+          // checkpoint: no payment received -> calculate after grace period).
+          accrueSegment(addDaysISO(graceEndDate,1), ev.date, outstanding, `Interest till ${ev.letterType} letter dated ${fmtDMY(ev.date)}`, true);
+        }
+        // else: new letter arrives within the previous letter's still-active
+        // grace period - no interest for this gap, per the grace-period rule.
       }
       // New letter resets outstanding + fresh grace window on the FULL new outstanding.
       outstanding = ev.amount;
@@ -1000,11 +1017,11 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
     if(!graceBroken){
       if(interestLetterDate > graceEndDate){
         // breached exactly at the interest-letter stage; interest starts the day after grace ends
-        accrueSegment(addDaysISO(graceEndDate,1), interestLetterDate, outstanding, `Interest till Interest Letter dated ${fmtDMY(interestLetterDate)}`);
+        accrueSegment(addDaysISO(graceEndDate,1), interestLetterDate, outstanding, `Interest till Interest Letter dated ${fmtDMY(interestLetterDate)}`, true);
       }
       // else: interest letter falls within grace - no interest at all.
     } else if(interestAccrualStart){
-      accrueSegment(interestAccrualStart, interestLetterDate, outstanding, `Interest till Interest Letter dated ${fmtDMY(interestLetterDate)}`);
+      accrueSegment(interestAccrualStart, interestLetterDate, outstanding, `Interest till Interest Letter dated ${fmtDMY(interestLetterDate)}`, true);
     }
   }
 
