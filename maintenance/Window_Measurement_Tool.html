@@ -189,15 +189,14 @@
     <div class="section-label"><div class="num">2</div><h2>Export</h2></div>
     <div class="export-grid">
       <div class="export-card">
-        <h3>Download New Sheet</h3>
-        <p>Creates a fresh Excel file from the flats entered above.</p>
-        <button class="export-btn new" id="download-new-btn">Download New Excel</button>
+        <h3>Download Excel Sheet</h3>
+        <p>Everything you enter is saved automatically in this browser as you go — you only need to download when you're actually ready to share the file.</p>
+        <button class="export-btn new" id="download-new-btn">Download Excel</button>
       </div>
       <div class="export-card">
-        <h3>Add To Existing Sheet</h3>
-        <p>Upload a file this tool made earlier — the new flats above get appended before the TOTAL row, and totals update automatically.</p>
-        <input type="file" id="existing-file-input" accept=".xlsx">
-        <button class="export-btn append" id="append-btn">Append &amp; Download</button>
+        <h3>Import From Existing File (one-time)</h3>
+        <p>Already have an older sheet from this tool? Upload it once to bring those flats into your saved working list below — after that everything just stays here, no repeated uploads or downloads needed.</p>
+        <input type="file" id="import-file-input" accept=".xlsx">
       </div>
     </div>
     <div class="status-msg" id="status-msg"></div>
@@ -207,8 +206,22 @@
 
 <script>
 const TOWER_OPTIONS = ['H Tower','I Tower','J Tower','K Tower','L Tower','M Tower','N Tower'];
+const STORAGE_KEY = 'nagjua_window_measurement_flats_v1';
 let idCounter = 0;
 let flats = [];
+
+function saveFlats(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(flats)); }catch(e){ console.error('Could not save to this browser:', e); }
+}
+function loadFlats(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!Array.isArray(parsed) || !parsed.length) return null;
+    return parsed.map(f=>{ f.id = 'flat_'+(idCounter++); return f; });
+  }catch(e){ return null; }
+}
 
 function newRoom(nos, width, height){ return {nos: nos, width: width, height: height}; }
 
@@ -337,11 +350,13 @@ gridBody.addEventListener('input',(e)=>{
     flat[group][prop] = t.value === '' ? '' : (parseFloat(t.value)||0);
   } else if(field === 'tower' || field === 'flatNo'){
     flat[field] = t.value;
+    saveFlats();
     return;
   }
   const tr = t.closest('tr[data-flat-id]');
   updateRowDisplay(tr, flat);
   updateTotals();
+  saveFlats();
 });
 
 gridBody.addEventListener('change',(e)=>{
@@ -352,6 +367,7 @@ gridBody.addEventListener('change',(e)=>{
     const tr = t.closest('tr[data-flat-id]');
     updateRowDisplay(tr, flat);
     updateTotals();
+    saveFlats();
   }
 });
 
@@ -360,16 +376,22 @@ gridBody.addEventListener('click',(e)=>{
     const tr = e.target.closest('tr[data-flat-id]');
     flats = flats.filter(f=>f.id!==tr.dataset.flatId);
     render();
+    saveFlats();
   }
 });
 
 document.getElementById('add-flat-btn').addEventListener('click',()=>{
   flats.push(newFlat());
   render();
+  saveFlats();
 });
 
 document.getElementById('reset-btn').addEventListener('click',()=>{
-  if(confirm('Clear all entered flats?')){ flats = []; render(); }
+  if(confirm('Clear all entered flats? This also clears the saved data in this browser.')){
+    flats = [];
+    render();
+    saveFlats();
+  }
 });
 
 // ---- Excel export logic ----
@@ -514,59 +536,64 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
   }
 });
 
-document.getElementById('append-btn').addEventListener('click', async ()=>{
-  const fileInput = document.getElementById('existing-file-input');
-  if(!fileInput.files.length){ showStatus('Choose an existing file first.', false); return; }
-  if(!hasData()){ showStatus('Add at least one new flat to append.', false); return; }
+function readFlatRow(ws, r){
+  const flat = newFlat();
+  flat.tower = String(ws.getCell(r,1).value || '');
+  flat.flatNo = String(ws.getCell(r,2).value || '');
+  const bhkMatch = String(ws.getCell(r,3).value || '').match(/(\d+)/);
+  flat.bhk = bhkMatch ? parseInt(bhkMatch[1]) : 1;
+  let col = FIRST_ROOM_COL;
+  ROOM_GROUPS.forEach(key=>{
+    const toVal = v => (v===null||v===undefined||v==='') ? '' : Number(v);
+    flat[key] = newRoom(
+      toVal(ws.getCell(r,col).value),
+      toVal(ws.getCell(r,col+1).value),
+      toVal(ws.getCell(r,col+2).value)
+    );
+    col += 4;
+  });
+  return flat;
+}
+
+document.getElementById('import-file-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
   try{
-    const file = fileInput.files[0];
     const buffer = await file.arrayBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
     const worksheet = workbook.getWorksheet('Measurements') || workbook.worksheets[0];
     if(!worksheet){ showStatus('No worksheet found in that file.', false); return; }
-
-    let totalRowIdx = null;
-    worksheet.eachRow((row, rowNumber)=>{ if(row.getCell(1).value === 'TOTAL') totalRowIdx = rowNumber; });
-
-    let insertAt;
-    if(totalRowIdx){
-      worksheet.spliceRows(totalRowIdx, 1);
-      insertAt = totalRowIdx;
-    } else {
-      insertAt = worksheet.rowCount + 1;
-    }
-
-    let r = insertAt;
-    flats.forEach(f=>{ writeFlatRow(worksheet, r, f); r++; });
-
-    const domalCol = FIRST_ROOM_COL + ROOM_GROUPS.length*4 + 1;
-    const s18Col = domalCol + 1;
-    const louverCol = domalCol - 1;
-    let domalTotal=0, s18Total=0, louverTotal=0;
+    let imported = 0;
     worksheet.eachRow((row, rowNumber)=>{
       if(rowNumber <= 2) return;
-      const domalVal = row.getCell(domalCol).value;
-      const s18Val = row.getCell(s18Col).value;
-      const louverVal = row.getCell(louverCol).value;
-      if(typeof domalVal === 'number') domalTotal += domalVal;
-      if(typeof s18Val === 'number') s18Total += s18Val;
-      if(typeof louverVal === 'number') louverTotal += louverVal;
+      if(row.getCell(1).value === 'TOTAL') return;
+      const flatNoVal = row.getCell(2).value;
+      if(flatNoVal===null || flatNoVal===undefined || flatNoVal==='') return;
+      flats.push(readFlatRow(worksheet, rowNumber));
+      imported++;
     });
-
-    writeTotalRow(worksheet, r, domalTotal, s18Total, louverTotal);
-
-    const outBuffer = await workbook.xlsx.writeBuffer();
-    triggerDownload(outBuffer, file.name);
-    showStatus('Downloaded updated ' + file.name, true);
+    if(imported === 0){
+      showStatus('No flat rows found in that file.', false);
+    } else {
+      saveFlats();
+      render();
+      showStatus('Imported ' + imported + ' flat(s) into your saved working list.', true);
+    }
   }catch(err){
     console.error(err);
-    showStatus('Could not append to that file: ' + err.message, false);
+    showStatus('Could not import that file: ' + err.message, false);
   }
+  e.target.value = '';
 });
 
-// init
-flats.push(newFlat());
+// init - restore anything saved in this browser, otherwise start with one blank flat
+const restored = loadFlats();
+if(restored && restored.length){
+  flats = restored;
+} else {
+  flats.push(newFlat());
+}
 render();
 </script>
 </body>
