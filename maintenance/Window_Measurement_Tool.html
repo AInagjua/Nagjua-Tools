@@ -403,90 +403,94 @@ const KITCHEN_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FF2E7D53'}};
 const PLAIN_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FFEEF2F7'}};
 
 const ROOM_GROUPS = ['hall','bed1','bed2','bed3','bed4','kitchen'];
-const ROOM_LABELS = {hall:'Hall',bed1:'Bed-1',bed2:'Bed-2',bed3:'Bed-3',bed4:'Bed-4',kitchen:'Kitchen'};
+const ROOM_LABELS = {hall:'Hall',bed1:'Bed-1',bed2:'Bed-2',bed3:'Bed-3',bed4:'Bed-4',kitchen:'Kitchen (18x60)'};
 // column layout: 1 Tower,2 FlatNo,3 BHK, then 4 cols per room group (Nos,Width,Height,Sft), then FixedLouvers, DomalSft, 18x60Sft
 const FIRST_ROOM_COL = 4;
 const TOTAL_COLS = FIRST_ROOM_COL + ROOM_GROUPS.length*4 + 3; // + FixedLouvers, DomalSft, 18x60Sft
 
-function setColumns(ws){
-  const cols = [{width:12},{width:10},{width:8}];
-  ROOM_GROUPS.forEach(()=>{ cols.push({width:6},{width:8},{width:8},{width:9}); });
-  cols.push({width:10},{width:10},{width:10});
-  ws.columns = cols;
+function flatBlockHeaderLabel(flat){
+  const towerLetter = (flat.tower||'').trim().charAt(0).toUpperCase() || '?';
+  return towerLetter + '-' + (flat.flatNo || '');
 }
 
-function writeHeader(ws){
-  ws.mergeCells(1,1,2,1); ws.getCell(1,1).value='Tower';
-  ws.mergeCells(1,2,2,2); ws.getCell(1,2).value='Flat No.';
-  ws.mergeCells(1,3,2,3); ws.getCell(1,3).value='BHK';
-  let col = FIRST_ROOM_COL;
-  ROOM_GROUPS.forEach(key=>{
-    ws.mergeCells(1,col,1,col+3);
-    const c = ws.getCell(1,col);
-    c.value = ROOM_LABELS[key];
-    c.fill = key==='hall' ? HALL_FILL : (key==='kitchen' ? KITCHEN_FILL : GROUP_FILL);
-    c.font = {bold:true,color:{argb:'FFFFFFFF'}};
-    c.alignment = {horizontal:'center'};
-    ['Nos','Width','Height','Sft'].forEach((sub,i)=>{
-      const sc = ws.getCell(2,col+i);
-      sc.value = sub;
-      sc.font = {bold:true};
-      sc.fill = PLAIN_FILL;
-      sc.alignment = {horizontal:'center'};
-    });
-    col += 4;
-  });
-  const tailLabels = ['Fixed Louvers','Domal Sft','18x60 Sft'];
-  tailLabels.forEach((label,i)=>{
-    ws.mergeCells(1,col+i,2,col+i);
-    const c = ws.getCell(1,col+i);
-    c.value = label;
-    c.alignment = {horizontal:'center', wrapText:true};
-  });
-  for(let r=1;r<=2;r++){
-    for(let c=1;c<=TOTAL_COLS;c++){
-      const cell = ws.getCell(r,c);
-      cell.border = THIN_BORDER;
-      if(!cell.font) cell.font = {bold:true};
-      if(!cell.fill) cell.fill = PLAIN_FILL;
-    }
-  }
+function activeRoomKeysForFlat(flat){
+  const keys = ['hall'];
+  for(let i=1;i<=4;i++){ if(bedEnabled(flat,i)) keys.push('bed'+i); }
+  keys.push('kitchen');
+  return keys;
 }
 
-function writeFlatRow(ws, r, flat){
-  ws.getCell(r,1).value = flat.tower || '';
-  ws.getCell(r,2).value = flat.flatNo || '';
-  ws.getCell(r,3).value = flat.bhk + ' BHK';
-  let col = FIRST_ROOM_COL;
-  ROOM_GROUPS.forEach(key=>{
-    const room = flat[key];
-    const disabled = key.startsWith('bed') ? !bedEnabled(flat, parseInt(key.slice(3))) : false;
-    const sft = disabled ? 0 : roomSft(room);
-    ws.getCell(r,col).value = disabled ? '' : room.nos;
-    ws.getCell(r,col+1).value = disabled ? '' : room.width;
-    ws.getCell(r,col+2).value = disabled ? '' : room.height;
-    ws.getCell(r,col+3).value = Number(sft.toFixed(2));
-    col += 4;
-  });
-  ws.getCell(r,col).value = flat.bhk;
-  ws.getCell(r,col+1).value = Number(flatDomalSft(flat).toFixed(2));
-  ws.getCell(r,col+2).value = Number(flat18x60Sft(flat).toFixed(2));
-  for(let c=1;c<=TOTAL_COLS;c++){ ws.getCell(r,c).border = THIN_BORDER; ws.getCell(r,c).alignment={horizontal:'center'}; }
-}
+function writeFlatBlock(ws, startRow, flat){
+  let r = startRow;
 
-function writeTotalRow(ws, r, domalTotal, s18Total, louverTotal){
-  ws.getCell(r,1).value = 'TOTAL';
-  ws.getCell(r,1).font = {bold:true};
-  const col = FIRST_ROOM_COL + ROOM_GROUPS.length*4;
-  ws.getCell(r,col).value = louverTotal;
-  ws.getCell(r,col+1).value = Number(domalTotal.toFixed(2));
-  ws.getCell(r,col+2).value = Number(s18Total.toFixed(2));
-  for(let c=1;c<=TOTAL_COLS;c++){
-    const cell = ws.getCell(r,c);
+  ws.mergeCells(r,1,r,7);
+  const headerCell = ws.getCell(r,1);
+  headerCell.value = flatBlockHeaderLabel(flat);
+  headerCell.font = {bold:true, size:12};
+  headerCell.alignment = {horizontal:'center'};
+  headerCell.fill = HALL_FILL;
+  headerCell.font = {bold:true, size:12, color:{argb:'FFFFFFFF'}};
+  r++;
+
+  const subHeaders = ['Sl.No','Description','Nos.','Width','Height','Quantity','Unit'];
+  subHeaders.forEach((h,idx)=>{
+    const cell = ws.getCell(r, idx+1);
+    cell.value = h;
     cell.font = {bold:true};
+    cell.alignment = {horizontal:'center'};
     cell.fill = PLAIN_FILL;
     cell.border = THIN_BORDER;
-  }
+  });
+  r++;
+
+  let sl = 1;
+  activeRoomKeysForFlat(flat).forEach(key=>{
+    const room = flat[key];
+    const sft = roomSft(room);
+    ws.getCell(r,1).value = sl;
+    ws.getCell(r,2).value = ROOM_LABELS[key];
+    ws.getCell(r,3).value = room.nos===''||room.nos==null ? '' : Number(room.nos);
+    ws.getCell(r,4).value = room.width===''||room.width==null ? '' : Number(room.width);
+    ws.getCell(r,5).value = room.height===''||room.height==null ? '' : Number(room.height);
+    ws.getCell(r,6).value = Number(sft.toFixed(2));
+    ws.getCell(r,7).value = 'Sft';
+    for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment = {horizontal:'center'}; ws.getCell(r,c).border = THIN_BORDER; }
+    r++; sl++;
+  });
+
+  const louverCount = flat.bhk || 0;
+  ws.getCell(r,1).value = sl;
+  ws.getCell(r,2).value = 'Fixed Lovers';
+  ws.getCell(r,3).value = louverCount;
+  ws.getCell(r,6).value = louverCount;
+  ws.getCell(r,7).value = 'Nos';
+  for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment = {horizontal:'center'}; ws.getCell(r,c).border = THIN_BORDER; }
+  r++;
+
+  r++; // blank spacer row between flats
+
+  return r;
+}
+
+function writeTotalsBlock(ws, startRow, domalTotal, s18Total){
+  let r = startRow;
+  ws.getCell(r,2).value = 'Total Domal Section';
+  ws.getCell(r,2).font = {bold:true};
+  ws.getCell(r,6).value = Number(domalTotal.toFixed(2));
+  ws.getCell(r,7).value = 'Sft';
+  r++;
+  ws.getCell(r,2).value = 'Total 18*60 Section';
+  ws.getCell(r,2).font = {bold:true};
+  ws.getCell(r,6).value = Number(s18Total.toFixed(2));
+  ws.getCell(r,7).value = 'Sft';
+  r++;
+  return r;
+}
+
+function sheetTitle(){
+  const towers = new Set(flats.map(f=>f.tower).filter(Boolean));
+  if(towers.size === 1){ return [...towers][0] + ' Aluminium Sliding Window Measurement'; }
+  return 'Aluminium Sliding Window Measurement';
 }
 
 function getCurrentTotals(){
@@ -520,13 +524,23 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
   try{
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Measurements');
-    setColumns(worksheet);
-    worksheet.pageSetup = {paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
-    writeHeader(worksheet);
+    worksheet.columns = [{width:8},{width:22},{width:8},{width:10},{width:10},{width:12},{width:8}];
+    worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
+
+    worksheet.mergeCells(1,1,1,7);
+    const titleCell = worksheet.getCell(1,1);
+    titleCell.value = sheetTitle();
+    titleCell.font = {bold:true, size:14};
+    titleCell.alignment = {horizontal:'center'};
+    titleCell.fill = HALL_FILL;
+    titleCell.font = {bold:true, size:14, color:{argb:'FFFFFFFF'}};
+
     let r = 3;
-    flats.forEach(f=>{ writeFlatRow(worksheet, r, f); r++; });
+    flats.forEach(f=>{ r = writeFlatBlock(worksheet, r, f); });
+
     const t = getCurrentTotals();
-    writeTotalRow(worksheet, r, t.domal, t.s18, t.louvers);
+    writeTotalsBlock(worksheet, r, t.domal, t.s18);
+
     const buffer = await workbook.xlsx.writeBuffer();
     triggerDownload(buffer, 'Window_Measurements.xlsx');
     showStatus('Downloaded Window_Measurements.xlsx', true);
