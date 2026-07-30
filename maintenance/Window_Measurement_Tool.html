@@ -102,7 +102,9 @@
   td.sft-cell{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy);background:#F9F7F2;white-space:nowrap;}
   td.domal-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold);background:var(--domal-bg);}
   td.s18-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--s18);background:var(--s18-bg);}
+  td.kitchen-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:#2E6B7D;background:#E4F0F3;}
   td.louver-cell{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy);}
+  input.flagged-input{background:#FBEAE6 !important;border-color:var(--danger) !important;color:var(--danger);font-weight:700;}
   .remove-flat-row-btn{background:none;border:none;color:#C4BEB0;font-size:15px;cursor:pointer;}
   .remove-flat-row-btn:hover{color:var(--danger);}
 
@@ -115,6 +117,7 @@
   .totals-bar .tot .value{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;margin-top:2px;}
   .totals-bar .tot.domal .value{color:var(--gold-light);}
   .totals-bar .tot.s18 .value{color:#8FD9AE;}
+  .totals-bar .tot.kitchen .value{color:#8FC9D9;}
   .totals-bar .tot.louver .value{color:#B9CBE6;}
 
   .export-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -177,6 +180,7 @@
               <th class="plain" rowspan="2">Tower</th>
               <th class="plain" rowspan="2">Flat No.</th>
               <th class="plain" rowspan="2">BHK</th>
+              <th class="plain" rowspan="2">Section<br>Type</th>
               <th class="hall-hd" colspan="4">Hall</th>
               <th colspan="4">Bed-1</th>
               <th colspan="4">Bed-2</th>
@@ -186,6 +190,7 @@
               <th class="plain" rowspan="2">Fixed<br>Louvers</th>
               <th class="plain" rowspan="2">Domal<br>Sft</th>
               <th class="plain" rowspan="2">18x60<br>Sft</th>
+              <th class="plain" rowspan="2">Kitchen<br>Sft</th>
               <th class="plain" rowspan="2"></th>
             </tr>
             <tr>
@@ -209,6 +214,10 @@
       <div class="tot s18">
         <div class="label">Total 18x60 Section</div>
         <div class="value"><span id="section18-total">0.00</span> Sft</div>
+      </div>
+      <div class="tot kitchen">
+        <div class="label">Total Kitchen Window</div>
+        <div class="value"><span id="kitchen-total">0.00</span> Sft</div>
       </div>
       <div class="tot louver">
         <div class="label">Total Fixed Louvers</div>
@@ -236,6 +245,49 @@
     <div class="status-msg" id="status-msg"></div>
   </section>
 
+  <section class="block" id="baseline-section">
+    <div class="section-label"><div class="num">4</div><h2>Baseline Measurements</h2></div>
+    <div class="export-grid" style="margin-bottom:20px;">
+      <div class="export-card">
+        <h3>Your Reference Readings</h3>
+        <p>Enter your own measurements for one floor's flats here (e.g. all M Tower 1xx flats). When new flats come in from a contractor above, "Compare With Baseline" matches by tower + last two digits of the flat number (e.g. MF-501 matches MF-101), and flags any Width/Height that's bigger than your reading here — without changing anything until you click "Auto-Correct Flagged".</p>
+        <button class="export-btn append" id="add-baseline-btn" style="width:auto;padding:10px 18px;">+ Add Baseline Flat</button>
+        <button class="export-btn new" id="compare-baseline-btn" style="width:auto;padding:10px 18px;margin-left:10px;">Compare With Baseline</button>
+        <button class="export-btn" id="autocorrect-baseline-btn" style="width:auto;padding:10px 18px;margin-left:10px;background:var(--danger);color:#fff;">Auto-Correct Flagged</button>
+        <div class="status-msg" id="baseline-status-msg"></div>
+      </div>
+    </div>
+    <div class="grid-wrap">
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr class="group-row">
+              <th class="plain" rowspan="2">Tower</th>
+              <th class="plain" rowspan="2">Flat No.</th>
+              <th class="plain" rowspan="2">BHK</th>
+              <th class="hall-hd" colspan="4">Hall</th>
+              <th colspan="4">Bed-1</th>
+              <th colspan="4">Bed-2</th>
+              <th colspan="4">Bed-3</th>
+              <th colspan="4">Bed-4</th>
+              <th class="kitchen-hd" colspan="4">Kitchen</th>
+              <th class="plain" rowspan="2"></th>
+            </tr>
+            <tr>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+            </tr>
+          </thead>
+          <tbody id="baseline-grid-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <script>
@@ -257,11 +309,25 @@ function loadFlats(){
   }catch(e){ return null; }
 }
 
-function newRoom(nos, width, height){ return {nos: nos, width: width, height: height}; }
+const BASELINE_STORAGE_KEY = 'nagjua_window_measurement_baseline_v1';
+let baselineFlats = [];
 
-function newFlat(){
+function saveBaselineFlats(){
+  try{ localStorage.setItem(BASELINE_STORAGE_KEY, JSON.stringify(baselineFlats)); }catch(e){ console.error('Could not save baseline:', e); }
+}
+function loadBaselineFlats(){
+  try{
+    const raw = localStorage.getItem(BASELINE_STORAGE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!Array.isArray(parsed) || !parsed.length) return null;
+    return parsed.map(f=>{ f.id = 'baseline_'+(idCounter++); return f; });
+  }catch(e){ return null; }
+}
+
+function newBaselineFlat(){
   return {
-    id: 'flat_'+(idCounter++),
+    id: 'baseline_'+(idCounter++),
     tower: '', flatNo: '', bhk: 1,
     hall: newRoom('','',''),
     bed1: newRoom('','',''),
@@ -272,18 +338,39 @@ function newFlat(){
   };
 }
 
+function newRoom(nos, width, height){ return {nos: nos, width: width, height: height}; }
+
+function newFlat(){
+  return {
+    id: 'flat_'+(idCounter++),
+    tower: '', flatNo: '', bhk: 1, sectionType: 'domal',
+    hall: newRoom('','',''),
+    bed1: newRoom('','',''),
+    bed2: newRoom('','',''),
+    bed3: newRoom('','',''),
+    bed4: newRoom('','',''),
+    kitchen: newRoom('','',''),
+    _flagged: {}
+  };
+}
+
 function roomSft(room){
   const q = (room.nos||0)*(room.width||0)*(room.height||0)/144;
   if(!isFinite(q)) return 0;
   return Math.round(q * 100) / 100;
 }
 function bedEnabled(flat, bedNum){ return bedNum <= (flat.bhk||0); }
-function flatDomalSft(flat){
+function flatHallBedSft(flat){
   let s = roomSft(flat.hall);
   for(let i=1;i<=4;i++){ if(bedEnabled(flat,i)) s += roomSft(flat['bed'+i]); }
   return s;
 }
-function flat18x60Sft(flat){ return roomSft(flat.kitchen); }
+// Domal and 18x60 are two different aluminium section varieties - a flat
+// uses ONE or the OTHER for its Hall/Bedrooms (never both at once).
+function flatDomalSft(flat){ return flat.sectionType === '18x60' ? 0 : flatHallBedSft(flat); }
+function flat18x60Sft(flat){ return flat.sectionType === '18x60' ? flatHallBedSft(flat) : 0; }
+// Kitchen is always its own separate total, regardless of the flat's section type.
+function flatKitchenSft(flat){ return roomSft(flat.kitchen); }
 function escapeHtml(str){
   return String(str==null?'':str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -292,30 +379,201 @@ const gridBody = document.getElementById('grid-body');
 
 function render(){
   if(flats.length === 0){
-    gridBody.innerHTML = '<tr><td colspan="31" class="empty-hint">No flats yet — use "Import From Photo (AI)" below to add some.</td></tr>';
+    gridBody.innerHTML = '<tr><td colspan="33" class="empty-hint">No flats yet — use "Import From Photo (AI)" below to add some.</td></tr>';
   } else {
     gridBody.innerHTML = flats.map(renderFlatRow).join('');
   }
   updateTotals();
 }
 
-function roomCells(flatId, groupKey, room, disabled){
+const baselineGridBody = document.getElementById('baseline-grid-body');
+
+function renderBaseline(){
+  if(baselineFlats.length === 0){
+    baselineGridBody.innerHTML = '<tr><td colspan="26" class="empty-hint">No baseline flats yet — click "+ Add Baseline Flat" to start.</td></tr>';
+  } else {
+    baselineGridBody.innerHTML = baselineFlats.map(renderBaselineFlatRow).join('');
+  }
+}
+
+function renderBaselineFlatRow(flat){
+  return `
+  <tr data-flat-id="${flat.id}">
+    <td>
+      <select data-flat-id="${flat.id}" data-field="tower">
+        <option value="" ${flat.tower===''?'selected':''}>Select</option>
+        ${TOWER_OPTIONS.map(t=>`<option value="${t}" ${flat.tower===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </td>
+    <td><input type="text" value="${escapeHtml(flat.flatNo)}" data-flat-id="${flat.id}" data-field="flatNo" placeholder="101"></td>
+    <td>
+      <select data-flat-id="${flat.id}" data-field="bhk">
+        <option value="1" ${flat.bhk==1?'selected':''}>1 BHK</option>
+        <option value="2" ${flat.bhk==2?'selected':''}>2 BHK</option>
+        <option value="3" ${flat.bhk==3?'selected':''}>3 BHK</option>
+        <option value="4" ${flat.bhk==4?'selected':''}>4 BHK</option>
+      </select>
+    </td>
+    ${roomCells(flat.id,'hall',flat.hall,false)}
+    ${roomCells(flat.id,'bed1',flat.bed1,!bedEnabled(flat,1))}
+    ${roomCells(flat.id,'bed2',flat.bed2,!bedEnabled(flat,2))}
+    ${roomCells(flat.id,'bed3',flat.bed3,!bedEnabled(flat,3))}
+    ${roomCells(flat.id,'bed4',flat.bed4,!bedEnabled(flat,4))}
+    ${roomCells(flat.id,'kitchen',flat.kitchen,false)}
+    <td><button class="remove-flat-row-btn" title="Remove flat">✕</button></td>
+  </tr>`;
+}
+
+function getBaselineFlat(flatId){ return baselineFlats.find(f=>f.id===flatId); }
+
+function updateBaselineRowDisplay(tr, flat){
+  ['hall','bed1','bed2','bed3','bed4','kitchen'].forEach(key=>{
+    const disabled = key.startsWith('bed') ? !bedEnabled(flat, parseInt(key.slice(3))) : false;
+    const cell = tr.querySelector(`td.sft-cell[data-sft="${key}"]`);
+    const sft = disabled ? 0 : roomSft(flat[key]);
+    if(cell) cell.textContent = disabled ? '' : sft.toFixed(2);
+    tr.querySelectorAll(`input[data-field^="${key}."]`).forEach(inp=>{
+      inp.disabled = disabled;
+      if(disabled) inp.value = '';
+    });
+  });
+}
+
+baselineGridBody.addEventListener('input',(e)=>{
+  const t = e.target;
+  const flatId = t.dataset.flatId;
+  if(!flatId) return;
+  const flat = getBaselineFlat(flatId);
+  if(!flat) return;
+  const field = t.dataset.field;
+  if(!field) return;
+  if(field.includes('.')){
+    const [group, prop] = field.split('.');
+    flat[group][prop] = t.value === '' ? '' : (parseFloat(t.value)||0);
+  } else if(field === 'tower' || field === 'flatNo'){
+    flat[field] = t.value;
+    saveBaselineFlats();
+    return;
+  }
+  const tr = t.closest('tr[data-flat-id]');
+  updateBaselineRowDisplay(tr, flat);
+  saveBaselineFlats();
+});
+
+baselineGridBody.addEventListener('change',(e)=>{
+  const t = e.target;
+  if(t.dataset.field === 'bhk'){
+    const flat = getBaselineFlat(t.dataset.flatId);
+    flat.bhk = parseInt(t.value)||1;
+    const tr = t.closest('tr[data-flat-id]');
+    updateBaselineRowDisplay(tr, flat);
+    saveBaselineFlats();
+  }
+});
+
+baselineGridBody.addEventListener('click',(e)=>{
+  if(e.target.classList.contains('remove-flat-row-btn')){
+    const tr = e.target.closest('tr[data-flat-id]');
+    baselineFlats = baselineFlats.filter(f=>f.id!==tr.dataset.flatId);
+    renderBaseline();
+    saveBaselineFlats();
+  }
+});
+
+document.getElementById('add-baseline-btn').addEventListener('click',()=>{
+  baselineFlats.push(newBaselineFlat());
+  renderBaseline();
+  saveBaselineFlats();
+});
+
+// Match by tower + last two digits of the flat number (e.g. MF-501 matches
+// baseline MF-101, since both end in the same unit position on their floor).
+function lastTwoDigits(flatNo){
+  const digits = String(flatNo||'').replace(/\D/g,'');
+  return digits.slice(-2);
+}
+function findBaselineMatch(flat){
+  const key = lastTwoDigits(flat.flatNo);
+  if(!key || !flat.tower) return null;
+  return baselineFlats.find(b => b.tower === flat.tower && lastTwoDigits(b.flatNo) === key) || null;
+}
+
+function showBaselineStatus(msg, ok){
+  const el = document.getElementById('baseline-status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + (ok ? 'ok' : 'err');
+}
+
+document.getElementById('compare-baseline-btn').addEventListener('click', ()=>{
+  let flaggedCount = 0, matchedCount = 0;
+  const roomKeys = ['hall','bed1','bed2','bed3','bed4','kitchen'];
+  flats.forEach(flat=>{
+    const baseline = findBaselineMatch(flat);
+    flat._flagged = {};
+    if(!baseline){ return; }
+    matchedCount++;
+    roomKeys.forEach(key=>{
+      if(key.startsWith('bed') && !bedEnabled(flat, parseInt(key.slice(3)))) return;
+      const room = flat[key];
+      const baseRoom = baseline[key];
+      const w = parseFloat(room.width)||0, h = parseFloat(room.height)||0;
+      const bw = parseFloat(baseRoom.width)||0, bh = parseFloat(baseRoom.height)||0;
+      if(bw===0 && bh===0) return; // no baseline reading for this room - nothing to compare
+      if(w > bw || h > bh){
+        flat._flagged[key] = true;
+        flaggedCount++;
+      }
+    });
+  });
+  saveFlats();
+  render();
+  if(matchedCount === 0){
+    showBaselineStatus('No matching baseline flats found (check Tower + Flat No. match a baseline entry).', false);
+  } else {
+    showBaselineStatus('Compared ' + matchedCount + ' flat(s) against baseline - ' + flaggedCount + ' room(s) flagged (contractor measurement bigger than baseline).', flaggedCount === 0);
+  }
+});
+
+document.getElementById('autocorrect-baseline-btn').addEventListener('click', ()=>{
+  let correctedCount = 0;
+  flats.forEach(flat=>{
+    if(!flat._flagged) return;
+    const baseline = findBaselineMatch(flat);
+    if(!baseline) return;
+    Object.keys(flat._flagged).forEach(key=>{
+      if(flat._flagged[key]){
+        flat[key].width = baseline[key].width;
+        flat[key].height = baseline[key].height;
+        correctedCount++;
+      }
+    });
+    flat._flagged = {};
+  });
+  saveFlats();
+  render();
+  showBaselineStatus('Corrected ' + correctedCount + ' room(s) to match baseline measurements.', true);
+});
+
+function roomCells(flatId, groupKey, room, disabled, flagged){
   const d = disabled ? 'disabled' : '';
   const sft = disabled ? 0 : roomSft(room);
   const nosVal = disabled ? '' : room.nos;
   const widthVal = disabled ? '' : room.width;
   const heightVal = disabled ? '' : room.height;
   const sftDisplay = disabled ? '' : sft.toFixed(2);
+  const flagClass = (flagged && !disabled) ? ' flagged-input' : '';
   return `
     <td><input type="number" min="0" step="1" value="${nosVal}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.nos"></td>
-    <td><input type="number" min="0" step="0.01" value="${widthVal}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.width"></td>
-    <td><input type="number" min="0" step="0.01" value="${heightVal}" ${d} data-flat-id="${flatId}" data-field="${groupKey}.height"></td>
+    <td><input type="number" min="0" step="0.01" value="${widthVal}" ${d} class="${flagClass.trim()}" data-flat-id="${flatId}" data-field="${groupKey}.width"></td>
+    <td><input type="number" min="0" step="0.01" value="${heightVal}" ${d} class="${flagClass.trim()}" data-flat-id="${flatId}" data-field="${groupKey}.height"></td>
     <td class="sft-cell" data-sft="${groupKey}">${sftDisplay}</td>`;
 }
 
 function renderFlatRow(flat){
   const domal = flatDomalSft(flat);
   const s18 = flat18x60Sft(flat);
+  const kitchenSft = flatKitchenSft(flat);
+  const flagged = flat._flagged || {};
   return `
   <tr data-flat-id="${flat.id}">
     <td>
@@ -333,15 +591,22 @@ function renderFlatRow(flat){
         <option value="4" ${flat.bhk==4?'selected':''}>4 BHK</option>
       </select>
     </td>
-    ${roomCells(flat.id,'hall',flat.hall,false)}
-    ${roomCells(flat.id,'bed1',flat.bed1,!bedEnabled(flat,1))}
-    ${roomCells(flat.id,'bed2',flat.bed2,!bedEnabled(flat,2))}
-    ${roomCells(flat.id,'bed3',flat.bed3,!bedEnabled(flat,3))}
-    ${roomCells(flat.id,'bed4',flat.bed4,!bedEnabled(flat,4))}
-    ${roomCells(flat.id,'kitchen',flat.kitchen,false)}
+    <td>
+      <select data-flat-id="${flat.id}" data-field="sectionType">
+        <option value="domal" ${flat.sectionType!=='18x60'?'selected':''}>Domal</option>
+        <option value="18x60" ${flat.sectionType==='18x60'?'selected':''}>18x60</option>
+      </select>
+    </td>
+    ${roomCells(flat.id,'hall',flat.hall,false,flagged.hall)}
+    ${roomCells(flat.id,'bed1',flat.bed1,!bedEnabled(flat,1),flagged.bed1)}
+    ${roomCells(flat.id,'bed2',flat.bed2,!bedEnabled(flat,2),flagged.bed2)}
+    ${roomCells(flat.id,'bed3',flat.bed3,!bedEnabled(flat,3),flagged.bed3)}
+    ${roomCells(flat.id,'bed4',flat.bed4,!bedEnabled(flat,4),flagged.bed4)}
+    ${roomCells(flat.id,'kitchen',flat.kitchen,false,flagged.kitchen)}
     <td class="louver-cell" data-louver>${flat.bhk}</td>
     <td class="domal-cell" data-domal>${domal.toFixed(2)}</td>
     <td class="s18-cell" data-s18>${s18.toFixed(2)}</td>
+    <td class="kitchen-cell" data-kitchen>${kitchenSft.toFixed(2)}</td>
     <td><button class="remove-flat-row-btn" title="Remove flat">✕</button></td>
   </tr>`;
 }
@@ -349,6 +614,7 @@ function renderFlatRow(flat){
 function getFlat(flatId){ return flats.find(f=>f.id===flatId); }
 
 function updateRowDisplay(tr, flat){
+  const flagged = flat._flagged || {};
   ['hall','bed1','bed2','bed3','bed4','kitchen'].forEach(key=>{
     const disabled = key.startsWith('bed') ? !bedEnabled(flat, parseInt(key.slice(3))) : false;
     const cell = tr.querySelector(`td.sft-cell[data-sft="${key}"]`);
@@ -357,18 +623,23 @@ function updateRowDisplay(tr, flat){
     tr.querySelectorAll(`input[data-field^="${key}."]`).forEach(inp=>{
       inp.disabled = disabled;
       if(disabled) inp.value = '';
+      if(inp.dataset.field === `${key}.width` || inp.dataset.field === `${key}.height`){
+        inp.classList.toggle('flagged-input', !!(flagged[key] && !disabled));
+      }
     });
   });
   tr.querySelector('[data-louver]').textContent = flat.bhk;
   tr.querySelector('[data-domal]').textContent = flatDomalSft(flat).toFixed(2);
   tr.querySelector('[data-s18]').textContent = flat18x60Sft(flat).toFixed(2);
+  tr.querySelector('[data-kitchen]').textContent = flatKitchenSft(flat).toFixed(2);
 }
 
 function updateTotals(){
-  let domal=0, s18=0, louvers=0;
-  flats.forEach(f=>{ domal += flatDomalSft(f); s18 += flat18x60Sft(f); louvers += (f.bhk||0); });
+  let domal=0, s18=0, kitchen=0, louvers=0;
+  flats.forEach(f=>{ domal += flatDomalSft(f); s18 += flat18x60Sft(f); kitchen += flatKitchenSft(f); louvers += (f.bhk||0); });
   document.getElementById('domal-total').textContent = domal.toFixed(2);
   document.getElementById('section18-total').textContent = s18.toFixed(2);
+  document.getElementById('kitchen-total').textContent = kitchen.toFixed(2);
   document.getElementById('louver-total').textContent = louvers;
 }
 
@@ -399,6 +670,13 @@ gridBody.addEventListener('change',(e)=>{
   if(t.dataset.field === 'bhk'){
     const flat = getFlat(t.dataset.flatId);
     flat.bhk = parseInt(t.value)||1;
+    const tr = t.closest('tr[data-flat-id]');
+    updateRowDisplay(tr, flat);
+    updateTotals();
+    saveFlats();
+  } else if(t.dataset.field === 'sectionType'){
+    const flat = getFlat(t.dataset.flatId);
+    flat.sectionType = t.value;
     const tr = t.closest('tr[data-flat-id]');
     updateRowDisplay(tr, flat);
     updateTotals();
@@ -475,6 +753,7 @@ function writeFlatBlock(ws, startRow, flat){
   let sl = 1;
   const domalRefs = [];
   const s18Refs = [];
+  const kitchenRefs = [];
   activeRoomKeysForFlat(flat).forEach(key=>{
     const room = flat[key];
     ws.getCell(r,1).value = sl;
@@ -486,7 +765,11 @@ function writeFlatBlock(ws, startRow, flat){
     ws.getCell(r,6).value = { formula: `ROUND(C${r}*D${r}*E${r}/144,2)` };
     ws.getCell(r,7).value = 'Sft';
     for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment = {horizontal:'center'}; ws.getCell(r,c).border = THIN_BORDER; }
-    if(key === 'kitchen') s18Refs.push(`F${r}`); else domalRefs.push(`F${r}`);
+    // Kitchen is always its own separate total. Hall/Beds go to Domal or
+    // 18x60 depending on which aluminium section variety this flat uses.
+    if(key === 'kitchen') kitchenRefs.push(`F${r}`);
+    else if(flat.sectionType === '18x60') s18Refs.push(`F${r}`);
+    else domalRefs.push(`F${r}`);
     r++; sl++;
   });
 
@@ -502,10 +785,10 @@ function writeFlatBlock(ws, startRow, flat){
 
   r++; // blank spacer row between flats
 
-  return { nextRow: r, domalRefs, s18Refs, louverRef };
+  return { nextRow: r, domalRefs, s18Refs, kitchenRefs, louverRef };
 }
 
-function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, louverRefs){
+function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, kitchenRefs, louverRefs){
   let r = startRow;
   ws.getCell(r,2).value = 'Total Domal Section';
   ws.getCell(r,2).font = {bold:true};
@@ -515,6 +798,11 @@ function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, louverRefs){
   ws.getCell(r,2).value = 'Total 18*60 Section';
   ws.getCell(r,2).font = {bold:true};
   ws.getCell(r,6).value = s18Refs.length ? { formula: `SUM(${s18Refs.join(',')})` } : 0;
+  ws.getCell(r,7).value = 'Sft';
+  r++;
+  ws.getCell(r,2).value = 'Total Kitchen Window';
+  ws.getCell(r,2).font = {bold:true};
+  ws.getCell(r,6).value = kitchenRefs.length ? { formula: `SUM(${kitchenRefs.join(',')})` } : 0;
   ws.getCell(r,7).value = 'Sft';
   r++;
   ws.getCell(r,2).value = 'Total Fixed Louvers';
@@ -574,16 +862,17 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
     titleCell.font = {bold:true, size:14, color:{argb:'FFFFFFFF'}};
 
     let r = 3;
-    let allDomalRefs = [], allS18Refs = [], allLouverRefs = [];
+    let allDomalRefs = [], allS18Refs = [], allKitchenRefs = [], allLouverRefs = [];
     flats.forEach(f=>{
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
       allDomalRefs.push(...result.domalRefs);
       allS18Refs.push(...result.s18Refs);
+      allKitchenRefs.push(...result.kitchenRefs);
       allLouverRefs.push(result.louverRef);
     });
 
-    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allLouverRefs);
+    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allKitchenRefs, allLouverRefs);
 
     const buffer = await workbook.xlsx.writeBuffer();
     triggerDownload(buffer, 'Window_Measurements.xlsx');
@@ -637,16 +926,17 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
 
     let r = insertAt;
     const addedCount = flats.length;
-    let allDomalRefs = [], allS18Refs = [], allLouverRefs = [];
+    let allDomalRefs = [], allS18Refs = [], allKitchenRefs = [], allLouverRefs = [];
     flats.forEach(f => {
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
       allDomalRefs.push(...result.domalRefs);
       allS18Refs.push(...result.s18Refs);
+      allKitchenRefs.push(...result.kitchenRefs);
       allLouverRefs.push(result.louverRef);
     });
 
-    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allLouverRefs);
+    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allKitchenRefs, allLouverRefs);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
 
@@ -776,13 +1066,14 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
     rows.forEach(r => {
       flats.push({
         id: 'flat_'+(idCounter++),
-        tower: normalizeTower(r.tower), flatNo: r.flatNo || '', bhk: Number(r.bhk) || 1,
+        tower: normalizeTower(r.tower), flatNo: r.flatNo || '', bhk: Number(r.bhk) || 1, sectionType: 'domal',
         hall: normalizeRoom(r.hall),
         bed1: normalizeRoom(r.bed1),
         bed2: normalizeRoom(r.bed2),
         bed3: normalizeRoom(r.bed3),
         bed4: normalizeRoom(r.bed4),
-        kitchen: normalizeRoom(r.kitchen)
+        kitchen: normalizeRoom(r.kitchen),
+        _flagged: {}
       });
     });
 
@@ -805,6 +1096,12 @@ if(restored && restored.length){
   flats = restored;
 }
 render();
+
+const restoredBaseline = loadBaselineFlats();
+if(restoredBaseline && restoredBaseline.length){
+  baselineFlats = restoredBaseline;
+}
+renderBaseline();
 </script>
 </body>
 </html>
