@@ -783,8 +783,6 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
 const restored = loadFlats();
 if(restored && restored.length){
   flats = restored;
-} else {
-  flats.push(newFlat());
 }
 render();
 </script>
