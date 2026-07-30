@@ -227,10 +227,11 @@
         <button class="export-btn new" id="download-new-btn">Download Excel</button>
       </div>
       <div class="export-card">
-        <h3>Update Existing Sheet</h3>
-        <p>Already have a sheet from this tool with some flats in it? Pick that file each time you have new data — the flats currently in your working list below get added into that same file, and you get back the updated sheet.</p>
-        <input type="file" id="update-existing-input" accept=".xlsx">
-        <button class="export-btn append" id="update-existing-btn">Add To This File &amp; Download</button>
+        <h3>Update Existing Sheet (Live)</h3>
+        <p>Pick your existing file once. After that, "Save" writes your current working list straight into that same file — no download dialog, no re-picking the file each time. (Needs Chrome or Edge.)</p>
+        <button class="export-btn append" id="pick-existing-btn">Pick Existing File</button>
+        <div id="existing-file-status" style="font-size:12px;color:var(--ink-soft);margin-top:8px;"></div>
+        <button class="export-btn new" id="save-to-existing-btn" style="margin-top:10px;display:none;">Save To This File</button>
       </div>
       <div class="export-card">
         <h3>Import From Existing File (one-time)</h3>
@@ -663,13 +664,35 @@ document.getElementById('import-file-input').addEventListener('change', async (e
   e.target.value = '';
 });
 
-document.getElementById('update-existing-btn').addEventListener('click', async ()=>{
-  const fileInput = document.getElementById('update-existing-input');
-  const file = fileInput.files[0];
-  if(!file){ showStatus('Choose your existing file first.', false); return; }
+let existingFileHandle = null;
+
+document.getElementById('pick-existing-btn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('existing-file-status');
+  if(!window.showOpenFilePicker){
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = 'Your browser doesn\'t support saving in place (needs Chrome or Edge).';
+    return;
+  }
+  try{
+    [existingFileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'Excel Files', accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']} }],
+      excludeAcceptAllOption: false,
+      multiple: false
+    });
+    statusEl.style.color = 'var(--ink-soft)';
+    statusEl.textContent = 'Connected to "' + existingFileHandle.name + '". Click "Save To This File" any time to add your current working list into it.';
+    document.getElementById('save-to-existing-btn').style.display = 'block';
+  }catch(err){
+    // user cancelled the picker - not an error
+  }
+});
+
+document.getElementById('save-to-existing-btn').addEventListener('click', async ()=>{
+  if(!existingFileHandle){ showStatus('Pick your existing file first.', false); return; }
   if(!hasData()){ showStatus('Your working list below is empty - nothing to add.', false); return; }
 
   try{
+    const file = await existingFileHandle.getFile();
     const buffer = await file.arrayBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
@@ -693,6 +716,7 @@ document.getElementById('update-existing-btn').addEventListener('click', async (
     }
 
     let r = insertAt;
+    const addedCount = flats.length;
     flats.forEach(f => { r = writeFlatBlock(worksheet, r, f); });
 
     // Recompute totals by scanning the WHOLE sheet - existing blocks plus
@@ -710,11 +734,22 @@ document.getElementById('update-existing-btn').addEventListener('click', async (
     writeTotalsBlock(worksheet, r, domalTotal, s18Total);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
-    triggerDownload(outBuffer, file.name);
-    showStatus('Added ' + flats.length + ' flat(s) into "' + file.name + '" - downloaded the updated file.', true);
+
+    // Write straight back to the same file handle - no download dialog.
+    const writable = await existingFileHandle.createWritable();
+    await writable.write(outBuffer);
+    await writable.close();
+
+    // Clear the working list so the SAME flats don't get added again next
+    // time "Save" is clicked - they're now safely written into the file.
+    flats = [];
+    saveFlats();
+    render();
+
+    showStatus('Added ' + addedCount + ' flat(s) into "' + existingFileHandle.name + '" directly - no download needed.', true);
   }catch(err){
     console.error(err);
-    showStatus('Could not update that file: ' + err.message, false);
+    showStatus('Could not save to that file: ' + err.message, false);
   }
 });
 
