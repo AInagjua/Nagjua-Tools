@@ -684,7 +684,7 @@ function fileToBase64(file){
   });
 }
 
-const EXTRACTION_PROMPT = "You are reading a photo of a construction measurement sheet for aluminium sliding windows. Each row/entry describes one flat/unit's window openings, typically labelled Hall, Bed-1, Bed-2, Bed-3, Bed-4 and Kitchen, each with a Width and Height (in inches), often written as WIDTH x HEIGHT (e.g. 70 x 81 means width=70, height=81). Some sheets group several flats/units under a heading like a flat number in parentheses, e.g. (301) or M-304.\n\nCarefully read every entry in the image, including handwritten digits, and return ONLY a valid JSON array (no markdown fences, no explanation) with one object per flat/unit, in this exact shape:\n[{\"tower\":\"\",\"flatNo\":\"\",\"bhk\":0,\"hall\":{\"nos\":1,\"width\":0,\"height\":0},\"bed1\":{\"nos\":1,\"width\":0,\"height\":0},\"bed2\":{\"nos\":1,\"width\":0,\"height\":0},\"bed3\":{\"nos\":1,\"width\":0,\"height\":0},\"bed4\":{\"nos\":1,\"width\":0,\"height\":0},\"kitchen\":{\"nos\":1,\"width\":0,\"height\":0}}]\n\nRules:\n- If a room does not apply to a flat, set its nos/width/height all to 0.\n- bhk should equal the count of bed1..bed4 that have a nonzero width/height.\n- If the tower name is not visible in this image, leave tower as an empty string.\n- If a flat number is not clearly labelled, leave flatNo as an empty string.\n- Double check digits carefully - handwriting can be cramped.\n- Output nothing except the JSON array.";
+const EXTRACTION_PROMPT = "You are reading a photo of a construction measurement sheet for aluminium sliding windows. Each row/entry describes one flat/unit's window openings, typically labelled Hall, Bed-1, Bed-2, Bed-3, Bed-4 and Kitchen, each with a Width and Height (in inches), often written as WIDTH x HEIGHT (e.g. 70 x 81 means width=70, height=81). Some sheets group several flats/units under a heading like a flat number in parentheses, e.g. (301) or M-304.\n\nThe tower/building name (e.g. 'M TOWER', 'M Tower', 'Tower M') is often written only ONCE near the top of the page or in a corner, and applies to EVERY flat on that page, not just the one written next to it. Look at the entire image for this name before deciding it's missing, and apply the SAME tower name to every flat/unit you extract from that page. Return it as just the single letter (e.g. 'M') in the tower field.\n\nCarefully read every entry in the image, including handwritten digits, and return ONLY a valid JSON array (no markdown fences, no explanation) with one object per flat/unit, in this exact shape:\n[{\"tower\":\"\",\"flatNo\":\"\",\"bhk\":0,\"hall\":{\"nos\":1,\"width\":0,\"height\":0},\"bed1\":{\"nos\":1,\"width\":0,\"height\":0},\"bed2\":{\"nos\":1,\"width\":0,\"height\":0},\"bed3\":{\"nos\":1,\"width\":0,\"height\":0},\"bed4\":{\"nos\":1,\"width\":0,\"height\":0},\"kitchen\":{\"nos\":1,\"width\":0,\"height\":0}}]\n\nRules:\n- If a room does not apply to a flat, set its nos/width/height all to 0.\n- bhk should equal the count of bed1..bed4 that have a nonzero width/height.\n- Only leave tower as an empty string if genuinely no tower/building letter appears anywhere in the image.\n- If a flat number is not clearly labelled, leave flatNo as an empty string.\n- Double check digits carefully - handwriting can be cramped.\n- Output nothing except the JSON array.";
 
 async function callGemini(base64Image, mimeType, apiKey){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
@@ -726,6 +726,16 @@ function normalizeRoom(r){
   return { nos: Number(r.nos)||0, width: Number(r.width)||0, height: Number(r.height)||0 };
 }
 
+// The AI can return the tower name in any casing/format ("M TOWER", "M", "M-Tower"
+// etc.) - match it to the dropdown's exact option string by first letter so it
+// actually auto-selects instead of silently falling back to "Select".
+function normalizeTower(raw){
+  if(!raw) return '';
+  const letter = String(raw).trim().charAt(0).toUpperCase();
+  const match = TOWER_OPTIONS.find(t => t.charAt(0) === letter);
+  return match || '';
+}
+
 document.getElementById('extract-photo-btn').addEventListener('click', async () => {
   const fileInput = document.getElementById('ai-photo-input');
   const file = fileInput.files[0];
@@ -746,7 +756,7 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
     rows.forEach(r => {
       flats.push({
         id: 'flat_'+(idCounter++),
-        tower: r.tower || '', flatNo: r.flatNo || '', bhk: Number(r.bhk) || 1,
+        tower: normalizeTower(r.tower), flatNo: r.flatNo || '', bhk: Number(r.bhk) || 1,
         hall: normalizeRoom(r.hall),
         bed1: normalizeRoom(r.bed1),
         bed2: normalizeRoom(r.bed2),
