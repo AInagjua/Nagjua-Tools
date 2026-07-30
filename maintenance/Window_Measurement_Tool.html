@@ -472,17 +472,20 @@ function writeFlatBlock(ws, startRow, flat){
   r++;
 
   let sl = 1;
+  const domalRefs = [];
+  const s18Refs = [];
   activeRoomKeysForFlat(flat).forEach(key=>{
     const room = flat[key];
-    const sft = roomSft(room);
     ws.getCell(r,1).value = sl;
     ws.getCell(r,2).value = ROOM_LABELS[key];
     ws.getCell(r,3).value = room.nos===''||room.nos==null ? '' : Number(room.nos);
     ws.getCell(r,4).value = room.width===''||room.width==null ? '' : Number(room.width);
     ws.getCell(r,5).value = room.height===''||room.height==null ? '' : Number(room.height);
-    ws.getCell(r,6).value = Number(sft.toFixed(2));
+    // Real formula, not a pre-computed number - so it's visible/verifiable in Excel and recalculates if edited there.
+    ws.getCell(r,6).value = { formula: `C${r}*D${r}*E${r}/144` };
     ws.getCell(r,7).value = 'Sft';
     for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment = {horizontal:'center'}; ws.getCell(r,c).border = THIN_BORDER; }
+    if(key === 'kitchen') s18Refs.push(`F${r}`); else domalRefs.push(`F${r}`);
     r++; sl++;
   });
 
@@ -493,24 +496,30 @@ function writeFlatBlock(ws, startRow, flat){
   ws.getCell(r,6).value = louverCount;
   ws.getCell(r,7).value = 'Nos';
   for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment = {horizontal:'center'}; ws.getCell(r,c).border = THIN_BORDER; }
+  const louverRef = `F${r}`;
   r++;
 
   r++; // blank spacer row between flats
 
-  return r;
+  return { nextRow: r, domalRefs, s18Refs, louverRef };
 }
 
-function writeTotalsBlock(ws, startRow, domalTotal, s18Total){
+function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, louverRefs){
   let r = startRow;
   ws.getCell(r,2).value = 'Total Domal Section';
   ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = Number(domalTotal.toFixed(2));
+  ws.getCell(r,6).value = domalRefs.length ? { formula: `SUM(${domalRefs.join(',')})` } : 0;
   ws.getCell(r,7).value = 'Sft';
   r++;
   ws.getCell(r,2).value = 'Total 18*60 Section';
   ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = Number(s18Total.toFixed(2));
+  ws.getCell(r,6).value = s18Refs.length ? { formula: `SUM(${s18Refs.join(',')})` } : 0;
   ws.getCell(r,7).value = 'Sft';
+  r++;
+  ws.getCell(r,2).value = 'Total Fixed Louvers';
+  ws.getCell(r,2).font = {bold:true};
+  ws.getCell(r,6).value = louverRefs.length ? { formula: `SUM(${louverRefs.join(',')})` } : 0;
+  ws.getCell(r,7).value = 'Nos';
   r++;
   return r;
 }
@@ -564,10 +573,16 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
     titleCell.font = {bold:true, size:14, color:{argb:'FFFFFFFF'}};
 
     let r = 3;
-    flats.forEach(f=>{ r = writeFlatBlock(worksheet, r, f); });
+    let allDomalRefs = [], allS18Refs = [], allLouverRefs = [];
+    flats.forEach(f=>{
+      const result = writeFlatBlock(worksheet, r, f);
+      r = result.nextRow;
+      allDomalRefs.push(...result.domalRefs);
+      allS18Refs.push(...result.s18Refs);
+      allLouverRefs.push(result.louverRef);
+    });
 
-    const t = getCurrentTotals();
-    writeTotalsBlock(worksheet, r, t.domal, t.s18);
+    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allLouverRefs);
 
     const buffer = await workbook.xlsx.writeBuffer();
     triggerDownload(buffer, 'Window_Measurements.xlsx');
@@ -621,12 +636,16 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
 
     let r = insertAt;
     const addedCount = flats.length;
-    flats.forEach(f => { r = writeFlatBlock(worksheet, r, f); });
+    let allDomalRefs = [], allS18Refs = [], allLouverRefs = [];
+    flats.forEach(f => {
+      const result = writeFlatBlock(worksheet, r, f);
+      r = result.nextRow;
+      allDomalRefs.push(...result.domalRefs);
+      allS18Refs.push(...result.s18Refs);
+      allLouverRefs.push(result.louverRef);
+    });
 
-    let domalTotal = 0, s18Total = 0;
-    flats.forEach(f => { domalTotal += flatDomalSft(f); s18Total += flat18x60Sft(f); });
-
-    writeTotalsBlock(worksheet, r, domalTotal, s18Total);
+    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allLouverRefs);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
 
