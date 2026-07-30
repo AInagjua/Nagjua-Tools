@@ -274,7 +274,8 @@ function newFlat(){
 
 function roomSft(room){
   const q = (room.nos||0)*(room.width||0)*(room.height||0)/144;
-  return isFinite(q) ? q : 0;
+  if(!isFinite(q)) return 0;
+  return Math.round(q * 100) / 100;
 }
 function bedEnabled(flat, bedNum){ return bedNum <= (flat.bhk||0); }
 function flatDomalSft(flat){
