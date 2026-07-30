@@ -482,7 +482,7 @@ function writeFlatBlock(ws, startRow, flat){
     ws.getCell(r,4).value = room.width===''||room.width==null ? '' : Number(room.width);
     ws.getCell(r,5).value = room.height===''||room.height==null ? '' : Number(room.height);
     // Real formula, not a pre-computed number - so it's visible/verifiable in Excel and recalculates if edited there.
-    ws.getCell(r,6).value = { formula: `C${r}*D${r}*E${r}/144` };
+    ws.getCell(r,6).value = { formula: `ROUND(C${r}*D${r}*E${r}/144,2)` };
     ws.getCell(r,7).value = 'Sft';
     for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment = {horizontal:'center'}; ws.getCell(r,c).border = THIN_BORDER; }
     if(key === 'kitchen') s18Refs.push(`F${r}`); else domalRefs.push(`F${r}`);
