@@ -155,6 +155,7 @@
         <button id="reset-btn">Reset all</button>
       </div>
       <div class="status-msg" id="key-status-msg"></div>
+      <div style="text-align:right;font-size:10.5px;color:#AAB3C7;margin-top:4px;max-width:280px;">Saved only in this browser — anyone else opening this link needs to paste their own key here once.</div>
     </div>
   </div>
 
@@ -224,6 +225,12 @@
         <h3>Download Excel Sheet</h3>
         <p>Everything you enter is saved automatically in this browser as you go — you only need to download when you're actually ready to share the file.</p>
         <button class="export-btn new" id="download-new-btn">Download Excel</button>
+      </div>
+      <div class="export-card">
+        <h3>Update Existing Sheet</h3>
+        <p>Already have a sheet from this tool with some flats in it? Pick that file each time you have new data — the flats currently in your working list below get added into that same file, and you get back the updated sheet.</p>
+        <input type="file" id="update-existing-input" accept=".xlsx">
+        <button class="export-btn append" id="update-existing-btn">Add To This File &amp; Download</button>
       </div>
       <div class="export-card">
         <h3>Import From Existing File (one-time)</h3>
@@ -576,23 +583,59 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
   }
 });
 
-function readFlatRow(ws, r){
-  const flat = newFlat();
-  flat.tower = String(ws.getCell(r,1).value || '');
-  flat.flatNo = String(ws.getCell(r,2).value || '');
-  const bhkMatch = String(ws.getCell(r,3).value || '').match(/(\d+)/);
-  flat.bhk = bhkMatch ? parseInt(bhkMatch[1]) : 1;
-  let col = FIRST_ROOM_COL;
-  ROOM_GROUPS.forEach(key=>{
-    const toVal = v => (v===null||v===undefined||v==='') ? '' : Number(v);
-    flat[key] = newRoom(
-      toVal(ws.getCell(r,col).value),
-      toVal(ws.getCell(r,col+1).value),
-      toVal(ws.getCell(r,col+2).value)
-    );
-    col += 4;
-  });
-  return flat;
+const ROOM_LABEL_TO_KEY = {'Hall':'hall','Bed-1':'bed1','Bed-2':'bed2','Bed-3':'bed3','Bed-4':'bed4','Kitchen (18x60)':'kitchen'};
+
+// Reads flats out of the CURRENT vertical-block export format: a merged
+// header row like "M-101", then a Sl.No/Description/Nos./Width/Height/
+// Quantity/Unit sub-table, one row per room, ending with a Fixed Lovers row
+// (whose Nos. value equals the original BHK), then a blank spacer row.
+function readFlatsFromWorkbook(ws){
+  const results = [];
+  let row = 3; // row 1 = title, row 2 = blank
+  const maxRow = ws.rowCount + 2;
+
+  while(row <= maxRow){
+    const headerVal = ws.getCell(row,1).value;
+    if(headerVal === null || headerVal === undefined || headerVal === ''){ row++; continue; }
+    const headerText = String(headerVal).trim();
+    if(/^Total (Domal|18\*?60) Section$/i.test(headerText) || headerText === 'TOTAL'){ row++; continue; }
+
+    const m = headerText.match(/^([A-Za-z]*)-?(.*)$/);
+    const towerLetter = m ? m[1].toUpperCase() : '';
+    const flatNo = m ? m[2] : headerText;
+
+    const flat = newFlat();
+    flat.tower = TOWER_OPTIONS.find(t => t.charAt(0).toUpperCase() === towerLetter) || '';
+    flat.flatNo = flatNo;
+
+    row += 2; // skip header row + Sl.No/Description sub-header row
+    let bhkFromLouvers = null;
+    while(row <= maxRow){
+      const desc = ws.getCell(row,2).value;
+      if(desc === null || desc === undefined || desc === '') break;
+      const descText = String(desc).trim();
+      if(descText === 'Fixed Lovers'){
+        const n = ws.getCell(row,3).value;
+        bhkFromLouvers = (typeof n === 'number') ? n : parseInt(n,10) || null;
+        row++;
+        break;
+      }
+      const key = ROOM_LABEL_TO_KEY[descText];
+      if(key){
+        const toVal = v => (v===null||v===undefined||v==='') ? '' : Number(v);
+        flat[key] = newRoom(
+          toVal(ws.getCell(row,3).value),
+          toVal(ws.getCell(row,4).value),
+          toVal(ws.getCell(row,5).value)
+        );
+      }
+      row++;
+    }
+    flat.bhk = bhkFromLouvers || 1;
+    results.push(flat);
+    row++; // skip the blank spacer row
+  }
+  return results;
 }
 
 document.getElementById('import-file-input').addEventListener('change', async (e)=>{
@@ -604,27 +647,75 @@ document.getElementById('import-file-input').addEventListener('change', async (e
     await workbook.xlsx.load(buffer);
     const worksheet = workbook.getWorksheet('Measurements') || workbook.worksheets[0];
     if(!worksheet){ showStatus('No worksheet found in that file.', false); return; }
-    let imported = 0;
-    worksheet.eachRow((row, rowNumber)=>{
-      if(rowNumber <= 2) return;
-      if(row.getCell(1).value === 'TOTAL') return;
-      const flatNoVal = row.getCell(2).value;
-      if(flatNoVal===null || flatNoVal===undefined || flatNoVal==='') return;
-      flats.push(readFlatRow(worksheet, rowNumber));
-      imported++;
-    });
-    if(imported === 0){
+    const foundFlats = readFlatsFromWorkbook(worksheet);
+    if(!foundFlats.length){
       showStatus('No flat rows found in that file.', false);
     } else {
+      foundFlats.forEach(f => flats.push(f));
       saveFlats();
       render();
-      showStatus('Imported ' + imported + ' flat(s) into your saved working list.', true);
+      showStatus('Imported ' + foundFlats.length + ' flat(s) into your saved working list.', true);
     }
   }catch(err){
     console.error(err);
     showStatus('Could not import that file: ' + err.message, false);
   }
   e.target.value = '';
+});
+
+document.getElementById('update-existing-btn').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('update-existing-input');
+  const file = fileInput.files[0];
+  if(!file){ showStatus('Choose your existing file first.', false); return; }
+  if(!hasData()){ showStatus('Your working list below is empty - nothing to add.', false); return; }
+
+  try{
+    const buffer = await file.arrayBuffer();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.getWorksheet('Measurements') || workbook.worksheets[0];
+    if(!worksheet){ showStatus('No worksheet found in that file.', false); return; }
+
+    // Find the existing "Total Domal Section" row (if present) so we can
+    // insert new flats before it and rebuild the totals afterward.
+    let totalsStartRow = null;
+    worksheet.eachRow((row, rowNumber)=>{
+      if(totalsStartRow) return;
+      if(row.getCell(2).value === 'Total Domal Section') totalsStartRow = rowNumber;
+    });
+
+    let insertAt;
+    if(totalsStartRow){
+      worksheet.spliceRows(totalsStartRow, 2); // remove the old 2 totals rows
+      insertAt = totalsStartRow;
+    } else {
+      insertAt = worksheet.rowCount + 2;
+    }
+
+    let r = insertAt;
+    flats.forEach(f => { r = writeFlatBlock(worksheet, r, f); });
+
+    // Recompute totals by scanning the WHOLE sheet - existing blocks plus
+    // whatever was just appended - so the grand total is always correct.
+    let domalTotal = 0, s18Total = 0;
+    worksheet.eachRow((row, rowNumber)=>{
+      if(rowNumber <= 2) return;
+      const desc = row.getCell(2).value;
+      const qty = row.getCell(6).value;
+      if(typeof qty !== 'number') return;
+      if(desc === 'Kitchen (18x60)') s18Total += qty;
+      else if(desc === 'Hall' || desc === 'Bed-1' || desc === 'Bed-2' || desc === 'Bed-3' || desc === 'Bed-4') domalTotal += qty;
+    });
+
+    writeTotalsBlock(worksheet, r, domalTotal, s18Total);
+
+    const outBuffer = await workbook.xlsx.writeBuffer();
+    triggerDownload(outBuffer, file.name);
+    showStatus('Added ' + flats.length + ' flat(s) into "' + file.name + '" - downloaded the updated file.', true);
+  }catch(err){
+    console.error(err);
+    showStatus('Could not update that file: ' + err.message, false);
+  }
 });
 
 
