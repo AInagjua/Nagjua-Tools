@@ -105,6 +105,11 @@
   td.kitchen-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:#2E6B7D;background:#E4F0F3;}
   td.louver-cell{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy);}
   input.flagged-input{background:#FBEAE6 !important;border-color:var(--danger) !important;color:var(--danger);font-weight:700;}
+  td.compare-flagged{background:#FBEAE6;color:var(--danger);font-weight:700;}
+  td.compare-label{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;}
+  td.compare-label.new-row{color:var(--navy);background:#F6F3EC;}
+  td.compare-label.baseline-row{color:var(--ink-soft);background:#FAFAF8;}
+  tr.compare-pair-first td{border-top:2px solid var(--navy);}
   .remove-flat-row-btn{background:none;border:none;color:#C4BEB0;font-size:15px;cursor:pointer;}
   .remove-flat-row-btn:hover{color:var(--danger);}
 
@@ -308,8 +313,40 @@
     </div>
   </section>
 
+  <section class="block" id="matched-section">
+    <div class="section-label"><div class="num">4</div><h2>Matched Comparisons</h2></div>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin:0 20px 16px;">Every flat above with a matching baseline entry (same Tower, same last two digits of Flat No.) shows up here automatically — its readings alongside its baseline's readings, with bigger-than-baseline cells highlighted. Nothing here is editable; use "Auto-Correct Flagged" above to actually apply a correction.</p>
+    <div class="grid-wrap" style="margin:0 20px 20px;">
+      <div class="table-scroll">
+        <table class="grid">
+          <thead>
+            <tr class="group-row">
+              <th class="plain" rowspan="2"></th>
+              <th class="plain" rowspan="2">Flat</th>
+              <th class="hall-hd" colspan="2">Hall</th>
+              <th colspan="2">Bed-1</th>
+              <th colspan="2">Bed-2</th>
+              <th colspan="2">Bed-3</th>
+              <th colspan="2">Bed-4</th>
+              <th class="kitchen-hd" colspan="2">Kitchen</th>
+            </tr>
+            <tr>
+              <th>Width</th><th>Height</th>
+              <th>Width</th><th>Height</th>
+              <th>Width</th><th>Height</th>
+              <th>Width</th><th>Height</th>
+              <th>Width</th><th>Height</th>
+              <th>Width</th><th>Height</th>
+            </tr>
+          </thead>
+          <tbody id="matched-comparisons-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <section class="block" id="export-section">
-    <div class="section-label"><div class="num">4</div><h2>Export</h2></div>
+    <div class="section-label"><div class="num">5</div><h2>Export</h2></div>
     <div class="export-grid">
       <div class="export-card">
         <h3>Download Excel Sheet</h3>
@@ -423,6 +460,7 @@ function render(){
     gridBody.innerHTML = flats.map(renderFlatRow).join('');
   }
   updateTotals();
+  renderMatchedComparisons();
 }
 
 const baselineGridBody = document.getElementById('baseline-grid-body');
@@ -529,12 +567,14 @@ baselineGridBody.addEventListener('input',(e)=>{
   } else if(field === 'tower' || field === 'flatNo'){
     flat[field] = t.value;
     saveBaselineFlats();
+    renderMatchedComparisons();
     return;
   }
   const tr = t.closest('tr[data-flat-id]');
   updateBaselineRowDisplay(tr, flat);
   updateBaselineTotals();
   saveBaselineFlats();
+  renderMatchedComparisons();
 });
 
 baselineGridBody.addEventListener('change',(e)=>{
@@ -546,6 +586,7 @@ baselineGridBody.addEventListener('change',(e)=>{
     updateBaselineRowDisplay(tr, flat);
     updateBaselineTotals();
     saveBaselineFlats();
+    renderMatchedComparisons();
   } else if(t.dataset.field === 'sectionType'){
     const flat = getBaselineFlat(t.dataset.flatId);
     flat.sectionType = t.value;
@@ -562,6 +603,7 @@ baselineGridBody.addEventListener('click',(e)=>{
     baselineFlats = baselineFlats.filter(f=>f.id!==tr.dataset.flatId);
     renderBaseline();
     saveBaselineFlats();
+    renderMatchedComparisons();
   }
 });
 
@@ -572,6 +614,7 @@ document.getElementById('add-baseline-btn').addEventListener('click',()=>{
   baselineFlats.push(newFlatEntry);
   renderBaseline();
   saveBaselineFlats();
+  renderMatchedComparisons();
 });
 
 document.getElementById('toggle-baseline-btn').addEventListener('click',()=>{
@@ -594,6 +637,61 @@ function findBaselineMatch(flat){
   const key = lastTwoDigits(flat.flatNo);
   if(!key || !flat.tower) return null;
   return baselineFlats.find(b => b.tower === flat.tower && lastTwoDigits(b.flatNo) === key) || null;
+}
+
+const COMPARE_ROOM_KEYS = ['hall','bed1','bed2','bed3','bed4','kitchen'];
+
+function comparisonRoomCell(value, isBigger){
+  const cls = isBigger ? ' class="compare-flagged"' : '';
+  return `<td${cls}>${value===''||value==null ? '—' : value}</td>`;
+}
+
+function renderMatchedComparisons(){
+  const body = document.getElementById('matched-comparisons-body');
+  if(!body) return;
+
+  const pairs = flats
+    .map(flat => ({ flat, baseline: findBaselineMatch(flat) }))
+    .filter(p => p.baseline);
+
+  if(pairs.length === 0){
+    body.innerHTML = '<tr><td colspan="14" class="empty-hint">No matches yet — a flat needs a Tower + Flat No. whose last two digits match a baseline entry on the same tower.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = pairs.map(({flat, baseline})=>{
+    const newCells = COMPARE_ROOM_KEYS.map(key=>{
+      const enabled = key.startsWith('bed') ? bedEnabled(flat, parseInt(key.slice(3))) : true;
+      if(!enabled) return comparisonRoomCell('') + comparisonRoomCell('');
+      const room = flat[key];
+      const baseRoom = baseline[key];
+      const w = parseFloat(room.width)||0, h = parseFloat(room.height)||0;
+      const bw = parseFloat(baseRoom.width)||0, bh = parseFloat(baseRoom.height)||0;
+      const hasBaseline = bw > 0 || bh > 0;
+      const wBigger = hasBaseline && w > bw;
+      const hBigger = hasBaseline && h > bh;
+      return comparisonRoomCell(room.width, wBigger) + comparisonRoomCell(room.height, hBigger);
+    }).join('');
+
+    const baselineCells = COMPARE_ROOM_KEYS.map(key=>{
+      const enabled = key.startsWith('bed') ? bedEnabled(flat, parseInt(key.slice(3))) : true;
+      if(!enabled) return comparisonRoomCell('') + comparisonRoomCell('');
+      const baseRoom = baseline[key];
+      return comparisonRoomCell(baseRoom.width) + comparisonRoomCell(baseRoom.height);
+    }).join('');
+
+    return `
+      <tr class="compare-pair-first">
+        <td class="compare-label new-row">NEW</td>
+        <td>${escapeHtml(flat.tower)} ${escapeHtml(flat.flatNo)}</td>
+        ${newCells}
+      </tr>
+      <tr>
+        <td class="compare-label baseline-row">BASELINE</td>
+        <td>${escapeHtml(baseline.tower)} ${escapeHtml(baseline.flatNo)}</td>
+        ${baselineCells}
+      </tr>`;
+  }).join('');
 }
 
 function showBaselineStatus(msg, ok){
@@ -755,12 +853,14 @@ gridBody.addEventListener('input',(e)=>{
   } else if(field === 'tower' || field === 'flatNo'){
     flat[field] = t.value;
     saveFlats();
+    renderMatchedComparisons();
     return;
   }
   const tr = t.closest('tr[data-flat-id]');
   updateRowDisplay(tr, flat);
   updateTotals();
   saveFlats();
+  renderMatchedComparisons();
 });
 
 gridBody.addEventListener('change',(e)=>{
@@ -772,6 +872,7 @@ gridBody.addEventListener('change',(e)=>{
     updateRowDisplay(tr, flat);
     updateTotals();
     saveFlats();
+    renderMatchedComparisons();
   } else if(t.dataset.field === 'sectionType'){
     const flat = getFlat(t.dataset.flatId);
     flat.sectionType = t.value;
@@ -1189,17 +1290,17 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
 
 
 // init - restore anything saved in this browser, otherwise start with one blank flat
-const restored = loadFlats();
-if(restored && restored.length){
-  flats = restored;
-}
-render();
-
 const restoredBaseline = loadBaselineFlats();
 if(restoredBaseline && restoredBaseline.length){
   baselineFlats = restoredBaseline;
 }
 renderBaseline();
+
+const restored = loadFlats();
+if(restored && restored.length){
+  flats = restored;
+}
+render();
 </script>
 </body>
 </html>
