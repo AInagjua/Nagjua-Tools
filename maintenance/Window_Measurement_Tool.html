@@ -453,8 +453,8 @@ function renderBaselineFlatRow(flat){
     ${roomCells(flat.id,'bed4',flat.bed4,!bedEnabled(flat,4))}
     ${roomCells(flat.id,'kitchen',flat.kitchen,false)}
     <td class="louver-cell" data-louver>${flat.bhk}</td>
-    <td class="domal-cell" data-domal>${domal.toFixed(2)}</td>
-    <td class="s18-cell" data-s18>${s18.toFixed(2)}</td>
+    <td class="domal-cell" data-domal>${flat.sectionType==='18x60' ? '' : domal.toFixed(2)}</td>
+    <td class="s18-cell" data-s18>${flat.sectionType==='18x60' ? s18.toFixed(2) : ''}</td>
     <td class="kitchen-cell" data-kitchen>${kitchenSft.toFixed(2)}</td>
     <td><button class="remove-flat-row-btn" title="Remove flat">✕</button></td>
   </tr>`;
@@ -483,8 +483,8 @@ function updateBaselineRowDisplay(tr, flat){
     });
   });
   tr.querySelector('[data-louver]').textContent = flat.bhk;
-  tr.querySelector('[data-domal]').textContent = flatDomalSft(flat).toFixed(2);
-  tr.querySelector('[data-s18]').textContent = flat18x60Sft(flat).toFixed(2);
+  tr.querySelector('[data-domal]').textContent = flat.sectionType==='18x60' ? '' : flatDomalSft(flat).toFixed(2);
+  tr.querySelector('[data-s18]').textContent = flat.sectionType==='18x60' ? flat18x60Sft(flat).toFixed(2) : '';
   tr.querySelector('[data-kitchen]').textContent = flatKitchenSft(flat).toFixed(2);
 }
 
@@ -662,8 +662,8 @@ function renderFlatRow(flat){
     ${roomCells(flat.id,'bed4',flat.bed4,!bedEnabled(flat,4),flagged.bed4)}
     ${roomCells(flat.id,'kitchen',flat.kitchen,false,flagged.kitchen)}
     <td class="louver-cell" data-louver>${flat.bhk}</td>
-    <td class="domal-cell" data-domal>${domal.toFixed(2)}</td>
-    <td class="s18-cell" data-s18>${s18.toFixed(2)}</td>
+    <td class="domal-cell" data-domal>${flat.sectionType==='18x60' ? '' : domal.toFixed(2)}</td>
+    <td class="s18-cell" data-s18>${flat.sectionType==='18x60' ? s18.toFixed(2) : ''}</td>
     <td class="kitchen-cell" data-kitchen>${kitchenSft.toFixed(2)}</td>
     <td><button class="remove-flat-row-btn" title="Remove flat">✕</button></td>
   </tr>`;
@@ -687,8 +687,8 @@ function updateRowDisplay(tr, flat){
     });
   });
   tr.querySelector('[data-louver]').textContent = flat.bhk;
-  tr.querySelector('[data-domal]').textContent = flatDomalSft(flat).toFixed(2);
-  tr.querySelector('[data-s18]').textContent = flat18x60Sft(flat).toFixed(2);
+  tr.querySelector('[data-domal]').textContent = flat.sectionType==='18x60' ? '' : flatDomalSft(flat).toFixed(2);
+  tr.querySelector('[data-s18]').textContent = flat.sectionType==='18x60' ? flat18x60Sft(flat).toFixed(2) : '';
   tr.querySelector('[data-kitchen]').textContent = flatKitchenSft(flat).toFixed(2);
 }
 
