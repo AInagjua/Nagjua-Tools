@@ -235,8 +235,10 @@
       <button class="export-btn append" id="add-baseline-btn" style="width:auto;padding:10px 18px;">+ Add Baseline Flat</button>
       <button class="export-btn new" id="compare-baseline-btn" style="width:auto;padding:10px 18px;margin-left:10px;">Compare With Baseline</button>
       <button class="export-btn" id="autocorrect-baseline-btn" style="width:auto;padding:10px 18px;margin-left:10px;background:var(--danger);color:#fff;">Auto-Correct Flagged</button>
+      <button class="export-btn" id="toggle-baseline-btn" style="width:auto;padding:10px 18px;margin-left:10px;background:var(--navy);color:#fff;">Show Baseline Table</button>
       <div class="status-msg" id="baseline-status-msg"></div>
     </div>
+    <div id="baseline-table-wrap" style="display:none;">
     <div class="grid-wrap" style="margin:16px 20px 0;">
       <div class="table-scroll">
         <table class="grid">
@@ -288,6 +290,7 @@
         <div class="label">Baseline Fixed Louvers</div>
         <div class="value"><span id="baseline-louver-total">0</span> Nos</div>
       </div>
+    </div>
     </div>
   </section>
 
@@ -542,6 +545,14 @@ document.getElementById('add-baseline-btn').addEventListener('click',()=>{
   baselineFlats.push(newBaselineFlat());
   renderBaseline();
   saveBaselineFlats();
+});
+
+document.getElementById('toggle-baseline-btn').addEventListener('click',()=>{
+  const wrap = document.getElementById('baseline-table-wrap');
+  const btn = document.getElementById('toggle-baseline-btn');
+  const isHidden = wrap.style.display === 'none';
+  wrap.style.display = isHidden ? 'block' : 'none';
+  btn.textContent = isHidden ? 'Hide Baseline Table' : 'Show Baseline Table';
 });
 
 // Match by tower + last two digits of the flat number (e.g. MF-501 matches
