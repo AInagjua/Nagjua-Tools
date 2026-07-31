@@ -309,8 +309,58 @@ function loadFlats(){
 // to add/update entries whenever you have new reference measurements.
 // Same shape as a flat: { tower, flatNo, bhk, hall, bed1..bed4, kitchen }.
 const BASELINE_FLATS = [
-  // Example (remove/replace once real data is provided):
-  // { tower: 'M Tower', flatNo: '101', bhk: 3, hall: newRoomLit(1,105,82), bed1: newRoomLit(1,69,82), bed2: newRoomLit(1,76,82), bed3: newRoomLit(0,0,0), bed4: newRoomLit(0,0,0), kitchen: newRoomLit(1,47,40) },
+  { tower: 'M Tower' , flatNo: '601', bhk: 3,
+    hall: newRoomLit(1,105,81),
+    bed1: newRoomLit(1,70,79),
+    bed2: newRoomLit(1,74,80),
+    bed3: newRoomLit(1,57,80),
+    kitchen: newRoomLit(1,45,40)
+  },
+  { tower: 'M Tower' , flatNo: '602', bhk: 3,
+    hall: newRoomLit(1,106,81),
+    bed1: newRoomLit(1,69,81),
+    bed2: newRoomLit(1,75,82),
+    bed3: newRoomLit(1,58,82),
+    kitchen: newRoomLit(1,46,40)
+  },
+  { tower: 'M Tower', flatNo: '503', bhk: 3,
+    hall: newRoomLit(1,105,82),
+    bed1: newRoomLit(1,70,82),
+    bed2: newRoomLit(1,77,81),
+    bed3: newRoomLit(1,68,82),
+    kitchen: newroomLit(1,46,40)
+  },
+  { tower: 'M Tower', flatNo: '504', bhk: 3,
+    hall: newRoomLit(1,105,82),
+    bed1: newroomLit(1,69,82),
+    bed2: newroomLit(1,75,82),
+    bed3: newroomLit(1,68,82),
+    kitchen: newRoomLit(1,46,40)
+  }
+  { tower: 'N Tower', flatNo: '801', bhk: 4,
+    hall: newRoomLit(1,136,82),
+    bed1: newRoomLit(1,93,81),
+    bed2: newRoomLit(1,69,82),
+    bed3: newroomLit(1,67,82),
+    bed4: newRoomLit(1,68,82),
+    kitchen: newRoomLit(1,45,45)
+  }
+  { tower: 'N Tower', flatNo: '803', bhk: 4,
+    hall: newRoomLit(1,136,82),
+    bed1: newRoomLit(1,94,82),
+    bed2: newRoomLit(1,70,82),
+    bed3: newRoomLit(1,82,83),
+    bed4: newRoomLit(1,65,81.5),
+    kitchen: newRoomLit(1,46,46)
+  }
+  { tower: 'N Tower', flatNo.: '804', bhk: 4,
+    hall: newRoomLit(1,137,81),
+    bed1: newRoomLit(1,93,81),
+    bed2: newRoomLit(1,70,81),
+    bed3: newRoomLit(1,81,83),
+    bed4: newRoomLit(1,65,82),
+    kitchen: newRoomLit(1,45,46)
+  },
 ];
 function newRoomLit(nos, width, height){ return {nos, width, height}; }
 
