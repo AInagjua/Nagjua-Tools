@@ -239,6 +239,20 @@
       <div class="status-msg" id="baseline-status-msg"></div>
     </div>
     <div id="baseline-table-wrap" style="display:none;">
+    <div style="margin:16px 20px 0;">
+      <label style="font-size:12.5px;font-weight:600;color:var(--navy);margin-right:8px;">Filter by Tower:</label>
+      <select id="baseline-tower-filter" style="padding:7px 10px;border:1px solid var(--steel-line);border-radius:4px;font-size:12.5px;background:#FAFAF8;">
+        <option value="">— Select a tower to view —</option>
+        <option value="H Tower">H Tower</option>
+        <option value="I Tower">I Tower</option>
+        <option value="J Tower">J Tower</option>
+        <option value="K Tower">K Tower</option>
+        <option value="L Tower">L Tower</option>
+        <option value="M Tower">M Tower</option>
+        <option value="N Tower">N Tower</option>
+      </select>
+      <span style="font-size:11.5px;color:var(--ink-soft);margin-left:8px;">Showing one tower at a time keeps this table light even with hundreds of baseline flats.</span>
+    </div>
     <div class="grid-wrap" style="margin:16px 20px 0;">
       <div class="table-scroll">
         <table class="grid">
@@ -414,10 +428,20 @@ function render(){
 const baselineGridBody = document.getElementById('baseline-grid-body');
 
 function renderBaseline(){
+  const filterEl = document.getElementById('baseline-tower-filter');
+  const selectedTower = filterEl ? filterEl.value : '';
+
   if(baselineFlats.length === 0){
     baselineGridBody.innerHTML = '<tr><td colspan="33" class="empty-hint">No baseline flats yet — click "+ Add Baseline Flat" to start.</td></tr>';
+  } else if(!selectedTower){
+    baselineGridBody.innerHTML = '<tr><td colspan="33" class="empty-hint">Select a tower above to view its baseline flats (' + baselineFlats.length + ' total across all towers).</td></tr>';
   } else {
-    baselineGridBody.innerHTML = baselineFlats.map(renderBaselineFlatRow).join('');
+    const filtered = baselineFlats.filter(f => f.tower === selectedTower);
+    if(filtered.length === 0){
+      baselineGridBody.innerHTML = '<tr><td colspan="33" class="empty-hint">No baseline flats for ' + escapeHtml(selectedTower) + ' yet.</td></tr>';
+    } else {
+      baselineGridBody.innerHTML = filtered.map(renderBaselineFlatRow).join('');
+    }
   }
   updateBaselineTotals();
 }
@@ -542,7 +566,10 @@ baselineGridBody.addEventListener('click',(e)=>{
 });
 
 document.getElementById('add-baseline-btn').addEventListener('click',()=>{
-  baselineFlats.push(newBaselineFlat());
+  const newFlatEntry = newBaselineFlat();
+  const filterEl = document.getElementById('baseline-tower-filter');
+  if(filterEl && filterEl.value) newFlatEntry.tower = filterEl.value;
+  baselineFlats.push(newFlatEntry);
   renderBaseline();
   saveBaselineFlats();
 });
@@ -554,6 +581,8 @@ document.getElementById('toggle-baseline-btn').addEventListener('click',()=>{
   wrap.style.display = isHidden ? 'block' : 'none';
   btn.textContent = isHidden ? 'Hide Baseline Table' : 'Show Baseline Table';
 });
+
+document.getElementById('baseline-tower-filter').addEventListener('change', renderBaseline);
 
 // Match by tower + last two digits of the flat number (e.g. MF-501 matches
 // baseline MF-101, since both end in the same unit position on their floor).
