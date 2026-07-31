@@ -163,7 +163,7 @@
 
   <section class="block" id="entry-section">
     <div class="section-label"><div class="num">2</div><h2>Upload &amp; Extract</h2></div>
-    <div class="export-grid" style="margin-bottom:20px;">
+    <div class="export-grid">
       <div class="export-card">
         <h3>Upload Measurement Photo</h3>
         <p>Upload a photo of a handwritten or printed measurement sheet. The AI reads it and adds the rows directly into the table below for you to review and correct.</p>
@@ -172,6 +172,10 @@
         <div class="status-msg" id="ai-status-msg"></div>
       </div>
     </div>
+  </section>
+
+  <section class="block" id="flats-table-section">
+    <div class="section-label"><div class="num">3</div><h2>Your Flats</h2></div>
     <div class="grid-wrap">
       <div class="table-scroll">
         <table class="grid">
@@ -227,7 +231,7 @@
   </section>
 
   <section class="block" id="export-section">
-    <div class="section-label"><div class="num">3</div><h2>Export</h2></div>
+    <div class="section-label"><div class="num">4</div><h2>Export</h2></div>
     <div class="export-grid">
       <div class="export-card">
         <h3>Download Excel Sheet</h3>
@@ -246,7 +250,7 @@
   </section>
 
   <section class="block" id="baseline-section">
-    <div class="section-label"><div class="num">4</div><h2>Baseline Measurements</h2></div>
+    <div class="section-label"><div class="num">5</div><h2>Baseline Measurements</h2></div>
     <div class="export-grid" style="margin-bottom:20px;">
       <div class="export-card">
         <h3>Your Reference Readings</h3>
@@ -379,7 +383,7 @@ const gridBody = document.getElementById('grid-body');
 
 function render(){
   if(flats.length === 0){
-    gridBody.innerHTML = '<tr><td colspan="33" class="empty-hint">No flats yet — use "Import From Photo (AI)" below to add some.</td></tr>';
+    gridBody.innerHTML = '<tr><td colspan="33" class="empty-hint">No flats yet — use "Upload &amp; Extract" above to add some.</td></tr>';
   } else {
     gridBody.innerHTML = flats.map(renderFlatRow).join('');
   }
