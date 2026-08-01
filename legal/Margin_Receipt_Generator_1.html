@@ -872,12 +872,22 @@ document.getElementById("ledgerFile").addEventListener("change", async (e) => {
 let rowCount = 0;
 const txBody = document.getElementById("txBody");
 
+function formatDDMMYYYY(isoStr) {
+  if (!isoStr) return "";
+  const [y, m, d] = isoStr.split("-");
+  if (!y || !m || !d) return "";
+  return `${d}/${m}/${y}`;
+}
+
 function addRow(prefill) {
   rowCount++;
   const tr = document.createElement("tr");
   tr.innerHTML = `
     <td class="rownum">${rowCount}</td>
-    <td><input type="date" class="tx-date" value="${prefill?.date || ''}"></td>
+    <td>
+      <input type="date" class="tx-date" value="${prefill?.date || ''}">
+      <div class="tx-date-label" style="font-size:11px;color:#5B6577;margin-top:2px;">${formatDDMMYYYY(prefill?.date)}</div>
+    </td>
     <td><input type="text" class="tx-bank" placeholder="e.g. BANK OF BARODA" value="${prefill?.bank || ''}"></td>
     <td><input type="text" class="tx-instr" placeholder="Instrument No." value="${prefill?.instrument || ''}"></td>
     <td><input type="number" step="0.01" class="tx-amt amt" placeholder="0.00" value="${prefill?.amount || ''}"></td>
@@ -887,6 +897,9 @@ function addRow(prefill) {
     tr.remove();
     renumberRows();
     updateTotals();
+  });
+  tr.querySelector(".tx-date").addEventListener("input", (e) => {
+    tr.querySelector(".tx-date-label").textContent = formatDDMMYYYY(e.target.value);
   });
   tr.querySelectorAll(".tx-date, .tx-bank, .tx-instr, .tx-amt").forEach(inp => inp.addEventListener("input", () => {
     updateTotals();
