@@ -640,7 +640,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
 // ============================================================
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const EXCLUDE_PATTERNS = [/\(EMS\b/i, /\(GAS\b/i, /\(GST\b/i, /\(SOCIETY DEP/i, /\(STAMP DUTY/i];
+const EXCLUDE_PATTERNS = [/\(EMS\b/i, /\(GAS\b/i, /\(GST\b/i, /\(SOC(?:IETY)? DEP/i, /\(STAMP DUTY/i];
 
 async function extractLedgerLines(file) {
   const buf = await file.arrayBuffer();
