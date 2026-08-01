@@ -168,6 +168,13 @@
         <div class="hint">Entity, receiver, project, and transactions (Credit side only, minus EMS/Gas/GST/Society Deposit/Stamp Duty) will be auto-filled below. Review before generating.</div>
       </div>
     </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%;">
+        <label>Or Upload Trial Balance (Excel)</label>
+        <input type="file" id="ledgerExcelFile" accept=".xlsx">
+        <div class="hint">For the split-row trial balance export - groups each transaction by Document No. and sums its split Credit rows, excluding EMS/Gas/GST/Society Deposit/Stamp Duty transactions entirely.</div>
+      </div>
+    </div>
     <div class="status" id="ledgerStatus"></div>
   </div>
 
@@ -866,6 +873,131 @@ document.getElementById("ledgerFile").addEventListener("change", async (e) => {
     console.error(err);
     statusEl.className = "status err";
     statusEl.textContent = "Could not read this PDF: " + err.message;
+  }
+});
+
+// ---- Trial Balance Excel import ----
+// Each transaction is split across multiple rows (Basic amount, Tax amount,
+// and a contra entry) sharing the same Document No. - group by Document No.
+// and sum the Credit column to get the true transaction total.
+async function parseTrialBalanceExcel(file) {
+  const buffer = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) throw new Error("No worksheet found in that file.");
+
+  // Find header row (contains "Document No" and "Credit")
+  let headerRow = null;
+  worksheet.eachRow((row, rowNumber) => {
+    if (headerRow) return;
+    const vals = row.values.map(v => String(v || "").trim());
+    if (vals.some(v => /Document No/i.test(v)) && vals.some(v => /Credit/i.test(v))) {
+      headerRow = rowNumber;
+    }
+  });
+  if (!headerRow) throw new Error('Could not find a header row with "Document No" and "Credit" columns.');
+
+  const headerVals = worksheet.getRow(headerRow).values;
+  const colIndex = {};
+  headerVals.forEach((v, i) => {
+    const label = String(v || "").trim().toLowerCase();
+    if (label === "date") colIndex.date = i;
+    else if (label === "type") colIndex.type = i;
+    else if (label === "document no") colIndex.docNo = i;
+    else if (label === "header narration") colIndex.narration = i;
+    else if (label === "cheque no") colIndex.chequeNo = i;
+    else if (label === "credit") colIndex.credit = i;
+  });
+
+  const groups = new Map();
+  const maxRow = worksheet.rowCount;
+  for (let r = headerRow + 1; r <= maxRow; r++) {
+    const row = worksheet.getRow(r);
+    const type = String(row.getCell(colIndex.type).value || "").trim();
+    if (!/^RECEIPT$/i.test(type)) continue;
+    const docNo = String(row.getCell(colIndex.docNo).value || "").trim();
+    if (!docNo) continue;
+    const credit = Number(row.getCell(colIndex.credit).value) || 0;
+    const narrationCell = row.getCell(colIndex.narration).value;
+    const narration = (narrationCell && narrationCell.richText)
+      ? narrationCell.richText.map(t => t.text).join("")
+      : String(narrationCell || "");
+
+    if (!groups.has(docNo)) {
+      const dateVal = row.getCell(colIndex.date).value;
+      const dateObj = (dateVal instanceof Date) ? dateVal : new Date(dateVal);
+      groups.set(docNo, {
+        date: dateObj,
+        chequeNo: String(row.getCell(colIndex.chequeNo).value || "").trim(),
+        firstNarration: narration,
+        allNarration: narration,
+        creditSum: 0
+      });
+    }
+    const g = groups.get(docNo);
+    g.creditSum += credit;
+    g.allNarration += " " + narration;
+  }
+
+  const transactions = [];
+  const warnings = [];
+  for (const [docNo, g] of groups) {
+    if (EXCLUDE_PATTERNS.some(re => re.test(g.allNarration))) continue;
+    if (!g.creditSum) continue;
+
+    const bankMatch = g.firstNarration.match(/Drawn On:\s*([A-Za-z0-9 .&\-]+?)(?:\s*(?:BRS Date|Cleared on)|$)/i);
+    const bank = bankMatch ? bankMatch[1].trim() : "";
+
+    transactions.push({
+      date: g.date,
+      bank: bank,
+      instrument: g.chequeNo,
+      amount: g.creditSum
+    });
+  }
+
+  transactions.sort((a, b) => a.date - b.date);
+
+  if (transactions.length === 0) warnings.push("No qualifying RECEIPT transactions found (excluding EMS/Gas/GST/Society Deposit/Stamp Duty).");
+
+  return { transactions, warnings };
+}
+
+document.getElementById("ledgerExcelFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById("ledgerStatus");
+  statusEl.className = "status";
+  statusEl.textContent = "Reading trial balance file...";
+
+  try {
+    const parsed = await parseTrialBalanceExcel(file);
+
+    txBody.innerHTML = "";
+    rowCount = 0;
+    parsed.transactions.forEach(tx => {
+      addRow({
+        date: toDateInputValue(tx.date),
+        bank: tx.bank,
+        instrument: tx.instrument,
+        amount: tx.amount
+      });
+    });
+
+    if (parsed.warnings.length > 0) {
+      statusEl.className = "status err";
+      statusEl.innerHTML = "Parsed with notes:<br>" + parsed.warnings.map(w => "\u2022 " + w).join("<br>");
+    } else {
+      statusEl.className = "status ok";
+      statusEl.textContent = `Parsed successfully — ${parsed.transactions.length} transaction(s) added. Please review before generating.`;
+    }
+    renderReceiptPreview();
+    updateMarginCalc();
+  } catch (err) {
+    console.error(err);
+    statusEl.className = "status err";
+    statusEl.textContent = "Could not read this file: " + err.message;
   }
 });
 
