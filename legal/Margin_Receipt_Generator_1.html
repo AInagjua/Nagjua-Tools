@@ -344,6 +344,13 @@ function fmtDateDMY(d) {
   const yyyy = d.getFullYear();
   return `${dd}.${mm}.${yyyy}`;
 }
+// ExcelJS serializes Date objects using their UTC calendar date. A Date built
+// with new Date(y, m, d) is anchored to LOCAL midnight, which in India
+// (UTC+5:30) is still the PREVIOUS day in UTC - shifting the written date
+// back by one day. This re-anchors to UTC midnight of the same calendar day.
+function toUtcAnchoredDate(d) {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
 function fmtDateSlash(d) {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -556,7 +563,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
     setCell(`A${r}`, idx + 1, { font: { name: T.txColFonts[0], size: T.txColSizes[0], bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
 
     if (T.dateIsRealDate) {
-      setCell(`B${r}`, tx.date, { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN }, numFmt: "mm-dd-yy" });
+      setCell(`B${r}`, toUtcAnchoredDate(tx.date), { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN }, numFmt: "mm-dd-yy" });
     } else {
       setCell(`B${r}`, fmtDateSlash(tx.date), { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN } });
     }
