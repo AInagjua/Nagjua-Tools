@@ -573,7 +573,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
   setCell(`E${blankFiller}`, undefined, { font: { name: T.txColFonts[4], size: T.txColSizes[4], bold: true }, align: { horizontal: "right", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: MEDIUM } });
 
   // TOTAL row
-  const total = transactions.reduce((s, t) => s + Number(t.amount), 0);
+  const total = transactions.reduce((s, t) => s + Number(t.amount), 0) - silentRefundAdjustment;
   ws.mergeCells(`A${totalRow}:D${totalRow}`); ws.getRow(totalRow).height = 22.5;
   setCell(`A${totalRow}`, "TOTAL" + (T.totalStyle === "indian-text" ? "" : ":"), { font: { name: "Arial", size: 12, bold: true }, align: { horizontal: "center", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
 
@@ -829,6 +829,7 @@ document.getElementById("ledgerFile").addEventListener("change", async (e) => {
   const statusEl = document.getElementById("ledgerStatus");
   statusEl.className = "status";
   statusEl.textContent = "Reading ledger...";
+  silentRefundAdjustment = 0;
 
   try {
     const lines = await extractLedgerLines(file);
@@ -907,42 +908,52 @@ async function parseTrialBalanceExcel(file) {
     else if (label === "document no") colIndex.docNo = i;
     else if (label === "header narration") colIndex.narration = i;
     else if (label === "cheque no") colIndex.chequeNo = i;
+    else if (label === "debit") colIndex.debit = i;
     else if (label === "credit") colIndex.credit = i;
   });
 
   const groups = new Map();
+  let refundTotal = 0;
   const maxRow = worksheet.rowCount;
   for (let r = headerRow + 1; r <= maxRow; r++) {
     const row = worksheet.getRow(r);
     const type = String(row.getCell(colIndex.type).value || "").trim();
-    if (!/^RECEIPT$/i.test(type)) continue;
-    const docNo = String(row.getCell(colIndex.docNo).value || "").trim();
-    if (!docNo) continue;
-    const credit = Number(row.getCell(colIndex.credit).value) || 0;
     const narrationCell = row.getCell(colIndex.narration).value;
     const narration = (narrationCell && narrationCell.richText)
       ? narrationCell.richText.map(t => t.text).join("")
       : String(narrationCell || "");
 
-    if (!groups.has(docNo)) {
+    // Refund entries (Type "RP" or narration mentions REFUND) reduce the
+    // received total silently - they never appear as a transaction row.
+    if (/^RP$/i.test(type) || /\bREFUND\b/i.test(narration)) {
+      refundTotal += Number(row.getCell(colIndex.debit).value) || 0;
+      continue;
+    }
+
+    if (!/^RECEIPT$/i.test(type)) continue;
+    const chequeNo = String(row.getCell(colIndex.chequeNo).value || "").trim();
+    if (!chequeNo) continue;
+    const credit = Number(row.getCell(colIndex.credit).value) || 0;
+
+    if (!groups.has(chequeNo)) {
       const dateVal = row.getCell(colIndex.date).value;
       const dateObj = (dateVal instanceof Date) ? dateVal : new Date(dateVal);
-      groups.set(docNo, {
+      groups.set(chequeNo, {
         date: dateObj,
-        chequeNo: String(row.getCell(colIndex.chequeNo).value || "").trim(),
+        chequeNo: chequeNo,
         firstNarration: narration,
         allNarration: narration,
         creditSum: 0
       });
     }
-    const g = groups.get(docNo);
+    const g = groups.get(chequeNo);
     g.creditSum += credit;
     g.allNarration += " " + narration;
   }
 
   const transactions = [];
   const warnings = [];
-  for (const [docNo, g] of groups) {
+  for (const [chequeNo, g] of groups) {
     if (EXCLUDE_PATTERNS.some(re => re.test(g.allNarration))) continue;
     if (!g.creditSum) continue;
 
@@ -960,8 +971,9 @@ async function parseTrialBalanceExcel(file) {
   transactions.sort((a, b) => a.date - b.date);
 
   if (transactions.length === 0) warnings.push("No qualifying RECEIPT transactions found (excluding EMS/Gas/GST/Society Deposit/Stamp Duty).");
+  if (refundTotal > 0) warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} in refund(s) found and silently deducted from the total.`);
 
-  return { transactions, warnings };
+  return { transactions, warnings, refundTotal };
 }
 
 document.getElementById("ledgerExcelFile").addEventListener("change", async (e) => {
@@ -973,6 +985,7 @@ document.getElementById("ledgerExcelFile").addEventListener("change", async (e) 
 
   try {
     const parsed = await parseTrialBalanceExcel(file);
+    silentRefundAdjustment = parsed.refundTotal || 0;
 
     txBody.innerHTML = "";
     rowCount = 0;
@@ -1048,11 +1061,14 @@ function renumberRows() {
   });
 }
 
+let silentRefundAdjustment = 0;
+
 function updateTotals() {
   let total = 0;
   txBody.querySelectorAll(".tx-amt").forEach(inp => {
     total += Number(inp.value) || 0;
   });
+  total -= silentRefundAdjustment;
   document.getElementById("totalDisplay").textContent = formatIndianAmount(total);
   document.getElementById("wordsDisplay").textContent = total > 0
     ? `₹ (In words): ${numberToIndianWords(total)} Only.`
@@ -1085,7 +1101,7 @@ function renderReceiptPreview() {
     const amount = Number(tr.querySelector(".tx-amt").value) || 0;
     return { idx: idx + 1, date: dStr ? parseLocalDate(dStr) : null, bank, instrument, amount };
   });
-  const total = transactions.reduce((s, t) => s + t.amount, 0);
+  const total = transactions.reduce((s, t) => s + t.amount, 0) - silentRefundAdjustment;
   const wordsText = total > 0 ? T.wordsPhrase(numberToIndianWords(total)) : "";
 
   const rowsHtml = transactions.map(tx => `
