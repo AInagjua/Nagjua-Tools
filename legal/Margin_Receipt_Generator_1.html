@@ -977,10 +977,60 @@ async function parseTrialBalanceExcel(file) {
 
   transactions.sort((a, b) => a.date - b.date);
 
-  if (transactions.length === 0) warnings.push("No qualifying RECEIPT transactions found (excluding EMS/Gas/GST/Society Deposit/Stamp Duty).");
-  if (refundTotal > 0) warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} in refund(s) found and silently deducted from the total.`);
+  // The refund typically cancels out one or more specific earlier receipts
+  // (e.g. a bounced/reversed cheque) rather than being a generic deduction.
+  // Find the smallest set of transactions whose amounts sum exactly to the
+  // refund total, preferring the most recent ones, and remove them entirely
+  // so the visible rows already sum to the correct net total.
+  let remainingTransactions = transactions;
+  let unmatchedRefund = refundTotal;
+  if (refundTotal > 0) {
+    const match = findExcludableSubset(transactions, refundTotal);
+    if (match) {
+      remainingTransactions = transactions.filter((_, i) => !match.includes(i));
+      unmatchedRefund = 0;
+      warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} refund matched and removed ${match.length} corresponding entr${match.length === 1 ? "y" : "ies"} (rather than just adjusting the total).`);
+    } else {
+      warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} in refund(s) found, but no exact matching entries were found - silently deducted from the total instead. Please verify.`);
+    }
+  }
 
-  return { transactions, warnings, refundTotal };
+  if (remainingTransactions.length === 0) warnings.push("No qualifying RECEIPT transactions found (excluding EMS/Gas/GST/Society Deposit/Stamp Duty).");
+
+  return { transactions: remainingTransactions, warnings, refundTotal: unmatchedRefund };
+}
+
+// Finds the smallest subset of transactions whose amounts sum exactly to
+// targetSum, preferring subsets made of the most recent (later-indexed)
+// transactions when multiple candidates of the same size exist.
+function findExcludableSubset(transactions, targetSum) {
+  const n = transactions.length;
+  if (n > 20) return null; // avoid combinatorial blowup on unusually large ledgers
+
+  function combinations(arr, size) {
+    const results = [];
+    function helper(start, combo) {
+      if (combo.length === size) { results.push(combo.slice()); return; }
+      for (let i = start; i < arr.length; i++) {
+        combo.push(arr[i]);
+        helper(i + 1, combo);
+        combo.pop();
+      }
+    }
+    helper(0, []);
+    return results;
+  }
+
+  const indices = transactions.map((_, i) => i);
+  for (let size = 1; size <= n; size++) {
+    const combos = combinations(indices, size);
+    combos.sort((a, b) => b.reduce((s, i) => s + i, 0) - a.reduce((s, i) => s + i, 0));
+    for (const combo of combos) {
+      const sum = combo.reduce((s, i) => s + transactions[i].amount, 0);
+      if (sum === targetSum) return combo;
+    }
+  }
+  return null;
 }
 
 document.getElementById("ledgerExcelFile").addEventListener("change", async (e) => {
