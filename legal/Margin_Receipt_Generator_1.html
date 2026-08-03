@@ -932,7 +932,7 @@ async function parseTrialBalanceExcel(file) {
 
     // Refund entries (Type "RP" or narration mentions REFUND) reduce the
     // received total silently - they never appear as a transaction row.
-    if (/^RP$/i.test(type) || /\bREFUND\b/i.test(narration)) {
+    if (/^(RP|PTC)$/i.test(type) || /\bREFUND\b/i.test(narration)) {
       refundTotal += Number(row.getCell(colIndex.debit).value) || 0;
       continue;
     }
@@ -989,9 +989,9 @@ async function parseTrialBalanceExcel(file) {
     if (match) {
       remainingTransactions = transactions.filter((_, i) => !match.includes(i));
       unmatchedRefund = 0;
-      warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} refund matched and removed ${match.length} corresponding entr${match.length === 1 ? "y" : "ies"} (rather than just adjusting the total).`);
+      warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} in refund/PTC entries matched and removed ${match.length} corresponding entr${match.length === 1 ? "y" : "ies"} (rather than just adjusting the total).`);
     } else {
-      warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} in refund(s) found, but no exact matching entries were found - silently deducted from the total instead. Please verify.`);
+      warnings.push(`Rs. ${refundTotal.toLocaleString("en-IN")} in refund/PTC entries found, but no exact matching entries were found - silently deducted from the total instead. Please verify.`);
     }
   }
 
