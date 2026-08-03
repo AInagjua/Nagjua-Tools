@@ -563,7 +563,7 @@ async function buildReceipt({ templateKey, receiverPrefix, receiverName, project
     setCell(`A${r}`, idx + 1, { font: { name: T.txColFonts[0], size: T.txColSizes[0], bold: true }, align: { horizontal: "left", wrapText: true }, border: { top: THIN, bottom: THIN, left: MEDIUM, right: THIN } });
 
     if (T.dateIsRealDate) {
-      setCell(`B${r}`, toUtcAnchoredDate(tx.date), { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN }, numFmt: "mm-dd-yy" });
+      setCell(`B${r}`, toUtcAnchoredDate(tx.date), { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN }, numFmt: "dd-mm-yy" });
     } else {
       setCell(`B${r}`, fmtDateSlash(tx.date), { font: { name: T.txColFonts[1], size: T.txColSizes[1], bold: true }, align: { horizontal: "center", vertical: "middle", wrapText: true }, border: { top: THIN, bottom: THIN, left: THIN, right: THIN } });
     }
