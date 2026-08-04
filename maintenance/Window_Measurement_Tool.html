@@ -103,6 +103,7 @@
   td.domal-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold);background:var(--domal-bg);}
   td.s18-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--s18);background:var(--s18-bg);}
   td.kitchen-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:#2E6B7D;background:#E4F0F3;}
+  td.washbath-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:#6B4C9A;background:#EDE7F3;}
   td.louver-cell{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy);}
   td.compare-red{background:#FBEAE6;color:var(--danger);font-weight:700;}
   td.compare-green{background:#E4F3EA;color:#256644;font-weight:700;}
@@ -192,13 +193,20 @@
               <th colspan="4">Bed-3</th>
               <th colspan="4">Bed-4</th>
               <th class="kitchen-hd" colspan="4">Kitchen</th>
+              <th colspan="4">Washarea</th>
+              <th colspan="4">Com. Bath</th>
+              <th colspan="4">Master Bath</th>
               <th class="plain" rowspan="2">Fixed<br>Louvers</th>
               <th class="plain" rowspan="2">Domal<br>Sft</th>
               <th class="plain" rowspan="2">18x60<br>Sft</th>
               <th class="plain" rowspan="2">Kitchen<br>Sft</th>
+              <th class="plain" rowspan="2">Wash/Bath<br>Sft</th>
               <th class="plain" rowspan="2"></th>
             </tr>
             <tr>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
+              <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
               <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
               <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
               <th>Nos</th><th>Width</th><th>Height</th><th>Sft</th>
@@ -224,6 +232,10 @@
         <div class="label">Total Kitchen Window</div>
         <div class="value"><span id="kitchen-total">0.00</span> Sft</div>
       </div>
+      <div class="tot kitchen">
+        <div class="label">Total Wash/Bath Section</div>
+        <div class="value"><span id="washbath-total">0.00</span> Sft</div>
+      </div>
       <div class="tot louver">
         <div class="label">Total Fixed Louvers</div>
         <div class="value"><span id="louver-total">0</span> Nos</div>
@@ -247,6 +259,10 @@
         <div class="label">Baseline Kitchen Window</div>
         <div class="value"><span id="baseline-kitchen-total">0.00</span> Sft</div>
       </div>
+      <div class="tot kitchen">
+        <div class="label">Baseline Wash/Bath Section</div>
+        <div class="value"><span id="baseline-washbath-total">0.00</span> Sft</div>
+      </div>
       <div class="tot louver">
         <div class="label">Baseline Fixed Louvers</div>
         <div class="value"><span id="baseline-louver-total">0</span> Nos</div>
@@ -267,8 +283,14 @@
               <th colspan="2">Bed-3</th>
               <th colspan="2">Bed-4</th>
               <th class="kitchen-hd" colspan="2">Kitchen</th>
+              <th colspan="2">Washarea</th>
+              <th colspan="2">Com. Bath</th>
+              <th colspan="2">Master Bath</th>
             </tr>
             <tr>
+              <th>Width</th><th>Height</th>
+              <th>Width</th><th>Height</th>
+              <th>Width</th><th>Height</th>
               <th>Width</th><th>Height</th>
               <th>Width</th><th>Height</th>
               <th>Width</th><th>Height</th>
@@ -332,28 +354,40 @@ const BASELINE_FLATS = [
     bed1: newRoomLit(1,70,79),
     bed2: newRoomLit(1,74,80),
     bed3: newRoomLit(1,57,80),
-    kitchen: newRoomLit(1,45,40)
+    kitchen: newRoomLit(1,45,40),
+    washarea: newRoomLit(0,0,0),
+    comBath: newRoomLit(0,0,0),
+    masterBath: newRoomLit(0,0,0)
   },
   { tower: 'M Tower' , flatNo: '602', bhk: 3, sectionType: 'domal',
     hall: newRoomLit(1,106,81),
     bed1: newRoomLit(1,69,81),
     bed2: newRoomLit(1,75,82),
     bed3: newRoomLit(1,58,82),
-    kitchen: newRoomLit(1,46,40)
+    kitchen: newRoomLit(1,46,40),
+    washarea: newRoomLit(0,0,0),
+    comBath: newRoomLit(0,0,0),
+    masterBath: newRoomLit(0,0,0)
   },
   { tower: 'M Tower', flatNo: '503', bhk: 3, sectionType: 'domal',
     hall: newRoomLit(1,105,82),
     bed1: newRoomLit(1,70,82),
     bed2: newRoomLit(1,77,81),
     bed3: newRoomLit(1,68,82),
-    kitchen: newRoomLit(1,46,40)
+    kitchen: newRoomLit(1,46,40),
+    washarea: newRoomLit(0,0,0),
+    comBath: newRoomLit(0,0,0),
+    masterBath: newRoomLit(0,0,0)
   },
   { tower: 'M Tower', flatNo: '504', bhk: 3, sectionType: 'domal',
     hall: newRoomLit(1,105,82),
     bed1: newRoomLit(1,69,82),
     bed2: newRoomLit(1,75,82),
     bed3: newRoomLit(1,68,82),
-    kitchen: newRoomLit(1,46,40)
+    kitchen: newRoomLit(1,46,40),
+    washarea: newRoomLit(0,0,0),
+    comBath: newRoomLit(0,0,0),
+    masterBath: newRoomLit(0,0,0)
   },
   { tower: 'N Tower', flatNo: '801', bhk: 4, sectionType: 'domal',
     hall: newRoomLit(1,136,82),
@@ -361,7 +395,10 @@ const BASELINE_FLATS = [
     bed2: newRoomLit(1,69,82),
     bed3: newRoomLit(1,67,82),
     bed4: newRoomLit(1,68,82),
-    kitchen: newRoomLit(1,45,45)
+    kitchen: newRoomLit(1,45,45),
+    washarea: newRoomLit(0,0,0),
+    comBath: newRoomLit(0,0,0),
+    masterBath: newRoomLit(0,0,0)
   },
   { tower: 'N Tower', flatNo: '803', bhk: 4, sectionType: 'domal',
     hall: newRoomLit(1,136,82),
@@ -369,7 +406,10 @@ const BASELINE_FLATS = [
     bed2: newRoomLit(1,70,82),
     bed3: newRoomLit(1,82,83),
     bed4: newRoomLit(1,65,81.5),
-    kitchen: newRoomLit(1,46,46)
+    kitchen: newRoomLit(1,46,46),
+    washarea: newRoomLit(0,0,0),
+    comBath: newRoomLit(0,0,0),
+    masterBath: newRoomLit(0,0,0)
   },
   { tower: 'N Tower', flatNo: '804', bhk: 4, sectionType: 'domal',
     hall: newRoomLit(1,137,81),
@@ -377,7 +417,82 @@ const BASELINE_FLATS = [
     bed2: newRoomLit(1,70,81),
     bed3: newRoomLit(1,81,83),
     bed4: newRoomLit(1,65,82),
-    kitchen: newRoomLit(1,45,46)
+    kitchen: newRoomLit(1,45,46),
+    washarea: newRoomLit(0,0,0),
+    comBath: newRoomLit(0,0,0),
+    masterBath: newRoomLit(0,0,0)
+  },
+  { tower: 'J Tower', flatNo: '301', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,92,82),
+    bed1: newRoomLit(1,82,82.5),
+    bed2: newRoomLit(1,77,82),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,38,47),
+    comBath: newRoomLit(1,12,38),
+    masterBath: newRoomLit(1,22,38)
+  },
+  { tower: 'J Tower', flatNo: '302', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,91.5,82.5),
+    bed1: newRoomLit(1,82.25,82),
+    bed2: newRoomLit(1,77,82.5),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,38.5,48),
+    comBath: newRoomLit(1,22,38),
+    masterBath: newRoomLit(1,22,38)
+  },
+  { tower: 'J Tower', flatNo: '303', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,92,82.5),
+    bed1: newRoomLit(1,82.5,82.5),
+    bed2: newRoomLit(1,77,82.5),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,40,48),
+    comBath: newRoomLit(1,22,37),
+    masterBath: newRoomLit(1,22,38)
+  },
+  { tower: 'J Tower', flatNo: '304', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,92,82.5),
+    bed1: newRoomLit(1,82.5,82.5),
+    bed2: newRoomLit(1,77,82),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,40,47),
+    comBath: newRoomLit(1,22,38),
+    masterBath: newRoomLit(1,22,38)
+  },
+  { tower: 'J Tower', flatNo: '305', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,92,82),
+    bed1: newRoomLit(1,82,82),
+    bed2: newRoomLit(1,77,82),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,39,47),
+    comBath: newRoomLit(1,22,37),
+    masterBath: newRoomLit(1,22,38)
+  },
+  { tower: 'J Tower', flatNo: '306', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,92,81),
+    bed1: newRoomLit(1,82,81.5),
+    bed2: newRoomLit(1,77,81.5),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,38.5,48),
+    comBath: newRoomLit(1,22,37.5),
+    masterBath: newRoomLit(1,22,38)
+  },
+  { tower: 'J Tower', flatNo: '307', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,92.5,82),
+    bed1: newRoomLit(1,82,82.5),
+    bed2: newRoomLit(1,77,81.5),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,38.5,47.5),
+    comBath: newRoomLit(1,22,37),
+    masterBath: newRoomLit(1,22,37.5)
+  },
+  { tower: 'J Tower', flatNo: '308', bhk: 2, sectionType: 'domal',
+    hall: newRoomLit(1,92,82),
+    bed1: newRoomLit(1,82,82),
+    bed2: newRoomLit(1,77,82.5),
+    kitchen: newRoomLit(0,0,0),
+    washarea: newRoomLit(1,38.5,46.5),
+    comBath: newRoomLit(1,10,38),
+    masterBath: newRoomLit(1,22,38)
   },
 ];
 function newRoomLit(nos, width, height){ return {nos, width, height}; }
@@ -393,7 +508,10 @@ function newFlat(){
     bed2: newRoom('','',''),
     bed3: newRoom('','',''),
     bed4: newRoom('','',''),
-    kitchen: newRoom('','','')
+    kitchen: newRoom('','',''),
+    washarea: newRoom('','',''),
+    comBath: newRoom('','',''),
+    masterBath: newRoom('','','')
   };
 }
 
@@ -414,6 +532,7 @@ function flatDomalSft(flat){ return flat.sectionType === '18x60' ? 0 : flatHallB
 function flat18x60Sft(flat){ return flat.sectionType === '18x60' ? flatHallBedSft(flat) : 0; }
 // Kitchen is always its own separate total, regardless of the flat's section type.
 function flatKitchenSft(flat){ return roomSft(flat.kitchen); }
+function flatWashBathSft(flat){ return roomSft(flat.washarea) + roomSft(flat.comBath) + roomSft(flat.masterBath); }
 function escapeHtml(str){
   return String(str==null?'':str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -422,7 +541,7 @@ const gridBody = document.getElementById('grid-body');
 
 function render(){
   if(flats.length === 0){
-    gridBody.innerHTML = '<tr><td colspan="33" class="empty-hint">No flats yet — use "Upload &amp; Extract" above to add some.</td></tr>';
+    gridBody.innerHTML = '<tr><td colspan="46" class="empty-hint">No flats yet — use "Upload &amp; Extract" above to add some.</td></tr>';
   } else {
     gridBody.innerHTML = flats.map(renderFlatRow).join('');
   }
@@ -446,15 +565,16 @@ function findBaselineMatch(flat){
 // BASELINE_FLATS is a fixed hardcoded array, so these totals never change at
 // runtime - compute once on page load.
 function updateBaselineTotals(){
-  let domal=0, s18=0, kitchen=0, louvers=0;
-  BASELINE_FLATS.forEach(f=>{ domal += flatDomalSft(f); s18 += flat18x60Sft(f); kitchen += flatKitchenSft(f); louvers += (f.bhk||0); });
+  let domal=0, s18=0, kitchen=0, louvers=0, washbath=0;
+  BASELINE_FLATS.forEach(f=>{ domal += flatDomalSft(f); s18 += flat18x60Sft(f); kitchen += flatKitchenSft(f); louvers += (f.bhk||0); washbath += flatWashBathSft(f); });
   document.getElementById('baseline-domal-total').textContent = domal.toFixed(2);
   document.getElementById('baseline-s18-total').textContent = s18.toFixed(2);
   document.getElementById('baseline-kitchen-total').textContent = kitchen.toFixed(2);
+  document.getElementById('baseline-washbath-total').textContent = washbath.toFixed(2);
   document.getElementById('baseline-louver-total').textContent = louvers;
 }
 
-const COMPARE_ROOM_KEYS = ['hall','bed1','bed2','bed3','bed4','kitchen'];
+const COMPARE_ROOM_KEYS = ['hall','bed1','bed2','bed3','bed4','kitchen','washarea','comBath','masterBath'];
 
 // Live comparison: 'red' if bigger than baseline, 'green' if equal/smaller,
 // null if there's no baseline reading for this room to compare against.
@@ -479,7 +599,7 @@ function renderMatchedComparisons(){
     .filter(p => p.baseline);
 
   if(pairs.length === 0){
-    body.innerHTML = '<tr><td colspan="14" class="empty-hint">No matches yet — a flat needs a Tower + Flat No. whose last two digits match a baseline entry on the same tower.</td></tr>';
+    body.innerHTML = '<tr><td colspan="20" class="empty-hint">No matches yet — a flat needs a Tower + Flat No. whose last two digits match a baseline entry on the same tower.</td></tr>';
     return;
   }
 
@@ -567,6 +687,7 @@ function renderFlatRow(flat){
   const domal = flatDomalSft(flat);
   const s18 = flat18x60Sft(flat);
   const kitchenSft = flatKitchenSft(flat);
+  const washBathSft = flatWashBathSft(flat);
   return `
   <tr data-flat-id="${flat.id}">
     <td>
@@ -596,10 +717,14 @@ function renderFlatRow(flat){
     ${roomCells(flat.id,'bed3',flat.bed3,!bedEnabled(flat,3))}
     ${roomCells(flat.id,'bed4',flat.bed4,!bedEnabled(flat,4))}
     ${roomCells(flat.id,'kitchen',flat.kitchen,false)}
+    ${roomCells(flat.id,'washarea',flat.washarea,false)}
+    ${roomCells(flat.id,'comBath',flat.comBath,false)}
+    ${roomCells(flat.id,'masterBath',flat.masterBath,false)}
     <td class="louver-cell" data-louver>${flat.bhk}</td>
     <td class="domal-cell" data-domal>${flat.sectionType==='18x60' ? '' : domal.toFixed(2)}</td>
     <td class="s18-cell" data-s18>${flat.sectionType==='18x60' ? s18.toFixed(2) : ''}</td>
     <td class="kitchen-cell" data-kitchen>${kitchenSft.toFixed(2)}</td>
+    <td class="washbath-cell" data-washbath>${washBathSft.toFixed(2)}</td>
     <td><button class="remove-flat-row-btn" title="Remove flat">✕</button></td>
   </tr>`;
 }
@@ -624,11 +749,12 @@ function updateRowDisplay(tr, flat){
 }
 
 function updateTotals(){
-  let domal=0, s18=0, kitchen=0, louvers=0;
-  flats.forEach(f=>{ domal += flatDomalSft(f); s18 += flat18x60Sft(f); kitchen += flatKitchenSft(f); louvers += (f.bhk||0); });
+  let domal=0, s18=0, kitchen=0, louvers=0, washbath=0;
+  flats.forEach(f=>{ domal += flatDomalSft(f); s18 += flat18x60Sft(f); kitchen += flatKitchenSft(f); louvers += (f.bhk||0); washbath += flatWashBathSft(f); });
   document.getElementById('domal-total').textContent = domal.toFixed(2);
   document.getElementById('section18-total').textContent = s18.toFixed(2);
   document.getElementById('kitchen-total').textContent = kitchen.toFixed(2);
+  document.getElementById('washbath-total').textContent = washbath.toFixed(2);
   document.getElementById('louver-total').textContent = louvers;
 }
 
@@ -701,8 +827,8 @@ const HALL_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FF3C5A8A'}};
 const KITCHEN_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FF2E7D53'}};
 const PLAIN_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FFEEF2F7'}};
 
-const ROOM_GROUPS = ['hall','bed1','bed2','bed3','bed4','kitchen'];
-const ROOM_LABELS = {hall:'Hall',bed1:'Bed-1',bed2:'Bed-2',bed3:'Bed-3',bed4:'Bed-4',kitchen:'Kitchen (18x60)'};
+const ROOM_GROUPS = ['hall','bed1','bed2','bed3','bed4','kitchen','washarea','comBath','masterBath'];
+const ROOM_LABELS = {hall:'Hall',bed1:'Bed-1',bed2:'Bed-2',bed3:'Bed-3',bed4:'Bed-4',kitchen:'Kitchen (18x60)',washarea:'Washarea',comBath:'Com. Bath',masterBath:'Master Bath'};
 // column layout: 1 Tower,2 FlatNo,3 BHK, then 4 cols per room group (Nos,Width,Height,Sft), then FixedLouvers, DomalSft, 18x60Sft
 const FIRST_ROOM_COL = 4;
 const TOTAL_COLS = FIRST_ROOM_COL + ROOM_GROUPS.length*4 + 3; // + FixedLouvers, DomalSft, 18x60Sft
@@ -715,7 +841,7 @@ function flatBlockHeaderLabel(flat){
 function activeRoomKeysForFlat(flat){
   const keys = ['hall'];
   for(let i=1;i<=4;i++){ if(bedEnabled(flat,i)) keys.push('bed'+i); }
-  keys.push('kitchen');
+  keys.push('kitchen'); keys.push('washarea'); keys.push('comBath'); keys.push('masterBath');
   return keys;
 }
 
@@ -746,6 +872,7 @@ function writeFlatBlock(ws, startRow, flat){
   const domalRefs = [];
   const s18Refs = [];
   const kitchenRefs = [];
+  const washBathRefs = [];
   activeRoomKeysForFlat(flat).forEach(key=>{
     const room = flat[key];
     ws.getCell(r,1).value = sl;
@@ -760,6 +887,7 @@ function writeFlatBlock(ws, startRow, flat){
     // Kitchen is always its own separate total. Hall/Beds go to Domal or
     // 18x60 depending on which aluminium section variety this flat uses.
     if(key === 'kitchen') kitchenRefs.push(`F${r}`);
+    else if(key === 'washarea' || key === 'comBath' || key === 'masterBath') washBathRefs.push(`F${r}`);
     else if(flat.sectionType === '18x60') s18Refs.push(`F${r}`);
     else domalRefs.push(`F${r}`);
     r++; sl++;
@@ -777,10 +905,10 @@ function writeFlatBlock(ws, startRow, flat){
 
   r++; // blank spacer row between flats
 
-  return { nextRow: r, domalRefs, s18Refs, kitchenRefs, louverRef };
+  return { nextRow: r, domalRefs, s18Refs, kitchenRefs, washBathRefs, louverRef };
 }
 
-function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, kitchenRefs, louverRefs){
+function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, kitchenRefs, washBathRefs, louverRefs){
   let r = startRow;
   ws.getCell(r,2).value = 'Total Domal Section';
   ws.getCell(r,2).font = {bold:true};
@@ -795,6 +923,11 @@ function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, kitchenRefs, louverR
   ws.getCell(r,2).value = 'Total Kitchen Window';
   ws.getCell(r,2).font = {bold:true};
   ws.getCell(r,6).value = kitchenRefs.length ? { formula: `SUM(${kitchenRefs.join(',')})` } : 0;
+  ws.getCell(r,7).value = 'Sft';
+  r++;
+  ws.getCell(r,2).value = 'Total Wash/Bath Section';
+  ws.getCell(r,2).font = {bold:true};
+  ws.getCell(r,6).value = washBathRefs.length ? { formula: `SUM(${washBathRefs.join(',')})` } : 0;
   ws.getCell(r,7).value = 'Sft';
   r++;
   ws.getCell(r,2).value = 'Total Fixed Louvers';
@@ -854,17 +987,18 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
     titleCell.font = {bold:true, size:14, color:{argb:'FFFFFFFF'}};
 
     let r = 3;
-    let allDomalRefs = [], allS18Refs = [], allKitchenRefs = [], allLouverRefs = [];
+    let allDomalRefs = [], allS18Refs = [], allKitchenRefs = [], allWashBathRefs = [], allLouverRefs = [];
     flats.forEach(f=>{
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
       allDomalRefs.push(...result.domalRefs);
       allS18Refs.push(...result.s18Refs);
       allKitchenRefs.push(...result.kitchenRefs);
+      allWashBathRefs.push(...result.washBathRefs);
       allLouverRefs.push(result.louverRef);
     });
 
-    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allKitchenRefs, allLouverRefs);
+    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allKitchenRefs, allWashBathRefs, allLouverRefs);
 
     const buffer = await workbook.xlsx.writeBuffer();
     triggerDownload(buffer, 'Window_Measurements.xlsx');
@@ -918,17 +1052,18 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
 
     let r = insertAt;
     const addedCount = flats.length;
-    let allDomalRefs = [], allS18Refs = [], allKitchenRefs = [], allLouverRefs = [];
+    let allDomalRefs = [], allS18Refs = [], allKitchenRefs = [], allWashBathRefs = [], allLouverRefs = [];
     flats.forEach(f => {
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
       allDomalRefs.push(...result.domalRefs);
       allS18Refs.push(...result.s18Refs);
       allKitchenRefs.push(...result.kitchenRefs);
+      allWashBathRefs.push(...result.washBathRefs);
       allLouverRefs.push(result.louverRef);
     });
 
-    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allKitchenRefs, allLouverRefs);
+    writeTotalsBlock(worksheet, r, allDomalRefs, allS18Refs, allKitchenRefs, allWashBathRefs, allLouverRefs);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
 
@@ -986,7 +1121,7 @@ function fileToBase64(file){
   });
 }
 
-const EXTRACTION_PROMPT = "You are reading a photo of a construction measurement sheet for aluminium sliding windows. Each row/entry describes one flat/unit's window openings, typically labelled Hall, Bed-1, Bed-2, Bed-3, Bed-4 and Kitchen, each with a Width and Height (in inches), often written as WIDTH x HEIGHT (e.g. 70 x 81 means width=70, height=81). Some sheets group several flats/units under a heading like a flat number in parentheses, e.g. (301) or M-304.\n\nThe tower/building name (e.g. 'M TOWER', 'M Tower', 'Tower M') is often written only ONCE near the top of the page or in a corner, and applies to EVERY flat on that page, not just the one written next to it. Look at the entire image for this name before deciding it's missing, and apply the SAME tower name to every flat/unit you extract from that page. Return it as just the single letter (e.g. 'M') in the tower field.\n\nCarefully read every entry in the image, including handwritten digits, and return ONLY a valid JSON array (no markdown fences, no explanation) with one object per flat/unit, in this exact shape:\n[{\"tower\":\"\",\"flatNo\":\"\",\"bhk\":0,\"hall\":{\"nos\":1,\"width\":0,\"height\":0},\"bed1\":{\"nos\":1,\"width\":0,\"height\":0},\"bed2\":{\"nos\":1,\"width\":0,\"height\":0},\"bed3\":{\"nos\":1,\"width\":0,\"height\":0},\"bed4\":{\"nos\":1,\"width\":0,\"height\":0},\"kitchen\":{\"nos\":1,\"width\":0,\"height\":0}}]\n\nRules:\n- If a room does not apply to a flat, set its nos/width/height all to 0.\n- bhk should equal the count of bed1..bed4 that have a nonzero width/height.\n- Only leave tower as an empty string if genuinely no tower/building letter appears anywhere in the image.\n- If a flat number is not clearly labelled, leave flatNo as an empty string.\n- Double check digits carefully - handwriting can be cramped.\n- Output nothing except the JSON array.";
+const EXTRACTION_PROMPT = "You are reading a photo of a construction measurement sheet for aluminium sliding windows. Each row/entry describes one flat/unit's window openings, typically labelled Hall, Bed-1, Bed-2, Bed-3, Bed-4 and Kitchen, each with a Width and Height. Some sheets instead label bedrooms 'Common Bed' (=bed1) and 'Master Bed' (=bed2), and may also include 'Washarea', 'Com. Bath' (or 'Common Bath') and 'Master Bath' rows - map these to the washarea, comBath and masterBath fields respectively (in inches), often written as WIDTH x HEIGHT (e.g. 70 x 81 means width=70, height=81). Some sheets group several flats/units under a heading like a flat number in parentheses, e.g. (301) or M-304.\n\nThe tower/building name (e.g. 'M TOWER', 'M Tower', 'Tower M') is often written only ONCE near the top of the page or in a corner, and applies to EVERY flat on that page, not just the one written next to it. Look at the entire image for this name before deciding it's missing, and apply the SAME tower name to every flat/unit you extract from that page. Return it as just the single letter (e.g. 'M') in the tower field.\n\nCarefully read every entry in the image, including handwritten digits, and return ONLY a valid JSON array (no markdown fences, no explanation) with one object per flat/unit, in this exact shape:\n[{\"tower\":\"\",\"flatNo\":\"\",\"bhk\":0,\"hall\":{\"nos\":1,\"width\":0,\"height\":0},\"bed1\":{\"nos\":1,\"width\":0,\"height\":0},\"bed2\":{\"nos\":1,\"width\":0,\"height\":0},\"bed3\":{\"nos\":1,\"width\":0,\"height\":0},\"bed4\":{\"nos\":1,\"width\":0,\"height\":0},\"kitchen\":{\"nos\":1,\"width\":0,\"height\":0},\"washarea\":{\"nos\":1,\"width\":0,\"height\":0},\"comBath\":{\"nos\":1,\"width\":0,\"height\":0},\"masterBath\":{\"nos\":1,\"width\":0,\"height\":0}}]\n\nRules:\n- If a room does not apply to a flat, set its nos/width/height all to 0.\n- bhk should equal the count of bed1..bed4 that have a nonzero width/height.\n- Only leave tower as an empty string if genuinely no tower/building letter appears anywhere in the image.\n- If a flat number is not clearly labelled, leave flatNo as an empty string.\n- Double check digits carefully - handwriting can be cramped.\n- Output nothing except the JSON array.";
 
 async function callGemini(base64Image, mimeType, apiKey){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
@@ -1064,7 +1199,10 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
         bed2: normalizeRoom(r.bed2),
         bed3: normalizeRoom(r.bed3),
         bed4: normalizeRoom(r.bed4),
-        kitchen: normalizeRoom(r.kitchen)
+        kitchen: normalizeRoom(r.kitchen),
+        washarea: normalizeRoom(r.washarea),
+        comBath: normalizeRoom(r.comBath),
+        masterBath: normalizeRoom(r.masterBath)
       });
     });
 
