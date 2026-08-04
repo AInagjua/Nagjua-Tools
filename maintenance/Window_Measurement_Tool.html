@@ -838,10 +838,19 @@ function flatBlockHeaderLabel(flat){
   return towerLetter + '-' + (flat.flatNo || '');
 }
 
+function roomHasData(room){
+  if(!room) return false;
+  const blank = v => v==='' || v===null || v===undefined || v===0 || v==='0';
+  return !(blank(room.nos) && blank(room.width) && blank(room.height));
+}
+
 function activeRoomKeysForFlat(flat){
   const keys = ['hall'];
   for(let i=1;i<=4;i++){ if(bedEnabled(flat,i)) keys.push('bed'+i); }
-  keys.push('kitchen'); keys.push('washarea'); keys.push('comBath'); keys.push('masterBath');
+  if(roomHasData(flat.kitchen)) keys.push('kitchen');
+  if(roomHasData(flat.washarea)) keys.push('washarea');
+  if(roomHasData(flat.comBath)) keys.push('comBath');
+  if(roomHasData(flat.masterBath)) keys.push('masterBath');
   return keys;
 }
 
