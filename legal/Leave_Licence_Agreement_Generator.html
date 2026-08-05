@@ -304,6 +304,53 @@
       </div>
       <div class="field"><label>Address</label><textarea id="lseeAddress" rows="2"></textarea></div>
       <div class="field"><label>Mobile No.</label><input type="text" id="lseeMobile"></div>
+
+      <div class="field" style="margin-top:14px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
+          <input type="checkbox" id="hasSecondLicensee" style="width:auto;">
+          Add a joint Licensee (second tenant on this agreement)
+        </label>
+      </div>
+      <div id="secondLicenseeFields" style="display:none;margin-top:10px;padding-top:14px;border-top:1px dashed var(--line);">
+        <div class="row2">
+          <div class="field"><label>Full Name</label><input type="text" id="lsee2Name" placeholder="e.g. Sunita N. Jadhav"></div>
+          <div class="field"><label>Gender</label>
+            <select id="lsee2Gender">
+              <option value="M">Male (Shri)</option>
+              <option value="F">Female (Smt.)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row3">
+          <div class="field"><label>Relation</label>
+            <select id="lsee2Relation">
+              <option value="S/O">S/O</option>
+              <option value="W/O">W/O</option>
+              <option value="D/O">D/O</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:span 2"><label>Father's / Husband's Name</label><input type="text" id="lsee2FatherName"></div>
+        </div>
+        <div class="row3">
+          <div class="field"><label>Age</label><input type="number" id="lsee2Age" min="18" max="100"></div>
+          <div class="field" style="grid-column:span 2">
+            <label>Occupation</label>
+            <select id="lsee2Occupation">
+              <option value="Business">Business</option>
+              <option value="Service">Service</option>
+              <option value="Housewife">Housewife</option>
+              <option value="__custom">Other…</option>
+            </select>
+            <input type="text" id="lsee2OccupationCustom" placeholder="Type occupation" style="display:none;margin-top:6px;">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Aadhaar No.</label><input type="text" id="lsee2Aadhaar"></div>
+          <div class="field"><label>PAN</label><input type="text" id="lsee2Pan"></div>
+        </div>
+        <div class="field"><label>Address</label><textarea id="lsee2Address" rows="2"></textarea></div>
+        <div class="field"><label>Mobile No.</label><input type="text" id="lsee2Mobile"></div>
+      </div>
     </div>
 
     <div class="section">
@@ -20685,6 +20732,24 @@ function getState(){
   let occupation = document.getElementById('lseeOccupation').value;
   if(occupation==='__custom') occupation = document.getElementById('lseeOccupationCustom').value || '____________';
 
+  let lsee2 = null;
+  if(document.getElementById('hasSecondLicensee').checked){
+    let occupation2 = document.getElementById('lsee2Occupation').value;
+    if(occupation2==='__custom') occupation2 = document.getElementById('lsee2OccupationCustom').value || '____________';
+    lsee2 = {
+      name: document.getElementById('lsee2Name').value || '____________',
+      gender: document.getElementById('lsee2Gender').value,
+      relation: document.getElementById('lsee2Relation').value,
+      fatherName: document.getElementById('lsee2FatherName').value || '____________',
+      age: document.getElementById('lsee2Age').value,
+      occupation: occupation2,
+      aadhaar: document.getElementById('lsee2Aadhaar').value || '____________',
+      pan: document.getElementById('lsee2Pan').value || '____________',
+      address: document.getElementById('lsee2Address').value || '____________',
+      mobile: document.getElementById('lsee2Mobile').value || '____________',
+    };
+  }
+
   return {
     agreementType, permittedUse, property,
     companySignatoryName: document.getElementById('companySignatoryName').value,
@@ -20708,6 +20773,7 @@ function getState(){
       address: document.getElementById('lseeAddress').value || '____________',
       mobile: document.getElementById('lseeMobile').value || '____________',
     },
+    lsee2,
     agreementDate: document.getElementById('agreementDate').value,
     securityDeposit: document.getElementById('securityDeposit').value,
     termStart: document.getElementById('termStart').value,
@@ -20745,11 +20811,31 @@ function licensorBlock(st){
   return `**${sal.toUpperCase()} ${p.ownerName.toUpperCase()}**, ${p.relation} **SHRI ${(p.fatherName||'____________').toUpperCase()}**, aged about **${p.age||'__'} years**, engaged in **${p.occupation||'____________'}**, holding Aadhaar No. **${p.aadhaar||'____________'}** and PAN **${p.pan||'____________'}**, residing at **${p.personalAddress||'____________'}**, hereinafter referred to as the "LICENSOR" (which expression shall, unless repugnant to the context or meaning thereof, be deemed to include his/her legal heirs, executors, administrators, successors and permitted assigns) of the **FIRST PART**;`;
 }
 
+function licenseeSalutedName(l){
+  const sal = l.gender==='F' ? 'SMT.' : 'SHRI';
+  return `${sal} ${l.name.toUpperCase()}`;
+}
+function licenseeDisplayLine(st){
+  const first = licenseeSalutedName(st.lsee);
+  if(!st.lsee2) return first;
+  return `${first} & ${licenseeSalutedName(st.lsee2)}`;
+}
+
 function licenseeBlock(st){
   const l = st.lsee;
   const sal = l.gender==='F' ? 'Smt.' : 'Shri';
   const pronoun = l.gender==='F' ? 'her' : 'his';
-  return `**${sal.toUpperCase()} ${l.name.toUpperCase()}**, ${l.relation} **SHRI ${(l.fatherName||'____________').toUpperCase()}**, aged about **${l.age||'__'} years**, engaged in **${l.occupation}**, holding Aadhaar No. **${l.aadhaar}** and PAN **${l.pan}**, residing at **${l.address}**, hereinafter referred to as the "LICENSEE" (which expression shall, unless repugnant to the context or meaning thereof, be deemed to include ${pronoun} legal heirs, executors, administrators, successors and permitted assigns) of the **SECOND PART**.`;
+  const first = `**${sal.toUpperCase()} ${l.name.toUpperCase()}**, ${l.relation} **SHRI ${(l.fatherName||'____________').toUpperCase()}**, aged about **${l.age||'__'} years**, engaged in **${l.occupation}**, holding Aadhaar No. **${l.aadhaar}** and PAN **${l.pan}**, residing at **${l.address}**`;
+
+  if(!st.lsee2){
+    return `${first}, hereinafter referred to as the "LICENSEE" (which expression shall, unless repugnant to the context or meaning thereof, be deemed to include ${pronoun} legal heirs, executors, administrators, successors and permitted assigns) of the **SECOND PART**.`;
+  }
+
+  const l2 = st.lsee2;
+  const sal2 = l2.gender==='F' ? 'Smt.' : 'Shri';
+  const second = `**${sal2.toUpperCase()} ${l2.name.toUpperCase()}**, ${l2.relation} **SHRI ${(l2.fatherName||'____________').toUpperCase()}**, aged about **${l2.age||'__'} years**, engaged in **${l2.occupation}**, holding Aadhaar No. **${l2.aadhaar}** and PAN **${l2.pan}**, residing at **${l2.address}**`;
+
+  return `${first} AND ${second}, hereinafter jointly and severally referred to as the "LICENSEE" (which expression shall, unless repugnant to the context or meaning thereof, be deemed to include their respective legal heirs, executors, administrators, successors and permitted assigns) of the **SECOND PART**.`;
 }
 
 function licensorSalutedName(p){
@@ -20766,16 +20852,15 @@ function buildParagraphs(st){
   const pushBlank = (n=1) => { for(let i=0;i<n;i++) P.push({text:'', style:'blank'}); };
 
   const licensorNameSaluted = licensorSalutedName(p);
-  const licenseeSal = st.lsee.gender==='F' ? 'SMT.' : 'SHRI';
 
   // ---- Header block (blank counts matched to source: title/2/LICENSOR/3/LICENSEE/blank/Mobile) ----
   push("**LEAVE & LICENCE AGREEMENT**", 'title');
   pushBlank(2);
   push(`LICENSOR: **${licensorNameSaluted}**`, 'header16');
   pushBlank(3);
-  push(`LICENSEE: **${licenseeSal} ${st.lsee.name.toUpperCase()}**`, 'header16');
+  push(`LICENSEE: **${licenseeDisplayLine(st)}**`, 'header16');
   pushBlank(2);
-  push(`Mobile No.: **${st.lsee.mobile} (LICENSEE)**`, 'header14');
+  push(`Mobile No.: **${st.lsee.mobile}${st.lsee2 ? ' / ' + st.lsee2.mobile : ''} (LICENSEE)**`, 'header14');
   pushBlank(2);
   if(p){
     const dedupedAddr = dedupePremisesAddress(p.propertyAddress);
@@ -20918,11 +21003,18 @@ function buildParagraphs(st){
   push(`________________________________`, 'sigRight');
   push(`LICENSOR`, 'sigRight');
 
-  push(`SIGNED AND DELIVERED by the within named Licensee,`, 'sigLine');
-  push(`**${licenseeSal} ${st.lsee.name.toUpperCase()}**`, 'sigLineBold');
+  push(`SIGNED AND DELIVERED by the within named Licensee${st.lsee2 ? 's' : ''},`, 'sigLine');
+  push(`**${licenseeSalutedName(st.lsee)}**`, 'sigLineBold');
+  if(st.lsee2){
+    push(`**${licenseeSalutedName(st.lsee2)}**`, 'sigLineBold');
+  }
   push(`in the presence of the undersigned witness:`, 'sigLine');
   push(`________________________________`, 'sigRight');
-  push(`LICENSEE`, 'sigRight');
+  push(`LICENSEE${st.lsee2 ? ' 1' : ''}`, 'sigRight');
+  if(st.lsee2){
+    push(`________________________________`, 'sigRight');
+    push(`LICENSEE 2`, 'sigRight');
+  }
 
   push(`IN THE PRESENCE OF WITNESS:`, 'sigLineBold');
   push(`Name: ________________________________`, 'sigLine');
@@ -21101,11 +21193,23 @@ function toggleOccupationCustom(){
   document.getElementById('lseeOccupationCustom').style.display = v==='__custom' ? 'block' : 'none';
 }
 
+function toggleOccupationCustom2(){
+  const v = document.getElementById('lsee2Occupation').value;
+  document.getElementById('lsee2OccupationCustom').style.display = v==='__custom' ? 'block' : 'none';
+}
+
+function toggleSecondLicensee(){
+  const checked = document.getElementById('hasSecondLicensee').checked;
+  document.getElementById('secondLicenseeFields').style.display = checked ? 'block' : 'none';
+}
+
 function refreshAll(){
   renderOwnerBox();
   toggleClause4Blocks();
   toggleClause8Custom();
   toggleOccupationCustom();
+  toggleOccupationCustom2();
+  toggleSecondLicensee();
   const st = getState();
   renderPreview(st);
   document.getElementById('statusLine').textContent = 'Preview updated';
