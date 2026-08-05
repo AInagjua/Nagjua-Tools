@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Calculate wall and ceiling POP finish area per flat, with door/window deductions and Excel export.">
+<title>Wall &amp; Ceiling Measurement Tool (POP Finish)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<style>
+  /* Design tokens kept identical to Window_Measurement_Tool.html for a
+     consistent look across every Nagjua Tools page. */
+  :root{
+    --navy:#0F1B35;
+    --navy-dark:#152347;
+    --steel:#F4F1EA;
+    --steel-line:#E1DDD2;
+    --card:#FFFFFF;
+    --ink:#1B2230;
+    --ink-soft:#5B6577;
+    --gold:#C9962F;
+    --gold-light:#E0AD4A;
+    --work:#2E7D53;
+    --work-bg:#E4F3EA;
+    --deduct:#B3392C;
+    --deduct-bg:#FBEAE6;
+    --danger:#B3392C;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',Arial,sans-serif;
+    background:var(--steel);
+    color:var(--ink);
+  }
+  .app{max-width:1400px;margin:0 auto;padding:0 0 80px;}
+  .topbar{
+    display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;
+    background:var(--navy);color:#fff;
+    padding:22px 32px;margin-bottom:26px;
+    border-bottom:3px solid var(--gold);
+  }
+  .topbar h1{font-family:'Playfair Display',serif;font-size:23px;font-weight:700;margin:0;letter-spacing:0.2px;color:#fff;}
+  .topbar .sub{font-size:11.5px;color:#AAB3C7;margin-top:4px;letter-spacing:0.6px;}
+  .topbar button{
+    background:rgba(255,255,255,.08);border:1px solid rgba(224,173,74,.4);color:#F4F1EA;
+    padding:7px 16px;border-radius:3px;font-size:12px;letter-spacing:.4px;cursor:pointer;
+  }
+  .topbar button:hover{border-color:var(--danger);color:#f2b3a8;}
+
+  .header-corner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .header-corner input[type=password]{
+    width:200px;font-size:12px;padding:7px 10px;border:1px solid rgba(224,173,74,.4);
+    border-radius:3px;background:rgba(255,255,255,.08);color:#fff;
+  }
+  .header-corner input[type=password]::placeholder{color:#AAB3C7;}
+  .header-corner .save-key-btn{
+    background:var(--gold);color:var(--navy);border:none;padding:7px 14px;border-radius:3px;
+    font-size:12px;font-weight:700;cursor:pointer;
+  }
+  .header-corner .save-key-btn:hover{background:var(--gold-light);}
+  #key-status-msg{text-align:right;margin-top:6px;}
+
+  .section-label{
+    display:flex;align-items:center;gap:12px;margin:0;
+    background:var(--navy);color:#fff;padding:16px 24px;
+  }
+  .section-label .num{
+    width:26px;height:26px;border-radius:50%;background:var(--gold);color:var(--navy);
+    font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    font-family:'Playfair Display',serif;flex-shrink:0;
+  }
+  .section-label h2{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin:0;color:#fff;}
+  .section-label .add-flat-btn{
+    margin-left:auto;background:var(--gold);color:var(--navy);border:none;padding:8px 16px;
+    border-radius:4px;font-size:12.5px;font-weight:700;cursor:pointer;
+  }
+  .section-label .add-flat-btn:hover{background:var(--gold-light);}
+
+  section.block{margin:0 20px 36px;background:var(--card);border:1px solid var(--steel-line);border-radius:6px;box-shadow:0 1px 3px rgba(15,27,53,.06);}
+  section.block > .section-label:first-child{border-radius:5px 5px 0 0;}
+  section.block > .export-grid, section.block > .status-msg, section.block > .hint-text{margin:20px;}
+  section.block > .status-msg:not(.show){margin:0;}
+
+  .hint-text{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:0 20px 16px !important;}
+
+  .export-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:720px){.export-grid{grid-template-columns:1fr;}}
+  .export-card{background:#FBFBF9;border:1px solid var(--steel-line);border-radius:6px;padding:18px 20px;}
+  .export-card h3{font-family:'Playfair Display',serif;margin:0 0 6px;font-size:15px;font-weight:700;color:var(--navy);}
+  .export-card p{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;}
+  .export-card input[type=file]{
+    width:100%;font-size:12.5px;padding:8px;border:1px solid var(--steel-line);border-radius:4px;
+    margin-bottom:12px;background:#FAFAF8;
+  }
+  .export-btn{width:100%;padding:11px;border:none;border-radius:5px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--navy);font-family:'Inter',sans-serif;}
+  .export-btn.new{background:var(--gold);}
+  .export-btn.new:hover{background:var(--gold-light);}
+  .export-btn.append{background:var(--gold);}
+  .export-btn.append:hover{background:var(--gold-light);}
+
+  .status-msg{font-size:12px;margin-top:10px;padding:8px 10px;border-radius:5px;display:none;}
+  .status-msg.show{display:block;}
+  .status-msg.ok{background:var(--work-bg);color:#256644;border:1px solid #bfe0cc;}
+  .status-msg.err{background:var(--deduct-bg);color:var(--danger);border:1px solid #ecc7bf;}
+
+  .empty-hint{text-align:center;padding:30px 20px;color:var(--ink-soft);font-size:13px;}
+
+  /* ---- Per-flat cards ---- */
+  #flats-container{padding:20px;display:flex;flex-direction:column;gap:20px;}
+  .flat-card{border:1px solid var(--steel-line);border-radius:6px;overflow:hidden;background:var(--card);}
+  .flat-card-header{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
+    background:var(--navy-dark);padding:14px 16px;
+  }
+  .flat-card-header .field{display:flex;flex-direction:column;gap:4px;}
+  .flat-card-header .field label{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#AAB3C7;}
+  .flat-card-header .field input{
+    padding:7px 10px;border:1px solid rgba(224,173,74,.4);border-radius:4px;
+    background:rgba(255,255,255,.08);color:#fff;font-size:13px;min-width:150px;
+  }
+  .flat-card-header .field input::placeholder{color:#8892A8;}
+  .flat-card-header .field.grow{flex:1;min-width:180px;}
+  .flat-card-header .field.grow input{width:100%;}
+  .remove-flat-btn{
+    margin-left:auto;background:none;border:1px solid rgba(179,57,44,.5);color:#f2b3a8;
+    padding:7px 12px;border-radius:4px;font-size:12px;cursor:pointer;white-space:nowrap;
+  }
+  .remove-flat-btn:hover{background:rgba(179,57,44,.15);}
+
+  .table-scroll{overflow-x:auto;}
+  table.rows-table{border-collapse:collapse;width:100%;min-width:820px;font-size:12.5px;}
+  table.rows-table th, table.rows-table td{border:1px solid var(--steel-line);padding:6px;text-align:center;}
+  table.rows-table thead th{background:#F6F3EC;color:var(--navy);font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;font-weight:700;}
+  table.rows-table td input[type=text]{width:100%;min-width:170px;border:1px solid var(--steel-line);border-radius:4px;padding:6px 8px;font-size:12.5px;text-align:left;background:#FAFAF8;}
+  table.rows-table td input[type=number]{width:64px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--steel-line);border-radius:4px;padding:6px 4px;font-size:12.5px;background:#FAFAF8;}
+  table.rows-table td select{border:1px solid var(--steel-line);border-radius:4px;padding:6px 4px;font-size:12.5px;background:#FAFAF8;}
+  table.rows-table td input:focus, table.rows-table td select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,150,47,.15);}
+  td.sft-cell{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--navy);background:#F9F7F2;white-space:nowrap;}
+  tr.deduct-row td{background:var(--deduct-bg);}
+  tr.deduct-row td.sft-cell{color:var(--deduct);background:#F7DDD8;}
+  .remove-row-btn{background:none;border:none;color:#C4BEB0;font-size:15px;cursor:pointer;}
+  .remove-row-btn:hover{color:var(--danger);}
+
+  .add-row-btn{
+    display:block;margin:14px 16px;padding:8px 16px;border:1px dashed var(--steel-line);
+    background:#FBFBF9;color:var(--navy);border-radius:4px;font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .add-row-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+  .flat-footer{display:flex;gap:0;flex-wrap:wrap;background:#F6F3EC;border-top:1px solid var(--steel-line);}
+  .flat-footer .tot{flex:1;min-width:150px;padding:12px 16px;text-align:center;border-right:1px solid var(--steel-line);}
+  .flat-footer .tot:last-child{border-right:none;}
+  .flat-footer .label{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-soft);}
+  .flat-footer .value{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:700;color:var(--navy);margin-top:2px;}
+  .flat-footer .tot.deduct .value{color:var(--deduct);}
+  .flat-footer .tot.net .value{color:var(--work);}
+
+  .totals-bar{
+    position:sticky;bottom:14px;display:flex;gap:14px;background:var(--navy);
+    border-radius:6px;padding:14px 20px;color:#fff;box-shadow:0 6px 18px rgba(15,27,53,.35);
+    margin:0 20px 20px;flex-wrap:wrap;
+  }
+  .totals-bar .tot{flex:1;min-width:140px;}
+  .totals-bar .tot .label{font-size:11px;text-transform:uppercase;letter-spacing:0.6px;opacity:0.75;}
+  .totals-bar .tot .value{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;margin-top:2px;}
+  .totals-bar .tot.work .value{color:var(--gold-light);}
+  .totals-bar .tot.deduct .value{color:#f2a99c;}
+  .totals-bar .tot.net .value{color:#8FD9AE;}
+
+  @media (max-width:640px){
+    table.rows-table{min-width:700px;}
+    .flat-card-header{padding:12px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div>
+      <h1>Wall &amp; Ceiling Measurement Tool</h1>
+      <div class="sub">POP Finish takeoff · Sft = Nos × Length(ft) × Breadth(ft) · Deductions subtract from Total Work</div>
+    </div>
+    <div>
+      <div class="header-corner">
+        <input type="password" id="gemini-key-input" placeholder="Gemini API Key">
+        <button class="save-key-btn" id="save-key-btn">Save Key</button>
+        <button id="reset-btn">Reset all</button>
+      </div>
+      <div class="status-msg" id="key-status-msg"></div>
+    </div>
+  </div>
+
+  <section class="block" id="upload-section">
+    <div class="section-label"><div class="num">1</div><h2>Upload &amp; Extract</h2></div>
+    <div class="export-grid">
+      <div class="export-card">
+        <h3>Upload Measurement Sheet Photo</h3>
+        <p>Upload a photo of a handwritten "Measurement Book" sheet (wall/ceiling area with Length, Breadth and deductions). The AI reads it and adds the rows directly below for you to review and correct.</p>
+        <input type="file" id="ai-photo-input" accept="image/*">
+        <button class="export-btn append" id="extract-photo-btn">Extract From Photo</button>
+        <div class="status-msg" id="ai-status-msg"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="entry-section">
+    <div class="section-label">
+      <div class="num">2</div><h2>Wall &amp; Ceiling Entries</h2>
+      <button type="button" class="add-flat-btn" id="add-flat-btn">+ Add Flat</button>
+    </div>
+    <p class="hint-text">Each card below is one flat. Add a row for every wall/ceiling segment (e.g. "Bed Room-3 North wall"), mark it <b>Add</b> or <b>Deduct</b> (deductions are door/window openings subtracted from the gross area), and enter Length/Breadth in feet and inches — Sft is calculated automatically.</p>
+    <div id="flats-container"></div>
+    <div class="totals-bar">
+      <div class="tot work">
+        <div class="label">Total Work (all flats)</div>
+        <div class="value"><span id="overall-work-total">0.00</span> Sft</div>
+      </div>
+      <div class="tot deduct">
+        <div class="label">Total Deduction (all flats)</div>
+        <div class="value"><span id="overall-deduction-total">0.00</span> Sft</div>
+      </div>
+      <div class="tot net">
+        <div class="label">Grand Net Total</div>
+        <div class="value"><span id="overall-net-total">0.00</span> Sft</div>
+      </div>
+      <div class="tot">
+        <div class="label">Flats</div>
+        <div class="value"><span id="flat-count">0</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="export-section">
+    <div class="section-label"><div class="num">3</div><h2>Export</h2></div>
+    <div class="export-grid">
+      <div class="export-card">
+        <h3>Download Excel Sheet</h3>
+        <p>Everything you enter is saved automatically in this browser as you go — you only need to download when you're actually ready to share the file.</p>
+        <button class="export-btn new" id="download-new-btn">Download Excel</button>
+      </div>
+      <div class="export-card">
+        <h3>Update Existing Sheet (Live)</h3>
+        <p>Pick your existing file once. After that, "Save" writes your current working list straight into that same file — no download dialog, no re-picking the file each time. (Needs Chrome or Edge.)</p>
+        <button class="export-btn append" id="pick-existing-btn">Pick Existing File</button>
+        <div id="existing-file-status" style="font-size:12px;color:var(--ink-soft);margin-top:8px;"></div>
+        <button class="export-btn new" id="save-to-existing-btn" style="margin-top:10px;display:none;">Save To This File</button>
+      </div>
+    </div>
+    <div class="status-msg" id="status-msg"></div>
+  </section>
+
+</div>
+
+<script>
+// ==================================================================
+// Wall & Ceiling Measurement Tool (POP Finish takeoff)
+// Data model: each Flat has a free-form list of Rows (unlike the Window
+// tool's fixed room slots) - a Row is one wall/ceiling segment, either
+// an "Add" (gross area) or "Deduct" (door/window opening subtracted).
+// Sft = Nos x Length(ft) x Breadth(ft). Length/Breadth are entered as
+// separate feet + inches fields to match how these sheets are always
+// written on paper (e.g. 11'6" = 11 feet 6 inches).
+// ==================================================================
+
+const STORAGE_KEY = 'nagjua_wall_pop_measurement_flats_v1';
+let idCounter = 0;
+let flats = [];
+
+function newRow(){
+  return { id: 'row_'+(idCounter++), particulars: '', nos: 1, lengthFt: '', lengthIn: '', breadthFt: '', breadthIn: '', deduction: false };
+}
+function newFlat(){
+  // Starts with zero rows - click "+ Add Row" (or use AI extraction) to
+  // populate. Avoids ending up with a stray blank row every time a flat
+  // is created via AI extraction.
+  return { id: 'flat_'+(idCounter++), building: '', flatNo: '', workItem: '', rows: [] };
+}
+
+function saveFlats(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(flats)); }catch(e){ console.error('Could not save to this browser:', e); }
+}
+function loadFlats(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!Array.isArray(parsed) || !parsed.length) return null;
+    return parsed.map(f=>{
+      f.id = 'flat_'+(idCounter++);
+      (f.rows||[]).forEach(r=>{ r.id = 'row_'+(idCounter++); });
+      if(!f.rows) f.rows = [];
+      return f;
+    });
+  }catch(e){ return null; }
+}
+
+function getFlat(id){ return flats.find(f=>f.id===id); }
+
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ---- Core math ----
+function toDecimalFt(ft, inch){
+  const f = Number(ft)||0;
+  const i = Number(inch)||0;
+  return f + i/12;
+}
+function rowSft(row){
+  const nos = Number(row.nos)||0;
+  const l = toDecimalFt(row.lengthFt, row.lengthIn);
+  const b = toDecimalFt(row.breadthFt, row.breadthIn);
+  return Math.round(nos*l*b*100)/100;
+}
+function flatTotals(flat){
+  let work=0, deduction=0;
+  flat.rows.forEach(row=>{
+    const sft = rowSft(row);
+    if(row.deduction) deduction += sft; else work += sft;
+  });
+  work = Math.round(work*100)/100;
+  deduction = Math.round(deduction*100)/100;
+  const net = Math.round((work-deduction)*100)/100;
+  return {work, deduction, net};
+}
+function hasData(){
+  return flats.some(f=>f.building.trim()!=='' || f.flatNo.trim()!=='' || f.rows.some(r=>r.particulars.trim()!==''));
+}
+
+// ---- Rendering ----
+const flatsContainer = document.getElementById('flats-container');
+
+function render(){
+  if(!flats.length){
+    flatsContainer.innerHTML = '<div class="empty-hint">No flats yet — click "+ Add Flat" above, or use "Upload &amp; Extract" to add some from a photo.</div>';
+  } else {
+    flatsContainer.innerHTML = flats.map(renderFlatCard).join('');
+  }
+  updateOverallTotals();
+}
+
+function renderFlatCard(flat){
+  const {work, deduction, net} = flatTotals(flat);
+  const rowsHtml = flat.rows.length
+    ? flat.rows.map(row=>renderRow(flat.id, row)).join('')
+    : `<tr class="empty-row"><td colspan="9" style="padding:14px;color:var(--ink-soft);">No rows yet — click "+ Add Row" below.</td></tr>`;
+  return `
+  <div class="flat-card" data-flat-id="${flat.id}">
+    <div class="flat-card-header">
+      <div class="field">
+        <label>Building / Block</label>
+        <input type="text" value="${escapeHtml(flat.building)}" data-flat-id="${flat.id}" data-field="building" placeholder="e.g. L Building">
+      </div>
+      <div class="field">
+        <label>Flat No.</label>
+        <input type="text" value="${escapeHtml(flat.flatNo)}" data-flat-id="${flat.id}" data-field="flatNo" placeholder="e.g. 301">
+      </div>
+      <div class="field grow">
+        <label>Work Item</label>
+        <input type="text" value="${escapeHtml(flat.workItem)}" data-flat-id="${flat.id}" data-field="workItem" placeholder="e.g. POP Finish">
+      </div>
+      <button type="button" class="remove-flat-btn" aria-label="Remove this flat">✕ Remove Flat</button>
+    </div>
+    <div class="table-scroll">
+      <table class="rows-table">
+        <thead>
+          <tr>
+            <th rowspan="2" style="min-width:200px;">Particulars</th>
+            <th rowspan="2">Type</th>
+            <th rowspan="2">Nos</th>
+            <th colspan="2">Length</th>
+            <th colspan="2">Breadth</th>
+            <th rowspan="2">Sft</th>
+            <th rowspan="2"></th>
+          </tr>
+          <tr><th>ft</th><th>in</th><th>ft</th><th>in</th></tr>
+        </thead>
+        <tbody data-flat-id="${flat.id}">${rowsHtml}</tbody>
+      </table>
+    </div>
+    <button type="button" class="add-row-btn">+ Add Row</button>
+    <div class="flat-footer">
+      <div class="tot work"><div class="label">Total Work</div><div class="value" data-flat-work>${work.toFixed(2)}</div></div>
+      <div class="tot deduct"><div class="label">Total Deduction</div><div class="value" data-flat-deduction>${deduction.toFixed(2)}</div></div>
+      <div class="tot net"><div class="label">Net Total</div><div class="value" data-flat-net>${net.toFixed(2)}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderRow(flatId, row){
+  const sft = rowSft(row);
+  return `
+  <tr data-row-id="${row.id}" class="${row.deduction?'deduct-row':''}">
+    <td><input type="text" value="${escapeHtml(row.particulars)}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="particulars" placeholder="e.g. Bed Room-3 North wall"></td>
+    <td>
+      <select data-flat-id="${flatId}" data-row-id="${row.id}" data-field="deduction">
+        <option value="add" ${!row.deduction?'selected':''}>Add</option>
+        <option value="deduct" ${row.deduction?'selected':''}>Deduct</option>
+      </select>
+    </td>
+    <td><input type="number" min="0" step="1" value="${row.nos}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="nos"></td>
+    <td><input type="number" min="0" step="0.5" value="${row.lengthFt}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="lengthFt"></td>
+    <td><input type="number" min="0" step="0.5" value="${row.lengthIn}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="lengthIn"></td>
+    <td><input type="number" min="0" step="0.5" value="${row.breadthFt}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="breadthFt"></td>
+    <td><input type="number" min="0" step="0.5" value="${row.breadthIn}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="breadthIn"></td>
+    <td class="sft-cell" data-row-sft>${sft.toFixed(2)}</td>
+    <td><button type="button" class="remove-row-btn" aria-label="Remove this row">✕</button></td>
+  </tr>`;
+}
+
+// ---- Incremental (non-destructive) updates while typing, so focus/cursor
+// position is never lost - mirrors the pattern used in the Window tool. A
+// full render() only happens for structural changes (add/remove row/flat). ----
+function updateRowDisplay(tr, row){
+  const cell = tr.querySelector('[data-row-sft]');
+  if(cell) cell.textContent = rowSft(row).toFixed(2);
+  tr.classList.toggle('deduct-row', row.deduction);
+}
+function updateFlatFooter(cardEl, flat){
+  const {work, deduction, net} = flatTotals(flat);
+  cardEl.querySelector('[data-flat-work]').textContent = work.toFixed(2);
+  cardEl.querySelector('[data-flat-deduction]').textContent = deduction.toFixed(2);
+  cardEl.querySelector('[data-flat-net]').textContent = net.toFixed(2);
+}
+function updateOverallTotals(){
+  let work=0, deduction=0;
+  flats.forEach(f=>{ const t=flatTotals(f); work+=t.work; deduction+=t.deduction; });
+  work = Math.round(work*100)/100;
+  deduction = Math.round(deduction*100)/100;
+  const net = Math.round((work-deduction)*100)/100;
+  document.getElementById('overall-work-total').textContent = work.toFixed(2);
+  document.getElementById('overall-deduction-total').textContent = deduction.toFixed(2);
+  document.getElementById('overall-net-total').textContent = net.toFixed(2);
+  document.getElementById('flat-count').textContent = flats.length;
+}
+
+// ---- Event delegation ----
+flatsContainer.addEventListener('input', (e)=>{
+  const t = e.target;
+  const flatId = t.dataset.flatId;
+  if(!flatId) return;
+  const flat = getFlat(flatId);
+  if(!flat) return;
+  const field = t.dataset.field;
+  if(!field) return;
+
+  if(t.dataset.rowId){
+    const row = flat.rows.find(r=>r.id===t.dataset.rowId);
+    if(!row) return;
+    row[field] = (field==='particulars') ? t.value : (t.value==='' ? '' : (parseFloat(t.value)||0));
+    const tr = t.closest('tr[data-row-id]');
+    updateRowDisplay(tr, row);
+    updateFlatFooter(t.closest('.flat-card'), flat);
+    updateOverallTotals();
+  } else {
+    flat[field] = t.value;
+  }
+  saveFlats();
+});
+
+flatsContainer.addEventListener('change', (e)=>{
+  const t = e.target;
+  if(t.dataset.field === 'deduction' && t.dataset.rowId){
+    const flat = getFlat(t.dataset.flatId);
+    const row = flat.rows.find(r=>r.id===t.dataset.rowId);
+    row.deduction = t.value === 'deduct';
+    const tr = t.closest('tr[data-row-id]');
+    updateRowDisplay(tr, row);
+    updateFlatFooter(t.closest('.flat-card'), flat);
+    updateOverallTotals();
+    saveFlats();
+  }
+});
+
+flatsContainer.addEventListener('click', (e)=>{
+  if(e.target.classList.contains('remove-row-btn')){
+    const tr = e.target.closest('tr[data-row-id]');
+    const flat = getFlat(tr.closest('.flat-card').dataset.flatId);
+    flat.rows = flat.rows.filter(r=>r.id!==tr.dataset.rowId);
+    render();
+    saveFlats();
+  } else if(e.target.classList.contains('add-row-btn')){
+    const flat = getFlat(e.target.closest('.flat-card').dataset.flatId);
+    flat.rows.push(newRow());
+    render();
+    saveFlats();
+  } else if(e.target.classList.contains('remove-flat-btn')){
+    const flatId = e.target.closest('.flat-card').dataset.flatId;
+    flats = flats.filter(f=>f.id!==flatId);
+    render();
+    saveFlats();
+  }
+});
+
+document.getElementById('add-flat-btn').addEventListener('click', ()=>{
+  flats.push(newFlat());
+  render();
+  saveFlats();
+});
+
+document.getElementById('reset-btn').addEventListener('click',()=>{
+  if(confirm('Clear all entered flats? This also clears the saved data in this browser.')){
+    flats = [];
+    render();
+    saveFlats();
+  }
+});
+
+// ---- Excel export ----
+const THIN_BORDER = {top:{style:'thin',color:{argb:'FFD8E1E8'}},left:{style:'thin',color:{argb:'FFD8E1E8'}},bottom:{style:'thin',color:{argb:'FFD8E1E8'}},right:{style:'thin',color:{argb:'FFD8E1E8'}}};
+const HEADER_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FF3C5A8A'}};
+const PLAIN_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FFEEF2F7'}};
+
+function flatBlockLabel(flat){
+  const parts = [flat.building||'—', 'Flat ' + (flat.flatNo||'—')];
+  if(flat.workItem) parts.push(flat.workItem);
+  return parts.join(' - ');
+}
+
+function writeFlatBlock(ws, startRow, flat){
+  let r = startRow;
+
+  ws.mergeCells(r,1,r,9);
+  const headerCell = ws.getCell(r,1);
+  headerCell.value = flatBlockLabel(flat);
+  headerCell.fill = HEADER_FILL;
+  headerCell.font = {bold:true, size:12, color:{argb:'FFFFFFFF'}};
+  headerCell.alignment = {horizontal:'center'};
+  r++;
+
+  const subHeaders = ['Sl.No','Particulars','Type','Nos','Length Ft','Length In','Breadth Ft','Breadth In','Sft'];
+  subHeaders.forEach((h,idx)=>{
+    const cell = ws.getCell(r, idx+1);
+    cell.value = h; cell.font={bold:true}; cell.alignment={horizontal:'center'}; cell.fill=PLAIN_FILL; cell.border=THIN_BORDER;
+  });
+  r++;
+
+  let sl = 1;
+  const workRefs = [], deductRefs = [];
+  flat.rows.forEach(row=>{
+    ws.getCell(r,1).value = sl;
+    ws.getCell(r,2).value = row.particulars || '';
+    ws.getCell(r,3).value = row.deduction ? 'Deduct' : 'Add';
+    ws.getCell(r,4).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
+    ws.getCell(r,5).value = row.lengthFt===''||row.lengthFt==null ? '' : Number(row.lengthFt);
+    ws.getCell(r,6).value = row.lengthIn===''||row.lengthIn==null ? '' : Number(row.lengthIn);
+    ws.getCell(r,7).value = row.breadthFt===''||row.breadthFt==null ? '' : Number(row.breadthFt);
+    ws.getCell(r,8).value = row.breadthIn===''||row.breadthIn==null ? '' : Number(row.breadthIn);
+    // Real formula (feet + inches/12 for each dimension) - visible/verifiable
+    // in Excel and recalculates if edited there, same approach as the
+    // Window tool's export.
+    ws.getCell(r,9).value = { formula: `ROUND(D${r}*(E${r}+F${r}/12)*(G${r}+H${r}/12),2)` };
+    for(let c=1;c<=9;c++){ ws.getCell(r,c).alignment={horizontal:'center'}; ws.getCell(r,c).border=THIN_BORDER; }
+    if(row.deduction){ deductRefs.push(`I${r}`); ws.getCell(r,3).font = {color:{argb:'FFB3392C'}, bold:true}; }
+    else workRefs.push(`I${r}`);
+    r++; sl++;
+  });
+
+  const workRow = r;
+  ws.getCell(r,2).value = 'Total Work'; ws.getCell(r,2).font = {bold:true};
+  ws.getCell(r,9).value = workRefs.length ? {formula:`SUM(${workRefs.join(',')})`} : 0;
+  r++;
+  const deductRow = r;
+  ws.getCell(r,2).value = 'Total Deduction'; ws.getCell(r,2).font = {bold:true};
+  ws.getCell(r,9).value = deductRefs.length ? {formula:`SUM(${deductRefs.join(',')})`} : 0;
+  r++;
+  const netRow = r;
+  ws.getCell(r,2).value = 'Net Total'; ws.getCell(r,2).font = {bold:true, size:12};
+  ws.getCell(r,9).value = {formula:`I${workRow}-I${deductRow}`};
+  ws.getCell(r,9).font = {bold:true, size:12};
+  r++;
+  r++; // spacer row between flats
+
+  return { nextRow: r, netRef: `I${netRow}` };
+}
+
+function writeGrandTotal(ws, startRow, netRefs){
+  let r = startRow;
+  ws.getCell(r,2).value = 'GRAND NET TOTAL (ALL FLATS)';
+  ws.getCell(r,2).font = {bold:true, size:13};
+  ws.getCell(r,9).value = netRefs.length ? {formula:`SUM(${netRefs.join(',')})`} : 0;
+  ws.getCell(r,9).font = {bold:true, size:13};
+  return r+1;
+}
+
+function triggerDownload(buffer, filename){
+  const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function showStatus(msg, ok){
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + (ok ? 'ok' : 'err');
+}
+
+document.getElementById('download-new-btn').addEventListener('click', async ()=>{
+  if(!hasData()){ showStatus('Add at least one flat with data before downloading.', false); return; }
+  try{
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('POP Measurements');
+    worksheet.columns = [{width:6},{width:28},{width:9},{width:7},{width:10},{width:10},{width:11},{width:11},{width:9}];
+    worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
+
+    let r = 1;
+    const netRefs = [];
+    flats.forEach(f=>{
+      const result = writeFlatBlock(worksheet, r, f);
+      r = result.nextRow;
+      netRefs.push(result.netRef);
+    });
+    writeGrandTotal(worksheet, r, netRefs);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    triggerDownload(buffer, 'Wall_POP_Measurements.xlsx');
+    showStatus('Downloaded Wall_POP_Measurements.xlsx', true);
+  }catch(err){
+    console.error(err);
+    showStatus('Could not build the file: ' + err.message, false);
+  }
+});
+
+let existingFileHandle = null;
+
+document.getElementById('pick-existing-btn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('existing-file-status');
+  if(!window.showOpenFilePicker){
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = 'Your browser doesn\'t support saving in place (needs Chrome or Edge).';
+    return;
+  }
+  try{
+    [existingFileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'Excel Files', accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']} }],
+      excludeAcceptAllOption: false,
+      multiple: false
+    });
+    statusEl.style.color = 'var(--ink-soft)';
+    statusEl.textContent = 'Connected to "' + existingFileHandle.name + '". Click "Save To This File" any time to add your current working list into it.';
+    document.getElementById('save-to-existing-btn').style.display = 'block';
+  }catch(err){
+    // user cancelled the picker - not an error
+  }
+});
+
+document.getElementById('save-to-existing-btn').addEventListener('click', async ()=>{
+  if(!existingFileHandle){ showStatus('Pick your existing file first.', false); return; }
+  if(!hasData()){ showStatus('Your working list below is empty - nothing to add.', false); return; }
+
+  try{
+    const file = await existingFileHandle.getFile();
+    const buffer = await file.arrayBuffer();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.getWorksheet('POP Measurements') || workbook.worksheets[0];
+    if(!worksheet){ showStatus('No worksheet found in that file.', false); return; }
+
+    // Leave everything already in the file exactly as it is and just append
+    // this batch's flats at the very end, with their OWN separate grand total.
+    let r = worksheet.rowCount + 2;
+    const addedCount = flats.length;
+    const netRefs = [];
+    flats.forEach(f=>{
+      const result = writeFlatBlock(worksheet, r, f);
+      r = result.nextRow;
+      netRefs.push(result.netRef);
+    });
+    writeGrandTotal(worksheet, r, netRefs);
+
+    const outBuffer = await workbook.xlsx.writeBuffer();
+    const newFile = new Blob([outBuffer]);
+    const writable = await existingFileHandle.createWritable();
+    await writable.write(newFile);
+    await writable.close();
+
+    // Clear the working list only after a successful save - it's now
+    // safely written into the file.
+    flats = [];
+    saveFlats();
+    render();
+
+    showStatus('Added ' + addedCount + ' flat(s) into "' + existingFileHandle.name + '" directly - no download needed.', true);
+  }catch(err){
+    console.error(err);
+    showStatus('Could not save to that file: ' + err.message, false);
+  }
+});
+
+// ================== AI PHOTO IMPORT (Gemini) ==================
+// Storage key deliberately shared with the Window Measurement Tool - both
+// tools live on the same origin, so a Gemini key saved on one already
+// works on the other.
+const GEMINI_KEY_STORAGE = 'nagjua_gemini_api_key';
+const GEMINI_MODEL = 'gemini-3-flash-preview';
+
+const geminiKeyInput = document.getElementById('gemini-key-input');
+const savedGeminiKey = localStorage.getItem(GEMINI_KEY_STORAGE);
+if (savedGeminiKey) geminiKeyInput.value = savedGeminiKey;
+
+function showKeyStatus(msg, ok){
+  const el = document.getElementById('key-status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + (ok ? 'ok' : 'err');
+}
+function showAiStatus(msg, ok){
+  const el = document.getElementById('ai-status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg show ' + (ok ? 'ok' : 'err');
+}
+
+document.getElementById('save-key-btn').addEventListener('click', () => {
+  const val = geminiKeyInput.value.trim();
+  if(!val){ showKeyStatus('Please paste a key first.', false); return; }
+  localStorage.setItem(GEMINI_KEY_STORAGE, val);
+  showKeyStatus('Key saved in this browser.', true);
+});
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+const EXTRACTION_PROMPT = "You are reading a photo of a handwritten construction 'Measurement Book' sheet - a wall/ceiling area takeoff (often for POP/plaster finish work). Near the top it has a 'Name of Work' and/or 'Item' line (e.g. 'L. Building 2-301') identifying the building/block and flat number that ALL rows on this page belong to - apply that same building and flat number to every row you extract from this image, even though it is usually written only once at the top.\n\nBelow that is a table with columns similar to No./Particulars/No./Length/Breadth/Depth-or-NOS/Quantity/Remarks. Each row describes one wall or ceiling segment: a Particulars description (e.g. 'Bed Room-3 North wall', 'Hall wall East, West', 'window deduction', 'Bathroom door deduction'), a Length and Breadth written in feet-inches (e.g. 11'6\" means 11 feet 6 inches; 18'10\" means 18 feet 10 inches), and sometimes a multiplier count (often labelled NOS or No., e.g. '2' for two identical walls/openings) - if this multiplier is blank or unclear, use 1.\n\nRows whose Particulars mentions 'deduction' (window deduction, door deduction, balcony door deduction, etc.) are deductions - openings subtracted from the gross wall/ceiling area. Everything else is a normal addition.\n\nReturn ONLY a valid JSON array (no markdown fences, no explanation), one object per row, in this exact shape:\n[{\"building\":\"\",\"flatNo\":\"\",\"particulars\":\"\",\"nos\":1,\"lengthFt\":0,\"lengthIn\":0,\"breadthFt\":0,\"breadthIn\":0,\"deduction\":false}]\n\nRules:\n- Convert every Length/Breadth into separate feet and inches (e.g. 11'6\" -> lengthFt=11, lengthIn=6; 9'1\" -> breadthFt=9, breadthIn=1). Inches can be a decimal if a fraction is written (e.g. half an inch = 0.5).\n- 'building' should be just the block/building name (e.g. 'L Building'), not the flat number.\n- 'flatNo' should be just the flat number (e.g. '301').\n- Skip 'Total work', 'Total deduction', and any final summary rows entirely - only return individual measurement rows, the tool computes totals itself.\n- If nos is blank or unclear, use 1.\n- Double check handwritten digits carefully - they can be cramped or ambiguous.\n- Output nothing except the JSON array.";
+
+async function callGemini(base64Image, mimeType, apiKey){
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+  const body = {
+    contents: [{
+      parts: [
+        { text: EXTRACTION_PROMPT },
+        { inline_data: { mime_type: mimeType, data: base64Image } }
+      ]
+    }]
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify(body)
+  });
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error('Gemini API error ' + res.status + ': ' + errText.slice(0,300));
+  }
+  const data = await res.json();
+  const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+  const text = parts.map(p => p.text || '').join('');
+  return text;
+}
+
+function parseGeminiJson(text){
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  const start = cleaned.indexOf('[');
+  const end = cleaned.lastIndexOf(']');
+  if(start === -1 || end === -1) throw new Error('No JSON array found in AI response.');
+  cleaned = cleaned.slice(start, end+1);
+  return JSON.parse(cleaned);
+}
+
+document.getElementById('extract-photo-btn').addEventListener('click', async () => {
+  const fileInput = document.getElementById('ai-photo-input');
+  const file = fileInput.files[0];
+  const apiKey = geminiKeyInput.value.trim();
+  if(!apiKey){ showAiStatus('Save your Gemini API key first.', false); return; }
+  if(!file){ showAiStatus('Choose a photo first.', false); return; }
+
+  const btn = document.getElementById('extract-photo-btn');
+  btn.disabled = true;
+  showAiStatus('Reading photo with AI, this can take a few seconds...', true);
+
+  try{
+    const base64 = await fileToBase64(file);
+    const text = await callGemini(base64, file.type || 'image/jpeg', apiKey);
+    const items = parseGeminiJson(text);
+    if(!Array.isArray(items) || !items.length) throw new Error('AI did not find any measurement rows in this photo.');
+
+    // Group extracted rows by Building+Flat No. - usually every row in one
+    // photo belongs to the same flat, but this also handles a photo that
+    // happens to cover more than one flat.
+    let addedFlats = 0, addedRows = 0;
+    items.forEach(it=>{
+      const building = (it.building||'').trim();
+      const flatNo = (it.flatNo||'').trim();
+      let flat = flats.find(f=>f.building.trim()===building && f.flatNo.trim()===flatNo && (building||flatNo));
+      if(!flat){
+        flat = newFlat();
+        flat.building = building;
+        flat.flatNo = flatNo;
+        flats.push(flat);
+        addedFlats++;
+      }
+      flat.rows.push({
+        id: 'row_'+(idCounter++),
+        particulars: it.particulars || '',
+        nos: Number(it.nos)||1,
+        lengthFt: Number(it.lengthFt)||0,
+        lengthIn: Number(it.lengthIn)||0,
+        breadthFt: Number(it.breadthFt)||0,
+        breadthIn: Number(it.breadthIn)||0,
+        deduction: !!it.deduction
+      });
+      addedRows++;
+    });
+
+    saveFlats();
+    render();
+    fileInput.value = '';
+    showAiStatus('Added ' + addedRows + ' row(s) across ' + addedFlats + ' new flat(s) below. Please review and correct.', true);
+  }catch(err){
+    console.error(err);
+    showAiStatus('Could not read that photo: ' + err.message, false);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+// init - restore anything saved in this browser
+const restored = loadFlats();
+if(restored && restored.length){ flats = restored; }
+render();
+</script>
+</body>
+</html>
