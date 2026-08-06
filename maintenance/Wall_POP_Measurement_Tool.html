@@ -292,7 +292,7 @@ let idCounter = 0;
 let flats = [];
 
 function newRow(){
-  return { id: 'row_'+(idCounter++), particulars: '', nos: 1, lengthFt: '', lengthIn: '', breadthFt: '', breadthIn: '', deduction: false, remark: '' };
+  return { id: 'row_'+(idCounter++), particulars: '', nos: 1, length: '', breadth: '', deduction: false, remark: '' };
 }
 function newFlat(){
   // Starts with zero rows - click "+ Add Row" (or use AI extraction) to
@@ -326,15 +326,24 @@ function escapeHtml(str){
 }
 
 // ---- Core math ----
-function toDecimalFt(ft, inch){
-  const f = Number(ft)||0;
-  const i = Number(inch)||0;
-  return f + i/12;
+// Parses "11'6\"" style text (feet' inches") into decimal feet. Also
+// tolerates "11'6", "11' 6\"", "11-6", or a plain number like "11.5".
+function parseFeetInches(str){
+  if(str==null || str==='') return 0;
+  str = String(str).trim();
+  // Inches-only, e.g. 9" or 9in (no feet, no apostrophe)
+  const inchOnly = str.match(/^(\d+(?:\.\d+)?)\s*(?:"|in)$/i);
+  if(inchOnly) return (parseFloat(inchOnly[1])||0) / 12;
+  const m = str.match(/^(\d+(?:\.\d+)?)\s*(?:'|ft)?\s*[-\s]?\s*(\d+(?:\.\d+)?)?\s*"?\s*(?:in)?$/i);
+  if(!m) { const n = parseFloat(str); return isFinite(n) ? n : 0; }
+  const ft = parseFloat(m[1]) || 0;
+  const inch = parseFloat(m[2]) || 0;
+  return ft + inch/12;
 }
 function rowSft(row){
   const nos = Number(row.nos)||0;
-  const l = toDecimalFt(row.lengthFt, row.lengthIn);
-  const b = toDecimalFt(row.breadthFt, row.breadthIn);
+  const l = parseFeetInches(row.length);
+  const b = parseFeetInches(row.breadth);
   return Math.round(nos*l*b*100)/100;
 }
 function flatTotals(flat){
@@ -390,16 +399,15 @@ function renderFlatCard(flat){
       <table class="rows-table">
         <thead>
           <tr>
-            <th rowspan="2" style="min-width:200px;">Particulars</th>
-            <th rowspan="2">Type</th>
-            <th rowspan="2">Nos</th>
-            <th colspan="2">Length</th>
-            <th colspan="2">Breadth</th>
-            <th rowspan="2">Sft</th>
-            <th rowspan="2" style="min-width:140px;">Remark</th>
-            <th rowspan="2"></th>
+            <th style="min-width:200px;">Particulars</th>
+            <th>Type</th>
+            <th>Nos</th>
+            <th style="min-width:90px;">Length</th>
+            <th style="min-width:90px;">Breadth</th>
+            <th>Sft</th>
+            <th style="min-width:140px;">Remark</th>
+            <th></th>
           </tr>
-          <tr><th>ft</th><th>in</th><th>ft</th><th>in</th></tr>
         </thead>
         <tbody data-flat-id="${flat.id}">${rowsHtml}</tbody>
       </table>
@@ -425,10 +433,8 @@ function renderRow(flatId, row){
       </select>
     </td>
     <td><input type="number" min="0" step="1" value="${row.nos}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="nos"></td>
-    <td><input type="number" min="0" step="0.5" value="${row.lengthFt}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="lengthFt"></td>
-    <td><input type="number" min="0" step="0.5" value="${row.lengthIn}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="lengthIn"></td>
-    <td><input type="number" min="0" step="0.5" value="${row.breadthFt}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="breadthFt"></td>
-    <td><input type="number" min="0" step="0.5" value="${row.breadthIn}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="breadthIn"></td>
+    <td><input type="text" value="${escapeHtml(row.length)}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="length" placeholder="11'6&quot;"></td>
+    <td><input type="text" value="${escapeHtml(row.breadth)}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="breadth" placeholder="9'0&quot;"></td>
     <td class="sft-cell" data-row-sft>${sft.toFixed(2)}</td>
     <td><input type="text" value="${escapeHtml(row.remark||'')}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="remark" placeholder="optional note"></td>
     <td><button type="button" class="remove-row-btn" aria-label="Remove this row">✕</button></td>
@@ -474,7 +480,7 @@ flatsContainer.addEventListener('input', (e)=>{
   if(t.dataset.rowId){
     const row = flat.rows.find(r=>r.id===t.dataset.rowId);
     if(!row) return;
-    row[field] = (field==='particulars' || field==='remark') ? t.value : (t.value==='' ? '' : (parseFloat(t.value)||0));
+    row[field] = (field==='particulars' || field==='remark' || field==='length' || field==='breadth') ? t.value : (t.value==='' ? '' : (parseFloat(t.value)||0));
     const tr = t.closest('tr[data-row-id]');
     updateRowDisplay(tr, row);
     updateFlatFooter(t.closest('.flat-card'), flat);
@@ -595,8 +601,8 @@ function writeFlatBlock(ws, startRow, flat){
   let sl = 1;
   const workRefs = [], deductRefs = [];
   flat.rows.forEach(row=>{
-    const lengthDec = Math.round(((row.lengthFt||0) + (row.lengthIn||0)/12) * 1000) / 1000;
-    const breadthDec = Math.round(((row.breadthFt||0) + (row.breadthIn||0)/12) * 1000) / 1000;
+    const lengthDec = Math.round(parseFeetInches(row.length) * 1000) / 1000;
+    const breadthDec = Math.round(parseFeetInches(row.breadth) * 1000) / 1000;
     ws.getCell(r,1).value = sl;
     ws.getCell(r,2).value = row.particulars || '';
     ws.getCell(r,3).value = lengthDec || '';
@@ -797,7 +803,7 @@ function fileToBase64(file){
   });
 }
 
-const EXTRACTION_PROMPT = "You are reading a photo of a handwritten construction 'Measurement Book' sheet - a wall/ceiling area takeoff (often for POP/plaster finish work). Near the top it has a 'Name of Work' and/or 'Item' line (e.g. 'L. Building 2-301') identifying the building/block and flat number that ALL rows on this page belong to - apply that same building and flat number to every row you extract from this image, even though it is usually written only once at the top.\n\nBelow that is a table with columns similar to No./Particulars/No./Length/Breadth/Depth-or-NOS/Quantity/Remarks. Each row describes one wall or ceiling segment: a Particulars description (e.g. 'Bed Room-3 North wall', 'Hall wall East, West', 'window deduction', 'Bathroom door deduction'), a Length and Breadth written in feet-inches (e.g. 11'6\" means 11 feet 6 inches; 18'10\" means 18 feet 10 inches), and sometimes a multiplier count (often labelled NOS or No., e.g. '2' for two identical walls/openings) - if this multiplier is blank or unclear, use 1.\n\nRows whose Particulars mentions 'deduction' (window deduction, door deduction, balcony door deduction, etc.) are deductions - openings subtracted from the gross wall/ceiling area. Everything else is a normal addition.\n\nReturn ONLY a valid JSON array (no markdown fences, no explanation), one object per row, in this exact shape:\n[{\"building\":\"\",\"flatNo\":\"\",\"particulars\":\"\",\"nos\":1,\"lengthFt\":0,\"lengthIn\":0,\"breadthFt\":0,\"breadthIn\":0,\"deduction\":false}]\n\nRules:\n- Convert every Length/Breadth into separate feet and inches (e.g. 11'6\" -> lengthFt=11, lengthIn=6; 9'1\" -> breadthFt=9, breadthIn=1). Inches can be a decimal if a fraction is written (e.g. half an inch = 0.5).\n- 'building' should be just the block/building name (e.g. 'L Building'), not the flat number.\n- 'flatNo' should be just the flat number (e.g. '301').\n- Skip 'Total work', 'Total deduction', and any final summary rows entirely - only return individual measurement rows, the tool computes totals itself.\n- If nos is blank or unclear, use 1.\n- Double check handwritten digits carefully - they can be cramped or ambiguous.\n- Output nothing except the JSON array.";
+const EXTRACTION_PROMPT = "You are reading a photo of a handwritten construction 'Measurement Book' sheet - a wall/ceiling area takeoff (often for POP/plaster finish work). Near the top it has a 'Name of Work' and/or 'Item' line (e.g. 'L. Building 2-301') identifying the building/block and flat number that ALL rows on this page belong to - apply that same building and flat number to every row you extract from this image, even though it is usually written only once at the top.\n\nBelow that is a table with columns similar to No./Particulars/No./Length/Breadth/Depth-or-NOS/Quantity/Remarks. Each row describes one wall or ceiling segment: a Particulars description (e.g. 'Bed Room-3 North wall', 'Hall wall East, West', 'window deduction', 'Bathroom door deduction'), a Length and Breadth written in feet-inches (e.g. 11'6\" means 11 feet 6 inches; 18'10\" means 18 feet 10 inches), and sometimes a multiplier count (often labelled NOS or No., e.g. '2' for two identical walls/openings) - if this multiplier is blank or unclear, use 1.\n\nRows whose Particulars mentions 'deduction' (window deduction, door deduction, balcony door deduction, etc.) are deductions - openings subtracted from the gross wall/ceiling area. Everything else is a normal addition.\n\nReturn ONLY a valid JSON array (no markdown fences, no explanation), one object per row, in this exact shape:\n[{\"building\":\"\",\"flatNo\":\"\",\"particulars\":\"\",\"nos\":1,\"length\":\"11'6\\\"\",\"breadth\":\"9'0\\\"\",\"deduction\":false}]\n\nRules:\n- Write length and breadth EXACTLY as feet'inches\\\" text, e.g. \"11'6\\\"\" or \"9'0\\\"\" - keep them as this exact text format, do not convert to decimal. Inches can include a decimal if a fraction is written (e.g. half an inch = 11'0.5\\\").\n- 'building' should be just the block/building name (e.g. 'L Building'), not the flat number.\n- 'flatNo' should be just the flat number (e.g. '301').\n- Skip 'Total work', 'Total deduction', and any final summary rows entirely - only return individual measurement rows, the tool computes totals itself.\n- If nos is blank or unclear, use 1.\n- Double check handwritten digits carefully - they can be cramped or ambiguous.\n- Output nothing except the JSON array.";
 
 async function callGemini(base64Image, mimeType, apiKey){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
@@ -870,10 +876,8 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
         id: 'row_'+(idCounter++),
         particulars: it.particulars || '',
         nos: Number(it.nos)||1,
-        lengthFt: Number(it.lengthFt)||0,
-        lengthIn: Number(it.lengthIn)||0,
-        breadthFt: Number(it.breadthFt)||0,
-        breadthIn: Number(it.breadthIn)||0,
+        length: it.length || '',
+        breadth: it.breadth || '',
         deduction: !!it.deduction,
         remark: ''
       });
