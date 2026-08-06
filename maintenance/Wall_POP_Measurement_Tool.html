@@ -563,6 +563,7 @@ function writeDocumentHeader(ws, startRow){
     cell.value = `${label}: ${value || '____________'}`;
     cell.font = {bold:true, size:11};
     cell.alignment = {horizontal:'left'};
+    for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
     r++;
   }
 
@@ -601,49 +602,52 @@ function writeFlatBlock(ws, startRow, flat){
   let sl = 1;
   const workRefs = [], deductRefs = [];
   flat.rows.forEach(row=>{
-    const lengthDec = Math.round(parseFeetInches(row.length) * 1000) / 1000;
-    const breadthDec = Math.round(parseFeetInches(row.breadth) * 1000) / 1000;
+    const sft = rowSft(row);
     ws.getCell(r,1).value = sl;
     ws.getCell(r,2).value = row.particulars || '';
-    ws.getCell(r,3).value = lengthDec || '';
-    ws.getCell(r,4).value = breadthDec || '';
+    ws.getCell(r,3).value = row.length || '';
+    ws.getCell(r,4).value = row.breadth || '';
     ws.getCell(r,5).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
-    // Real formula (Length x Breadth x Nos, all in decimal feet) - visible/
-    // verifiable in Excel and recalculates if edited there.
-    ws.getCell(r,6).value = { formula: `ROUND(C${r}*D${r}*E${r},2)` };
+    // Length/Breadth are kept as the original feet-inches text (e.g. 11'6")
+    // so the sheet reads exactly like what was typed. Excel can't do
+    // arithmetic directly on that text, so Sq.ft here is a computed number
+    // (matching the on-screen value) rather than a live formula.
+    ws.getCell(r,6).value = sft;
     ws.getCell(r,7).value = row.remark || '';
     for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment={horizontal: c===2||c===7 ? 'left' : 'center'}; ws.getCell(r,c).border=THIN_BORDER; }
-    if(row.deduction){ deductRefs.push(`F${r}`); ws.getCell(r,2).font = {color:{argb:'FFB3392C'}, bold:true}; }
-    else workRefs.push(`F${r}`);
+    if(row.deduction){ deductRefs.push(sft); ws.getCell(r,2).font = {color:{argb:'FFB3392C'}, bold:true}; }
+    else workRefs.push(sft);
     r++; sl++;
   });
 
-  const workRow = r;
+  const workTotal = Math.round(workRefs.reduce((s,v)=>s+v,0)*100)/100;
+  const deductTotal = Math.round(deductRefs.reduce((s,v)=>s+v,0)*100)/100;
+  const netTotal = Math.round((workTotal-deductTotal)*100)/100;
+
   ws.getCell(r,2).value = 'Total Work'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = workRefs.length ? {formula:`SUM(${workRefs.join(',')})`} : 0;
+  ws.getCell(r,6).value = workTotal;
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
-  const deductRow = r;
   ws.getCell(r,2).value = 'Total Deduction'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = deductRefs.length ? {formula:`SUM(${deductRefs.join(',')})`} : 0;
+  ws.getCell(r,6).value = deductTotal;
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   const netRow = r;
   ws.getCell(r,2).value = 'Net Total'; ws.getCell(r,2).font = {bold:true, size:12};
-  ws.getCell(r,6).value = {formula:`F${workRow}-F${deductRow}`};
+  ws.getCell(r,6).value = netTotal;
   ws.getCell(r,6).font = {bold:true, size:12};
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   r++; // spacer row between flats
 
-  return { nextRow: r, netRef: `F${netRow}` };
+  return { nextRow: r, netTotal: netTotal };
 }
 
-function writeGrandTotal(ws, startRow, netRefs){
+function writeGrandTotal(ws, startRow, netTotals){
   let r = startRow;
   ws.getCell(r,2).value = 'GRAND NET TOTAL (ALL FLATS)';
   ws.getCell(r,2).font = {bold:true, size:13};
-  ws.getCell(r,6).value = netRefs.length ? {formula:`SUM(${netRefs.join(',')})`} : 0;
+  ws.getCell(r,6).value = Math.round(netTotals.reduce((s,v)=>s+v,0)*100)/100;
   ws.getCell(r,6).font = {bold:true, size:13};
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   return r+1;
@@ -673,13 +677,13 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
     worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
 
     let r = writeDocumentHeader(worksheet, 1);
-    const netRefs = [];
+    const netTotals = [];
     flats.forEach(f=>{
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
-      netRefs.push(result.netRef);
+      netTotals.push(result.netTotal);
     });
-    writeGrandTotal(worksheet, r, netRefs);
+    writeGrandTotal(worksheet, r, netTotals);
 
     const buffer = await workbook.xlsx.writeBuffer();
     triggerDownload(buffer, 'Wall_POP_Measurements.xlsx');
@@ -738,13 +742,13 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
 
     let r = writeDocumentHeader(worksheet, 1);
     const addedCount = flats.length;
-    const netRefs = [];
+    const netTotals = [];
     flats.forEach(f=>{
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
-      netRefs.push(result.netRef);
+      netTotals.push(result.netTotal);
     });
-    writeGrandTotal(worksheet, r, netRefs);
+    writeGrandTotal(worksheet, r, netTotals);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
     const newFile = new Blob([outBuffer]);
