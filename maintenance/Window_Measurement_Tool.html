@@ -919,31 +919,20 @@ function writeFlatBlock(ws, startRow, flat){
 
 function writeTotalsBlock(ws, startRow, domalRefs, s18Refs, kitchenRefs, washBathRefs, louverRefs){
   let r = startRow;
-  ws.getCell(r,2).value = 'Total Domal Section';
-  ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = domalRefs.length ? { formula: `SUM(${domalRefs.join(',')})` } : 0;
-  ws.getCell(r,7).value = 'Sft';
-  r++;
-  ws.getCell(r,2).value = 'Total 18*60 Section';
-  ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = s18Refs.length ? { formula: `SUM(${s18Refs.join(',')})` } : 0;
-  ws.getCell(r,7).value = 'Sft';
-  r++;
-  ws.getCell(r,2).value = 'Total Kitchen Window';
-  ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = kitchenRefs.length ? { formula: `SUM(${kitchenRefs.join(',')})` } : 0;
-  ws.getCell(r,7).value = 'Sft';
-  r++;
-  ws.getCell(r,2).value = 'Total Wash/Bath Section';
-  ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = washBathRefs.length ? { formula: `SUM(${washBathRefs.join(',')})` } : 0;
-  ws.getCell(r,7).value = 'Sft';
-  r++;
-  ws.getCell(r,2).value = 'Total Fixed Louvers';
-  ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = louverRefs.length ? { formula: `SUM(${louverRefs.join(',')})` } : 0;
-  ws.getCell(r,7).value = 'Nos';
-  r++;
+  function totalRow(label, refs, unit){
+    if(!refs.length) return; // skip entirely - this category has no data at all in this export
+    ws.getCell(r,2).value = label;
+    ws.getCell(r,2).font = {bold:true};
+    ws.getCell(r,6).value = { formula: `SUM(${refs.join(',')})` };
+    ws.getCell(r,7).value = unit;
+    for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
+    r++;
+  }
+  totalRow('Total Domal Section', domalRefs, 'Sft');
+  totalRow('Total 18*60 Section', s18Refs, 'Sft');
+  totalRow('Total Kitchen Window', kitchenRefs, 'Sft');
+  totalRow('Total Wash/Bath Section', washBathRefs, 'Sft');
+  totalRow('Total Fixed Louvers', louverRefs, 'Nos');
   return r;
 }
 
@@ -1050,16 +1039,29 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
     const buffer = await file.arrayBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
-    const worksheet = workbook.getWorksheet('Measurements') || workbook.worksheets[0];
-    if(!worksheet){ showStatus('No worksheet found in that file.', false); return; }
 
-    // Leave everything already in the file exactly as it is - including any
-    // earlier "Total Domal/18x60 Section" rows from previous batches - and
-    // just append this batch's flats at the very end, with their OWN
-    // separate total (not merged into anything already there).
-    let insertAt = worksheet.rowCount + 2;
+    // Create a brand new sheet for this batch rather than appending into an
+    // existing one - find a name that doesn't collide with what's already there.
+    let sheetName = 'Measurements';
+    let n = 2;
+    const existingNames = workbook.worksheets.map(ws => ws.name);
+    while(existingNames.includes(sheetName)){
+      sheetName = 'Measurements ' + n;
+      n++;
+    }
+    const worksheet = workbook.addWorksheet(sheetName);
+    worksheet.columns = [{width:8},{width:22},{width:8},{width:10},{width:10},{width:12},{width:8}];
+    worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
 
-    let r = insertAt;
+    worksheet.mergeCells(1,1,1,7);
+    const titleCell = worksheet.getCell(1,1);
+    titleCell.value = sheetTitle();
+    titleCell.font = {bold:true, size:14};
+    titleCell.alignment = {horizontal:'center'};
+    titleCell.fill = HALL_FILL;
+    titleCell.font = {bold:true, size:14, color:{argb:'FFFFFFFF'}};
+
+    let r = 3;
     const addedCount = flats.length;
     let allDomalRefs = [], allS18Refs = [], allKitchenRefs = [], allWashBathRefs = [], allLouverRefs = [];
     flats.forEach(f => {
@@ -1087,7 +1089,7 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
     saveFlats();
     render();
 
-    showStatus('Added ' + addedCount + ' flat(s) into "' + existingFileHandle.name + '" directly - no download needed.', true);
+    showStatus('Added ' + addedCount + ' flat(s) into a new sheet "' + sheetName + '" in "' + existingFileHandle.name + '" - no download needed.', true);
   }catch(err){
     console.error(err);
     showStatus('Could not save to that file: ' + err.message, false);
