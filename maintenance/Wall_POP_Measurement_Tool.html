@@ -193,8 +193,30 @@
     </div>
   </div>
 
+  <section class="block" id="doc-details-section">
+    <div class="section-label"><div class="num">1</div><h2>Document Details</h2></div>
+    <div class="export-grid">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Name of Work</label>
+        <input type="text" id="docNameOfWork" placeholder="e.g. POP Finish Work - L Building" style="width:100%;padding:9px 10px;border:1px solid var(--steel-line);border-radius:5px;font-size:13px;background:#FAFAF8;">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Date</label>
+        <input type="date" id="docDate" style="width:100%;padding:9px 10px;border:1px solid var(--steel-line);border-radius:5px;font-size:13px;background:#FAFAF8;">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Item</label>
+        <input type="text" id="docItem" placeholder="e.g. Wall &amp; Ceiling POP" style="width:100%;padding:9px 10px;border:1px solid var(--steel-line);border-radius:5px;font-size:13px;background:#FAFAF8;">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Bill No.</label>
+        <input type="text" id="docBillNo" style="width:100%;padding:9px 10px;border:1px solid var(--steel-line);border-radius:5px;font-size:13px;background:#FAFAF8;">
+      </div>
+    </div>
+  </section>
+
   <section class="block" id="upload-section">
-    <div class="section-label"><div class="num">1</div><h2>Upload &amp; Extract</h2></div>
+    <div class="section-label"><div class="num">2</div><h2>Upload &amp; Extract</h2></div>
     <div class="export-grid">
       <div class="export-card">
         <h3>Upload Measurement Sheet Photo</h3>
@@ -208,7 +230,7 @@
 
   <section class="block" id="entry-section">
     <div class="section-label">
-      <div class="num">2</div><h2>Wall &amp; Ceiling Entries</h2>
+      <div class="num">3</div><h2>Wall &amp; Ceiling Entries</h2>
       <button type="button" class="add-flat-btn" id="add-flat-btn">+ Add Flat</button>
     </div>
     <p class="hint-text">Each card below is one flat. Add a row for every wall/ceiling segment (e.g. "Bed Room-3 North wall"), mark it <b>Add</b> or <b>Deduct</b> (deductions are door/window openings subtracted from the gross area), and enter Length/Breadth in feet and inches — Sft is calculated automatically.</p>
@@ -234,7 +256,7 @@
   </section>
 
   <section class="block" id="export-section">
-    <div class="section-label"><div class="num">3</div><h2>Export</h2></div>
+    <div class="section-label"><div class="num">4</div><h2>Export</h2></div>
     <div class="export-grid">
       <div class="export-card">
         <h3>Download Excel Sheet</h3>
@@ -270,7 +292,7 @@ let idCounter = 0;
 let flats = [];
 
 function newRow(){
-  return { id: 'row_'+(idCounter++), particulars: '', nos: 1, lengthFt: '', lengthIn: '', breadthFt: '', breadthIn: '', deduction: false };
+  return { id: 'row_'+(idCounter++), particulars: '', nos: 1, lengthFt: '', lengthIn: '', breadthFt: '', breadthIn: '', deduction: false, remark: '' };
 }
 function newFlat(){
   // Starts with zero rows - click "+ Add Row" (or use AI extraction) to
@@ -374,6 +396,7 @@ function renderFlatCard(flat){
             <th colspan="2">Length</th>
             <th colspan="2">Breadth</th>
             <th rowspan="2">Sft</th>
+            <th rowspan="2" style="min-width:140px;">Remark</th>
             <th rowspan="2"></th>
           </tr>
           <tr><th>ft</th><th>in</th><th>ft</th><th>in</th></tr>
@@ -407,6 +430,7 @@ function renderRow(flatId, row){
     <td><input type="number" min="0" step="0.5" value="${row.breadthFt}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="breadthFt"></td>
     <td><input type="number" min="0" step="0.5" value="${row.breadthIn}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="breadthIn"></td>
     <td class="sft-cell" data-row-sft>${sft.toFixed(2)}</td>
+    <td><input type="text" value="${escapeHtml(row.remark||'')}" data-flat-id="${flatId}" data-row-id="${row.id}" data-field="remark" placeholder="optional note"></td>
     <td><button type="button" class="remove-row-btn" aria-label="Remove this row">✕</button></td>
   </tr>`;
 }
@@ -450,7 +474,7 @@ flatsContainer.addEventListener('input', (e)=>{
   if(t.dataset.rowId){
     const row = flat.rows.find(r=>r.id===t.dataset.rowId);
     if(!row) return;
-    row[field] = (field==='particulars') ? t.value : (t.value==='' ? '' : (parseFloat(t.value)||0));
+    row[field] = (field==='particulars' || field==='remark') ? t.value : (t.value==='' ? '' : (parseFloat(t.value)||0));
     const tr = t.closest('tr[data-row-id]');
     updateRowDisplay(tr, row);
     updateFlatFooter(t.closest('.flat-card'), flat);
@@ -520,10 +544,40 @@ function flatBlockLabel(flat){
   return parts.join(' - ');
 }
 
+function writeDocumentHeader(ws, startRow){
+  let r = startRow;
+  const nameOfWork = document.getElementById('docNameOfWork').value.trim();
+  const dateVal = document.getElementById('docDate').value;
+  const item = document.getElementById('docItem').value.trim();
+  const billNo = document.getElementById('docBillNo').value.trim();
+
+  function headerLine(label, value){
+    ws.mergeCells(r,1,r,7);
+    const cell = ws.getCell(r,1);
+    cell.value = `${label}: ${value || '____________'}`;
+    cell.font = {bold:true, size:11};
+    cell.alignment = {horizontal:'left'};
+    r++;
+  }
+
+  headerLine('Name of Work', nameOfWork);
+  headerLine('Date', dateVal ? fmtDateSlash(new Date(dateVal+'T00:00:00')) : '');
+  headerLine('Item', item);
+  headerLine('Bill No.', billNo);
+  r++; // blank spacer before the first flat block
+  return r;
+}
+
+function fmtDateSlash(d){
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
 function writeFlatBlock(ws, startRow, flat){
   let r = startRow;
 
-  ws.mergeCells(r,1,r,9);
+  ws.mergeCells(r,1,r,7);
   const headerCell = ws.getCell(r,1);
   headerCell.value = flatBlockLabel(flat);
   headerCell.fill = HEADER_FILL;
@@ -531,7 +585,7 @@ function writeFlatBlock(ws, startRow, flat){
   headerCell.alignment = {horizontal:'center'};
   r++;
 
-  const subHeaders = ['Sl.No','Particulars','Type','Nos','Length Ft','Length In','Breadth Ft','Breadth In','Sft'];
+  const subHeaders = ['Sr.No','Particulars','Length','Breadth','Nos','Sq.ft','Remark'];
   subHeaders.forEach((h,idx)=>{
     const cell = ws.getCell(r, idx+1);
     cell.value = h; cell.font={bold:true}; cell.alignment={horizontal:'center'}; cell.fill=PLAIN_FILL; cell.border=THIN_BORDER;
@@ -541,52 +595,51 @@ function writeFlatBlock(ws, startRow, flat){
   let sl = 1;
   const workRefs = [], deductRefs = [];
   flat.rows.forEach(row=>{
+    const lengthDec = Math.round(((row.lengthFt||0) + (row.lengthIn||0)/12) * 1000) / 1000;
+    const breadthDec = Math.round(((row.breadthFt||0) + (row.breadthIn||0)/12) * 1000) / 1000;
     ws.getCell(r,1).value = sl;
     ws.getCell(r,2).value = row.particulars || '';
-    ws.getCell(r,3).value = row.deduction ? 'Deduct' : 'Add';
-    ws.getCell(r,4).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
-    ws.getCell(r,5).value = row.lengthFt===''||row.lengthFt==null ? '' : Number(row.lengthFt);
-    ws.getCell(r,6).value = row.lengthIn===''||row.lengthIn==null ? '' : Number(row.lengthIn);
-    ws.getCell(r,7).value = row.breadthFt===''||row.breadthFt==null ? '' : Number(row.breadthFt);
-    ws.getCell(r,8).value = row.breadthIn===''||row.breadthIn==null ? '' : Number(row.breadthIn);
-    // Real formula (feet + inches/12 for each dimension) - visible/verifiable
-    // in Excel and recalculates if edited there, same approach as the
-    // Window tool's export.
-    ws.getCell(r,9).value = { formula: `ROUND(D${r}*(E${r}+F${r}/12)*(G${r}+H${r}/12),2)` };
-    for(let c=1;c<=9;c++){ ws.getCell(r,c).alignment={horizontal:'center'}; ws.getCell(r,c).border=THIN_BORDER; }
-    if(row.deduction){ deductRefs.push(`I${r}`); ws.getCell(r,3).font = {color:{argb:'FFB3392C'}, bold:true}; }
-    else workRefs.push(`I${r}`);
+    ws.getCell(r,3).value = lengthDec || '';
+    ws.getCell(r,4).value = breadthDec || '';
+    ws.getCell(r,5).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
+    // Real formula (Length x Breadth x Nos, all in decimal feet) - visible/
+    // verifiable in Excel and recalculates if edited there.
+    ws.getCell(r,6).value = { formula: `ROUND(C${r}*D${r}*E${r},2)` };
+    ws.getCell(r,7).value = row.remark || '';
+    for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment={horizontal: c===2||c===7 ? 'left' : 'center'}; ws.getCell(r,c).border=THIN_BORDER; }
+    if(row.deduction){ deductRefs.push(`F${r}`); ws.getCell(r,2).font = {color:{argb:'FFB3392C'}, bold:true}; }
+    else workRefs.push(`F${r}`);
     r++; sl++;
   });
 
   const workRow = r;
   ws.getCell(r,2).value = 'Total Work'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,9).value = workRefs.length ? {formula:`SUM(${workRefs.join(',')})`} : 0;
-  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
+  ws.getCell(r,6).value = workRefs.length ? {formula:`SUM(${workRefs.join(',')})`} : 0;
+  for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   const deductRow = r;
   ws.getCell(r,2).value = 'Total Deduction'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,9).value = deductRefs.length ? {formula:`SUM(${deductRefs.join(',')})`} : 0;
-  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
+  ws.getCell(r,6).value = deductRefs.length ? {formula:`SUM(${deductRefs.join(',')})`} : 0;
+  for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   const netRow = r;
   ws.getCell(r,2).value = 'Net Total'; ws.getCell(r,2).font = {bold:true, size:12};
-  ws.getCell(r,9).value = {formula:`I${workRow}-I${deductRow}`};
-  ws.getCell(r,9).font = {bold:true, size:12};
-  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
+  ws.getCell(r,6).value = {formula:`F${workRow}-F${deductRow}`};
+  ws.getCell(r,6).font = {bold:true, size:12};
+  for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   r++; // spacer row between flats
 
-  return { nextRow: r, netRef: `I${netRow}` };
+  return { nextRow: r, netRef: `F${netRow}` };
 }
 
 function writeGrandTotal(ws, startRow, netRefs){
   let r = startRow;
   ws.getCell(r,2).value = 'GRAND NET TOTAL (ALL FLATS)';
   ws.getCell(r,2).font = {bold:true, size:13};
-  ws.getCell(r,9).value = netRefs.length ? {formula:`SUM(${netRefs.join(',')})`} : 0;
-  ws.getCell(r,9).font = {bold:true, size:13};
-  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
+  ws.getCell(r,6).value = netRefs.length ? {formula:`SUM(${netRefs.join(',')})`} : 0;
+  ws.getCell(r,6).font = {bold:true, size:13};
+  for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   return r+1;
 }
 
@@ -610,10 +663,10 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
   try{
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('POP Measurements');
-    worksheet.columns = [{width:6},{width:28},{width:9},{width:7},{width:10},{width:10},{width:11},{width:11},{width:9}];
+    worksheet.columns = [{width:7},{width:28},{width:10},{width:10},{width:8},{width:10},{width:20}];
     worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
 
-    let r = 1;
+    let r = writeDocumentHeader(worksheet, 1);
     const netRefs = [];
     flats.forEach(f=>{
       const result = writeFlatBlock(worksheet, r, f);
@@ -674,10 +727,10 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
       n++;
     }
     const worksheet = workbook.addWorksheet(sheetName);
-    worksheet.columns = [{width:6},{width:28},{width:9},{width:7},{width:10},{width:10},{width:11},{width:11},{width:9}];
+    worksheet.columns = [{width:7},{width:28},{width:10},{width:10},{width:8},{width:10},{width:20}];
     worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
 
-    let r = 1;
+    let r = writeDocumentHeader(worksheet, 1);
     const addedCount = flats.length;
     const netRefs = [];
     flats.forEach(f=>{
@@ -821,7 +874,8 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
         lengthIn: Number(it.lengthIn)||0,
         breadthFt: Number(it.breadthFt)||0,
         breadthIn: Number(it.breadthIn)||0,
-        deduction: !!it.deduction
+        deduction: !!it.deduction,
+        remark: ''
       });
       addedRows++;
     });
