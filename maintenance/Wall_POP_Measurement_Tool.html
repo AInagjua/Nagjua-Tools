@@ -562,15 +562,18 @@ function writeFlatBlock(ws, startRow, flat){
   const workRow = r;
   ws.getCell(r,2).value = 'Total Work'; ws.getCell(r,2).font = {bold:true};
   ws.getCell(r,9).value = workRefs.length ? {formula:`SUM(${workRefs.join(',')})`} : 0;
+  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   const deductRow = r;
   ws.getCell(r,2).value = 'Total Deduction'; ws.getCell(r,2).font = {bold:true};
   ws.getCell(r,9).value = deductRefs.length ? {formula:`SUM(${deductRefs.join(',')})`} : 0;
+  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   const netRow = r;
   ws.getCell(r,2).value = 'Net Total'; ws.getCell(r,2).font = {bold:true, size:12};
   ws.getCell(r,9).value = {formula:`I${workRow}-I${deductRow}`};
   ws.getCell(r,9).font = {bold:true, size:12};
+  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   r++; // spacer row between flats
 
@@ -583,6 +586,7 @@ function writeGrandTotal(ws, startRow, netRefs){
   ws.getCell(r,2).font = {bold:true, size:13};
   ws.getCell(r,9).value = netRefs.length ? {formula:`SUM(${netRefs.join(',')})`} : 0;
   ws.getCell(r,9).font = {bold:true, size:13};
+  for(let c=1;c<=9;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   return r+1;
 }
 
@@ -659,12 +663,21 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
     const buffer = await file.arrayBuffer();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
-    const worksheet = workbook.getWorksheet('POP Measurements') || workbook.worksheets[0];
-    if(!worksheet){ showStatus('No worksheet found in that file.', false); return; }
 
-    // Leave everything already in the file exactly as it is and just append
-    // this batch's flats at the very end, with their OWN separate grand total.
-    let r = worksheet.rowCount + 2;
+    // Create a brand new sheet for this batch rather than appending into an
+    // existing one - find a name that doesn't collide with what's already there.
+    let sheetName = 'POP Measurements';
+    let n = 2;
+    const existingNames = workbook.worksheets.map(ws => ws.name);
+    while(existingNames.includes(sheetName)){
+      sheetName = 'POP Measurements ' + n;
+      n++;
+    }
+    const worksheet = workbook.addWorksheet(sheetName);
+    worksheet.columns = [{width:6},{width:28},{width:9},{width:7},{width:10},{width:10},{width:11},{width:11},{width:9}];
+    worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
+
+    let r = 1;
     const addedCount = flats.length;
     const netRefs = [];
     flats.forEach(f=>{
@@ -686,7 +699,7 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
     saveFlats();
     render();
 
-    showStatus('Added ' + addedCount + ' flat(s) into "' + existingFileHandle.name + '" directly - no download needed.', true);
+    showStatus('Added ' + addedCount + ' flat(s) into a new sheet "' + sheetName + '" in "' + existingFileHandle.name + '" - no download needed.', true);
   }catch(err){
     console.error(err);
     showStatus('Could not save to that file: ' + err.message, false);
