@@ -693,15 +693,20 @@ function parseLedger(text){
         const wingMatch = unitTokens.length>=2 ? unitTokens[0].match(/(\d+)$/) : null;
         if(wingMatch){
           bKey = bKey + " " + wingMatch[1];
-          if(nextTok && /^\d+$/.test(nextTok)){
-            bestFloor = bestFloor || nextTok;
+          const nextFm = nextTok ? nextTok.match(/^(\d+)(?:\.\d+)?$/) : null;
+          if(nextFm){
+            bestFloor = bestFloor || nextFm[1];
           } else {
             bestFloor = bestFloor || deriveFloor(unitTokens[unitTokens.length-1]);
           }
         } else {
           // Micromega/Ananta style: next integer token after building name is floor.
+          // Some ledgers (e.g. Serenity Park) write this as a decimal like
+          // "5.000" rather than a plain integer - accept both, using only
+          // the integer part.
           for(let k=afterBuildingIdx;k<tokens.length;k++){
-            if(/^\d+$/.test(tokens[k])){ bestFloor = bestFloor || tokens[k]; break; }
+            const fm = tokens[k].match(/^(\d+)(?:\.\d+)?$/);
+            if(fm){ bestFloor = bestFloor || fm[1]; break; }
           }
         }
         if(!r.buildingKey) r.buildingKey = bKey;
