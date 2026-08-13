@@ -310,9 +310,42 @@ const PROJECTS = {
     addressLine: "City Survey no. 72/3/1, Vapi Daman Road, Chala, Vapi \u2013 396191",
     devPermissionNo: "No. VAADA/30-10-2020/1505799/01/000646/ODPS/192/20-21 dated 28/12/2020",
     devAgreementDate: "21/08/2018",
-    buildings: { JACINTA:"", NERINE:"", MAGNOLIA:"", "ASTER 1":"", "ASTER 2":"", BLUEBELL:"", "ELDA 1":"", "ELDA 2":"" }
+    buildings: { "ASTER 1":"", "ASTER 2":"", BLUEBELL:"", "ELDA 1":"", "ELDA 2":"" }
+  },
+  PARK3: {
+    label: "The Eternity Park Phase-3",
+    company: "NAGJUA LIFESPACES",
+    projectName: "THE ETERNITY PARK PHASE-3",
+    surveyShort: "72/3/1",
+    // Same overall Eternity Park development as Phase-2 - survey/address/
+    // permission reused as a best-effort default. Please verify/replace
+    // devPermissionNo and devAgreementDate if Phase-3 has its own.
+    addressLine: "City Survey no. 72/3/1, Vapi Daman Road, Chala, Vapi \u2013 396191",
+    devPermissionNo: "No. VAADA/30-10-2020/1505799/01/000646/ODPS/192/20-21 dated 28/12/2020",
+    devAgreementDate: "21/08/2018",
+    buildings: { JACINTA:"" }
+  },
+  SERENITY: {
+    label: "The Serenity Park Phase-1",
+    company: "NAGJUA LIFESPACES",
+    projectName: "THE SERENITY PARK PHASE-1",
+    surveyShort: "3527 & 3528",
+    addressLine: "S.No. 3527 and 3528, Near TBZ and Cine Park, Daman Road, Chala, Vapi \u2013 396191",
+    // Confirmed from an actual customer ledger for this project. Development
+    // permission no./agreement date were not visible on that ledger -
+    // please provide/verify these before relying on this for a real NOC.
+    devPermissionNo: "____________",
+    devAgreementDate: "____________",
+    buildings: { NERINE:"", MAGNOLIA:"" }
   }
 };
+
+// Every "Park"-style project (Eternity Park Phase-2/3, Serenity Park) shares
+// the same Vapi-based formatting conventions (place name, flat number
+// pattern, carpet-area wording, wing handling) - checked in many places
+// throughout this file, so this is a single point of truth for which pKeys
+// count as "Park-style" rather than repeating pKey==="PARK" everywhere.
+const PARK_STYLE_KEYS = new Set(["PARK", "PARK3", "SERENITY"]);
 
 // ---------- Helpers ----------
 function ordinal(n){
@@ -520,7 +553,7 @@ function onFlatNoChange(){
   // Eternity Park flat numbers include a wing prefix (e.g. "A2-203" = Wing
   // A2, flat 203). Strip it before deriving floor, otherwise the wing
   // digit gets folded into the floor calculation (e.g. "22" instead of "2").
-  const floorInput = (pKey === "PARK") ? flatNo.replace(/^[A-Za-z]+\d*-?/,"") : flatNo;
+  const floorInput = (PARK_STYLE_KEYS.has(pKey)) ? flatNo.replace(/^[A-Za-z]+\d*-?/,"") : flatNo;
   document.getElementById("floor").value = ordinal(deriveFloor(floorInput));
   const detected = detectBuildingFromFlatNo(flatNo);
   if(detected){
@@ -946,11 +979,11 @@ async function buildDocxBlob(overrides = {}){
   // building name when a separate "Wing-N" phrase will already show it
   // (e.g. "ASTER 2" -> "ASTER", so the sentence reads "ASTER, Wing-2" not
   // "ASTER 2, Wing-2"). Buildings without a wing number are unaffected.
-  const buildingNameDisp = (pKey === "PARK" && wing) ? buildingName.replace(/\s*\d+\s*$/,"") : buildingName;
+  const buildingNameDisp = (PARK_STYLE_KEYS.has(pKey) && wing) ? buildingName.replace(/\s*\d+\s*$/,"") : buildingName;
   const flatNo = document.getElementById("flatNo").value.trim();
   // Eternity Park flat numbers include a wing prefix (e.g. "A2-203"); strip
   // it before deriving floor, same logic as onFlatNoChange.
-  const floorInput = (pKey === "PARK") ? flatNo.replace(/^[A-Za-z]+\d*-?/,"") : flatNo;
+  const floorInput = (PARK_STYLE_KEYS.has(pKey)) ? flatNo.replace(/^[A-Za-z]+\d*-?/,"") : flatNo;
   const floorNum = deriveFloor(floorInput);
   const buyerName = document.getElementById("buyerName").value.trim();
   const carpetArea = document.getElementById("carpetArea").value.trim();
@@ -979,7 +1012,7 @@ async function buildDocxBlob(overrides = {}){
           HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom,
           TextWrappingType, TextWrappingSide } = docx;
 
-  const flatNoDisp = displayFlatNo(flatNo, pKey === "PARK");
+  const flatNoDisp = displayFlatNo(flatNo, PARK_STYLE_KEYS.has(pKey));
   const totalWords = numToWords(totalAmount);
   const paidWords = numToWords(paidAmount);
   const remainingWords = numToWords(remainingAmount);
@@ -1130,7 +1163,7 @@ async function buildDocxBlob(overrides = {}){
   formatAToBlock.push(paraTight([]));
 
   const balconyRuns = balconyArea
-    ? (pKey === "PARK"
+    ? (PARK_STYLE_KEYS.has(pKey)
         ? [ R(", exclusive balcony area "), R(`${balconyArea} sft.`, {bold:true}) ]
         : pKey === "ANANTA"
         ? [ R(", exclusive balcony area "), R(`${balconyArea} Sft.`, {bold:true}) ]
@@ -1162,11 +1195,11 @@ async function buildDocxBlob(overrides = {}){
     children = [
       topSpacer,
       iciciDateSpacer,
-      para([ R(`Place: ${pKey === "PARK" ? "Vapi" : "Silvassa"}`) ], { alignment: AlignmentType.RIGHT }),
+      para([ R(`Place: ${PARK_STYLE_KEYS.has(pKey) ? "Vapi" : "Silvassa"}`) ], { alignment: AlignmentType.RIGHT }),
       ...toBlockParas,
       para([R("")], { spacing: {...paraSpacing, after:57} }),
       para([ R(" Dear Sir,") ]),
-      pKey === "PARK" ? para([
+      PARK_STYLE_KEYS.has(pKey) ? para([
         R("Re: Permission to mortgage Flat No. "), R(flatNoDisp, {bold:true}), R(" on the "),
         ...ordRuns(floorNum, {bold:true}),
         R(" Floor of the building proposed to be named as / named as "), R(buildingNameDisp, {bold:true}),
@@ -1187,7 +1220,7 @@ async function buildDocxBlob(overrides = {}){
       para([R("")], { spacing: {...paraSpacing, after:57} }),
       para([
         R("This is to confirm that we have allotted/sold flat no. "), R(flatNoDisp, {bold:true}),
-        R(" admeasuring "), R(`${carpetArea} sq. ft.`, {bold:true}), R((pKey === "PARK" || pKey === "ANANTA") ? " (Rera carpet/built-up area)" : " (carpet/built-up area)"),
+        R(" admeasuring "), R(`${carpetArea} sq. ft.`, {bold:true}), R((PARK_STYLE_KEYS.has(pKey) || pKey === "ANANTA") ? " (Rera carpet/built-up area)" : " (carpet/built-up area)"),
         ...balconyRuns, ...washRuns, R(" on the "), ...ordRuns(floorNum, {bold:true}),
         R(" floor of the building proposed to be named as / known as "), R(buildingNameDisp, {bold:true}),
         ...(pKey === "ANANTA"
@@ -1243,19 +1276,19 @@ async function buildDocxBlob(overrides = {}){
         R(`Sub: Flat No. ${flatNoDisp}, ${wordOrdinal(floorNum)} FLOOR `),
         pKey === "ANANTA"
           ? R(`in the Building - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cNAGJUA, ANANTA\u201d, Srv. No. ${p.surveyShort} & others,   Amli, Silvassa. (D& N. H & DD)`)
-          : pKey === "PARK"
+          : PARK_STYLE_KEYS.has(pKey)
           ? R(`in the Building \u2013 ${bl} Known as \u2013 ${buildingName === "BLUEBELL" ? "BLUE BELL" : buildingName}, in \u201cTHE ETERNITY PARK PHASE 2\u201d, City Survey no. ${p.surveyShort}, Chala, Vapi, Gujarat.`)
           : R(`in the Building  - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cTROPICAL GREENS PHASE ${pKey === "TG2B" ? "2B" : "2A"}\u201d, Srv. No. ${p.surveyShort} & others,   Kamlifaliya, Silvassa. (D& N. H & DD)`)
       ], { spacing: {...paraSpacing, after:120} }),
       makeContentPara(
         'allotment_confirm',
-        pKey === "PARK"
+        PARK_STYLE_KEYS.has(pKey)
           ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate ? agreementDate + "." : ""}`
           : pKey === "ANANTA"
           ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWords} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate ? agreementDate + "." : ""}`
           : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWords} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate ? agreementDate + "." : ""}`,
         [
-          pKey === "PARK" ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only)` :
+          PARK_STYLE_KEYS.has(pKey) ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWords} Only)` :
           pKey === "ANANTA" ? `Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWords} Only)` :
           `Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWords} only)`,
           `Agreement for Sale Dated ${agreementDate || ""}`,
@@ -1270,7 +1303,7 @@ async function buildDocxBlob(overrides = {}){
       ),
       makeContentPara(
         'possession_confirm',
-        pKey === "PARK"
+        PARK_STYLE_KEYS.has(pKey)
           ? `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`
           : `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`,
         [], para, R, t=>R(t,{bold:true}), { spacing: {...paraSpacing, after:120} }
@@ -1314,19 +1347,19 @@ async function buildDocxBlob(overrides = {}){
         RB(`Sub: Flat No. ${flatNoDisp}, ${wordOrdinal(floorNum)} FLOOR `),
         pKey === "ANANTA"
           ? RB(`in the Building - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cNAGJUA, ANANTA\u201d, Srv. No. ${p.surveyShort} & others,   Amli, Silvassa. (D& N. H & DD)`)
-          : pKey === "PARK"
+          : PARK_STYLE_KEYS.has(pKey)
           ? RB(`in the Building \u2013 ${bl} Known as \u2013 ${buildingName === "BLUEBELL" ? "BLUE BELL" : buildingName}, in \u201cTHE ETERNITY PARK PHASE 2\u201d, City Survey no. ${p.surveyShort}, Chala, Vapi, Gujarat.`)
           : RB(`in the Building  - \u2018${bl}\u2019 Known as \u2013 ${buildingName}, in \u201cTROPICAL GREENS PHASE ${pKey === "TG2B" ? "2B" : "2A"}\u201d, Srv. No. ${p.surveyShort} & others,   Kamlifaliya, Silvassa. (D& N. H & DD)`)
       ], { indent:{left:1985, hanging:1265} }),
       makeContentPara(
         'allotment_confirm',
-        pKey === "PARK"
+        PARK_STYLE_KEYS.has(pKey)
           ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated ${agreementDate ? agreementDate + "." : ""}`
           : pKey === "ANANTA"
           ? `This is to confirm that we have allotted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWordsB} Only) vide Allotment letter/ Agreement for Sale Dated   ${agreementDate ? agreementDate + "." : ""}`
           : `This is to confirm that we have alloted/agreed to sell above Flat /Plot to above allotee/ Transferee/Purchaser/s for a total consideration Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWordsB} only) vide Allotment letter/ Agreement for Sale Dated  ${agreementDate ? agreementDate + "." : ""}`,
         [
-          pKey === "PARK" ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only)` :
+          PARK_STYLE_KEYS.has(pKey) ? `Rs.${fmtAmount(totalAmount)}/- (Rupees:  ${totalWordsB} Only)` :
           pKey === "ANANTA" ? `Rs. ${fmtAmount(totalAmount)}.00 (Rupees in words: ${totalWordsB} Only)` :
           `Rs.${fmtAmount(totalAmount)}.00 (In words Rupees : ${totalWordsB} only)`,
           `Agreement for Sale Dated ${agreementDate || ""}`,
@@ -1341,7 +1374,7 @@ async function buildDocxBlob(overrides = {}){
       ),
       makeContentPara(
         'possession_confirm',
-        pKey === "PARK"
+        PARK_STYLE_KEYS.has(pKey)
           ? `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`
           : `We also confirm that we are in possession of above stated land vide Development Agreement/ Agreement for Sale/ Sale Deed Dated ${p.devAgreementDate} and as such we are entitled to carry out construction, allotment, sale etc. and the same have not been revoked by land owners.`,
         [], paraB, RB, t=>RB(t,{bold:true})
