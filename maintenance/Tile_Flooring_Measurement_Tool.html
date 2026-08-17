@@ -328,17 +328,24 @@ function escapeHtml(str){
 // ---- Core math ----
 // Parses "11'6\"" style text (feet' inches") into decimal feet. Also
 // tolerates "11'6", "11' 6\"", "11-6", or a plain number like "11.5".
+// Exact inch->decimal-feet lookup matching how measurements are worked out
+// by hand (not pure inch/12 division - e.g. 2" = 0.16 ft here, not 0.1667).
+const INCH_TO_DECIMAL = {0:0, 1:0.083, 2:0.16, 3:0.25, 4:0.33, 5:0.41, 6:0.5, 7:0.58, 8:0.66, 9:0.75, 10:0.83, 11:0.91, 12:1};
+function inchToDecimalFt(inch){
+  if(Number.isInteger(inch) && INCH_TO_DECIMAL.hasOwnProperty(inch)) return INCH_TO_DECIMAL[inch];
+  return inch/12; // fallback for fractional or out-of-range inches (e.g. half-inches)
+}
 function parseFeetInches(str){
   if(str==null || str==='') return 0;
   str = String(str).trim();
   // Inches-only, e.g. 9" or 9in (no feet, no apostrophe)
   const inchOnly = str.match(/^(\d+(?:\.\d+)?)\s*(?:"|in)$/i);
-  if(inchOnly) return (parseFloat(inchOnly[1])||0) / 12;
+  if(inchOnly) return inchToDecimalFt(parseFloat(inchOnly[1])||0);
   const m = str.match(/^(\d+(?:\.\d+)?)\s*(?:'|ft)?\s*[-\s]?\s*(\d+(?:\.\d+)?)?\s*"?\s*(?:in)?$/i);
   if(!m) { const n = parseFloat(str); return isFinite(n) ? n : 0; }
   const ft = parseFloat(m[1]) || 0;
   const inch = parseFloat(m[2]) || 0;
-  return ft + inch/12;
+  return ft + inchToDecimalFt(inch);
 }
 function rowQuantity(row){
   const nos = Number(row.nos)||0;
@@ -646,10 +653,14 @@ function normalizeLengthText(str){
 }
 
 // Builds the Excel-formula fragment that parses a feet-inches text cell
-// (e.g. 11'6") into decimal feet: feet + inches/12, using LEFT/FIND/MID -
-// classic functions that evaluate reliably everywhere.
+// (e.g. 11'6") into decimal feet, using the exact inch->decimal lookup
+// table (matches manual calculation, not pure inch/12 division) via
+// CHOOSE - classic functions that evaluate reliably everywhere.
 function feetInchesFormulaFragment(cellRef){
-  return `(LEFT(${cellRef},FIND("'",${cellRef})-1)+MID(${cellRef},FIND("'",${cellRef})+1,LEN(${cellRef})-FIND("'",${cellRef})-1)/12)`;
+  const feetPart = `LEFT(${cellRef},FIND("'",${cellRef})-1)`;
+  const inchPart = `MID(${cellRef},FIND("'",${cellRef})+1,LEN(${cellRef})-FIND("'",${cellRef})-1)`;
+  const lookup = `CHOOSE(${inchPart}+1,0,0.083,0.16,0.25,0.33,0.41,0.5,0.58,0.66,0.75,0.83,0.91,1)`;
+  return `(${feetPart}+${lookup})`;
 }
 
 function writeFlatTable(ws, startRow, flat){
