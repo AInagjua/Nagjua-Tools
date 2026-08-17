@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   /* Design tokens kept identical to Window_Measurement_Tool.html for a
      consistent look across every Nagjua Tools page. */
@@ -220,7 +221,7 @@
       <div class="export-card">
         <h3>Upload Measurement Sheet Photo</h3>
         <p>Upload one or more photos of a handwritten "MEASUREMENT FORM" (tile/flooring work, with sections, Length, Breadth, and SF/RF units). Select multiple pages at once and the AI reads each one, adding the flats, sections, and rows directly below for you to review and correct.</p>
-        <input type="file" id="ai-photo-input" accept="image/*" multiple>
+        <input type="file" id="ai-photo-input" accept="image/*,.zip,application/zip" multiple>
         <button class="export-btn append" id="extract-photo-btn">Extract From Photo</button>
         <div class="status-msg" id="ai-status-msg"></div>
       </div>
@@ -840,6 +841,45 @@ document.getElementById('save-key-btn').addEventListener('click', () => {
   showKeyStatus('Key saved in this browser.', true);
 });
 
+const IMAGE_EXT_MIME = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', heic:'image/heic', heif:'image/heif' };
+
+function isZipFile(file){
+  return /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
+}
+
+// Expands a FileList/array into a flat list of image files, automatically
+// unzipping any .zip archives found among them (e.g. a WhatsApp export of
+// multiple measurement-form photos) into their contained images. Plain
+// image files pass through unchanged. Non-image, non-zip files are skipped.
+async function expandFilesWithZips(files){
+  const result = [];
+  for(const file of files){
+    if(isZipFile(file)){
+      try{
+        const buffer = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buffer);
+        const entries = Object.values(zip.files).filter(e=>{
+          if(e.dir) return false;
+          const ext = (e.name.split('.').pop()||'').toLowerCase();
+          return !!IMAGE_EXT_MIME[ext];
+        });
+        for(const entry of entries){
+          const ext = (entry.name.split('.').pop()||'').toLowerCase();
+          const blob = await entry.async('blob');
+          const named = new File([blob], entry.name.split('/').pop(), { type: IMAGE_EXT_MIME[ext] });
+          result.push(named);
+        }
+      }catch(err){
+        console.error('Could not read zip ' + file.name + ':', err);
+        result.push({ __zipError: true, name: file.name, message: err.message });
+      }
+    } else if(file.type && file.type.startsWith('image/')){
+      result.push(file);
+    }
+  }
+  return result;
+}
+
 function fileToBase64(file){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -930,16 +970,27 @@ function mergeExtractedItems(items, counts){
 
 document.getElementById('extract-photo-btn').addEventListener('click', async () => {
   const fileInput = document.getElementById('ai-photo-input');
-  const files = Array.from(fileInput.files || []);
+  const rawFiles = Array.from(fileInput.files || []);
   const apiKey = geminiKeyInput.value.trim();
   if(!apiKey){ showAiStatus('Save your Gemini API key first.', false); return; }
-  if(!files.length){ showAiStatus('Choose one or more photos first.', false); return; }
+  if(!rawFiles.length){ showAiStatus('Choose one or more photos (or a zip of photos) first.', false); return; }
 
   const btn = document.getElementById('extract-photo-btn');
   btn.disabled = true;
+  showAiStatus('Preparing photo(s)...', true);
 
   const counts = { addedFlats: 0, addedSections: 0, addedRows: 0 };
   const failures = [];
+
+  const expanded = await expandFilesWithZips(rawFiles);
+  const files = expanded.filter(f => !f.__zipError);
+  expanded.filter(f => f.__zipError).forEach(f => failures.push(`${f.name}: could not read zip (${f.message})`));
+
+  if(!files.length && !failures.length){
+    showAiStatus('No image files found in the selected file(s).', false);
+    btn.disabled = false;
+    return;
+  }
 
   for(let i=0;i<files.length;i++){
     const file = files[i];
