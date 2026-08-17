@@ -338,6 +338,9 @@ function inchToDecimalFt(inch){
 function parseFeetInches(str){
   if(str==null || str==='') return 0;
   str = String(str).trim();
+  // Normalize curly/smart apostrophes and quotes to straight ones - Excel's
+  // own AutoCorrect (and some browsers/OSes) can substitute these silently.
+  str = str.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
   // Inches-only, e.g. 9" or 9in (no feet, no apostrophe)
   const inchOnly = str.match(/^(\d+(?:\.\d+)?)\s*(?:"|in)$/i);
   if(inchOnly) return inchToDecimalFt(parseFloat(inchOnly[1])||0);
@@ -648,6 +651,7 @@ function writeFlatHeader(ws, startRow, flat){
 function normalizeLengthText(str){
   str = (str||'').trim();
   if(!str) return str;
+  str = str.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
   if(!/"$/.test(str)) str += '"';
   return str;
 }
@@ -657,8 +661,12 @@ function normalizeLengthText(str){
 // table (matches manual calculation, not pure inch/12 division) via
 // CHOOSE - classic functions that evaluate reliably everywhere.
 function feetInchesFormulaFragment(cellRef){
-  const feetPart = `LEFT(${cellRef},FIND("'",${cellRef})-1)`;
-  const inchPart = `MID(${cellRef},FIND("'",${cellRef})+1,LEN(${cellRef})-FIND("'",${cellRef})-1)`;
+  // Excel's own AutoCorrect often turns a typed straight apostrophe (')
+  // into a curly one (') - normalize both curly variants to straight
+  // first, so FIND("'",...) below still locates it reliably.
+  const norm = `SUBSTITUTE(SUBSTITUTE(${cellRef},"\u2018","'"),"\u2019","'")`;
+  const feetPart = `LEFT(${norm},FIND("'",${norm})-1)`;
+  const inchPart = `MID(${norm},FIND("'",${norm})+1,LEN(${norm})-FIND("'",${norm})-1)`;
   const lookup = `CHOOSE(${inchPart}+1,0,0.083,0.16,0.25,0.33,0.41,0.5,0.58,0.66,0.75,0.83,0.91,1)`;
   return `(${feetPart}+${lookup})`;
 }
