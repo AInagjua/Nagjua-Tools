@@ -328,17 +328,24 @@ function escapeHtml(str){
 // ---- Core math ----
 // Parses "11'6\"" style text (feet' inches") into decimal feet. Also
 // tolerates "11'6", "11' 6\"", "11-6", or a plain number like "11.5".
+// Exact inch->decimal-feet lookup matching how measurements are worked out
+// by hand (not pure inch/12 division - e.g. 2" = 0.16 ft here, not 0.1667).
+const INCH_TO_DECIMAL = {0:0, 1:0.083, 2:0.16, 3:0.25, 4:0.33, 5:0.41, 6:0.5, 7:0.58, 8:0.66, 9:0.75, 10:0.83, 11:0.91, 12:1};
+function inchToDecimalFt(inch){
+  if(Number.isInteger(inch) && INCH_TO_DECIMAL.hasOwnProperty(inch)) return INCH_TO_DECIMAL[inch];
+  return inch/12; // fallback for fractional or out-of-range inches (e.g. half-inches)
+}
 function parseFeetInches(str){
   if(str==null || str==='') return 0;
   str = String(str).trim();
   // Inches-only, e.g. 9" or 9in (no feet, no apostrophe)
   const inchOnly = str.match(/^(\d+(?:\.\d+)?)\s*(?:"|in)$/i);
-  if(inchOnly) return (parseFloat(inchOnly[1])||0) / 12;
+  if(inchOnly) return inchToDecimalFt(parseFloat(inchOnly[1])||0);
   const m = str.match(/^(\d+(?:\.\d+)?)\s*(?:'|ft)?\s*[-\s]?\s*(\d+(?:\.\d+)?)?\s*"?\s*(?:in)?$/i);
   if(!m) { const n = parseFloat(str); return isFinite(n) ? n : 0; }
   const ft = parseFloat(m[1]) || 0;
   const inch = parseFloat(m[2]) || 0;
-  return ft + inch/12;
+  return ft + inchToDecimalFt(inch);
 }
 function rowSft(row){
   const nos = Number(row.nos)||0;
@@ -581,6 +588,26 @@ function fmtDateSlash(d){
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
+// Ensures Length/Breadth text always ends with a closing " character, so
+// the Excel formula parsing it can reliably assume that boundary exists.
+function normalizeLengthText(str){
+  str = (str||'').trim();
+  if(!str) return str;
+  if(!/"$/.test(str)) str += '"';
+  return str;
+}
+
+// Builds the Excel-formula fragment that parses a feet-inches text cell
+// (e.g. 11'6") into decimal feet, using the exact inch->decimal lookup
+// table (matches manual calculation, not pure inch/12 division) via
+// CHOOSE - classic functions that evaluate reliably everywhere.
+function feetInchesFormulaFragment(cellRef){
+  const feetPart = `LEFT(${cellRef},FIND("'",${cellRef})-1)`;
+  const inchPart = `MID(${cellRef},FIND("'",${cellRef})+1,LEN(${cellRef})-FIND("'",${cellRef})-1)`;
+  const lookup = `CHOOSE(${inchPart}+1,0,0.083,0.16,0.25,0.33,0.41,0.5,0.58,0.66,0.75,0.83,0.91,1)`;
+  return `(${feetPart}+${lookup})`;
+}
+
 function writeFlatBlock(ws, startRow, flat){
   let r = startRow;
 
@@ -600,54 +627,56 @@ function writeFlatBlock(ws, startRow, flat){
   r++;
 
   let sl = 1;
-  const workRefs = [], deductRefs = [];
+  const workRowRefs = [], deductRowRefs = [];
   flat.rows.forEach(row=>{
-    const sft = rowSft(row);
+    const lengthText = normalizeLengthText(row.length);
+    const breadthText = normalizeLengthText(row.breadth);
     ws.getCell(r,1).value = sl;
     ws.getCell(r,2).value = row.particulars || '';
-    ws.getCell(r,3).value = row.length || '';
-    ws.getCell(r,4).value = row.breadth || '';
+    ws.getCell(r,3).value = lengthText;
+    ws.getCell(r,4).value = breadthText;
     ws.getCell(r,5).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
-    // Length/Breadth are kept as the original feet-inches text (e.g. 11'6")
-    // so the sheet reads exactly like what was typed. Excel can't do
-    // arithmetic directly on that text, so Sq.ft here is a computed number
-    // (matching the on-screen value) rather than a live formula.
-    ws.getCell(r,6).value = sft;
+    // Real formula: parses the feet-inches text directly in Excel and
+    // recalculates if Length/Breadth/Nos are edited there.
+    const cRef = `C${r}`, dRef = `D${r}`, eRef = `E${r}`;
+    const formula = `IFERROR(${feetInchesFormulaFragment(cRef)}*${feetInchesFormulaFragment(dRef)}*${eRef},0)`;
+    ws.getCell(r,6).value = { formula: `ROUND(${formula},2)` };
     ws.getCell(r,7).value = row.remark || '';
-    for(let c=1;c<=7;c++){ ws.getCell(r,c).alignment={horizontal: c===2||c===7 ? 'left' : 'center'}; ws.getCell(r,c).border=THIN_BORDER; }
-    if(row.deduction){ deductRefs.push(sft); ws.getCell(r,2).font = {color:{argb:'FFB3392C'}, bold:true}; }
-    else workRefs.push(sft);
+    for(let c=1;c<=7;c++){
+      ws.getCell(r,c).alignment={horizontal: c===2||c===7 ? 'left' : 'center'};
+      ws.getCell(r,c).border=THIN_BORDER;
+      if(row.deduction) ws.getCell(r,c).font = {color:{argb:'FFB3392C'}, bold:true};
+    }
+    if(row.deduction) deductRowRefs.push(`F${r}`); else workRowRefs.push(`F${r}`);
     r++; sl++;
   });
 
-  const workTotal = Math.round(workRefs.reduce((s,v)=>s+v,0)*100)/100;
-  const deductTotal = Math.round(deductRefs.reduce((s,v)=>s+v,0)*100)/100;
-  const netTotal = Math.round((workTotal-deductTotal)*100)/100;
-
+  const workRow = r;
   ws.getCell(r,2).value = 'Total Work'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = workTotal;
+  ws.getCell(r,6).value = workRowRefs.length ? {formula:`SUM(${workRowRefs.join(',')})`} : 0;
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
+  const deductRow = r;
   ws.getCell(r,2).value = 'Total Deduction'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,6).value = deductTotal;
+  ws.getCell(r,6).value = deductRowRefs.length ? {formula:`SUM(${deductRowRefs.join(',')})`} : 0;
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   const netRow = r;
   ws.getCell(r,2).value = 'Net Total'; ws.getCell(r,2).font = {bold:true, size:12};
-  ws.getCell(r,6).value = netTotal;
+  ws.getCell(r,6).value = {formula:`F${workRow}-F${deductRow}`};
   ws.getCell(r,6).font = {bold:true, size:12};
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   r++; // spacer row between flats
 
-  return { nextRow: r, netTotal: netTotal };
+  return { nextRow: r, netRef: `F${netRow}` };
 }
 
-function writeGrandTotal(ws, startRow, netTotals){
+function writeGrandTotal(ws, startRow, netRefs){
   let r = startRow;
   ws.getCell(r,2).value = 'GRAND NET TOTAL (ALL FLATS)';
   ws.getCell(r,2).font = {bold:true, size:13};
-  ws.getCell(r,6).value = Math.round(netTotals.reduce((s,v)=>s+v,0)*100)/100;
+  ws.getCell(r,6).value = netRefs.length ? {formula:`SUM(${netRefs.join(',')})`} : 0;
   ws.getCell(r,6).font = {bold:true, size:13};
   for(let c=1;c<=7;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   return r+1;
@@ -677,13 +706,13 @@ document.getElementById('download-new-btn').addEventListener('click', async ()=>
     worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
 
     let r = writeDocumentHeader(worksheet, 1);
-    const netTotals = [];
+    const netRefs = [];
     flats.forEach(f=>{
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
-      netTotals.push(result.netTotal);
+      netRefs.push(result.netRef);
     });
-    writeGrandTotal(worksheet, r, netTotals);
+    writeGrandTotal(worksheet, r, netRefs);
 
     const buffer = await workbook.xlsx.writeBuffer();
     triggerDownload(buffer, 'Wall_POP_Measurements.xlsx');
@@ -742,13 +771,13 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
 
     let r = writeDocumentHeader(worksheet, 1);
     const addedCount = flats.length;
-    const netTotals = [];
+    const netRefs = [];
     flats.forEach(f=>{
       const result = writeFlatBlock(worksheet, r, f);
       r = result.nextRow;
-      netTotals.push(result.netTotal);
+      netRefs.push(result.netRef);
     });
-    writeGrandTotal(worksheet, r, netTotals);
+    writeGrandTotal(worksheet, r, netRefs);
 
     const outBuffer = await workbook.xlsx.writeBuffer();
     const newFile = new Blob([outBuffer]);
