@@ -589,11 +589,10 @@ document.getElementById('reset-btn').addEventListener('click',()=>{
 });
 
 // ---- Excel export ----
-const THIN_BORDER = {top:{style:'thin',color:{argb:'FFD8E1E8'}},left:{style:'thin',color:{argb:'FFD8E1E8'}},bottom:{style:'thin',color:{argb:'FFD8E1E8'}},right:{style:'thin',color:{argb:'FFD8E1E8'}}};
+const THIN_BORDER = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
 const HEADER_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FF3C5A8A'}};
-const SECTION_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FF5B7DB1'}};
-const PLAIN_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FFEEF2F7'}};
-const NUM_COLS = 8; // Sr.No, Particulars, Nos, Length, Breadth, Unit, Quantity, Remark
+const PLAIN_FILL = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD9D9D9'}};
+const NUM_COLS = 8; // Sr.No, Particulars, Length, Breadth, Nos, Unit, Quantity, Remarks
 
 function fmtDateSlash(d){
   const dd = String(d.getDate()).padStart(2,'0');
@@ -628,79 +627,64 @@ function writeFlatHeader(ws, startRow, flat){
   headerLine('Name of Work', flat.nameOfWork);
   headerLine('Bill No.', flat.billNo);
   headerLine('Date', flat.date ? fmtDateSlash(new Date(flat.date+'T00:00:00')) : '');
-  r++; // blank spacer before the first section
+  r++; // blank spacer before the table
   return r;
 }
 
-function writeSectionBlock(ws, startRow, section, sectionIndex){
+// One continuous table for the whole flat (matching the user's reference
+// template) - no per-section subtotal or colored banner row. Sr.No is
+// shown only on each section's FIRST row (blank for the rest of that
+// section's rows), acting as a lightweight group marker. Totals appear
+// once at the very end, across all sections combined.
+function writeFlatTable(ws, startRow, flat){
   let r = startRow;
-
-  ws.mergeCells(r,1,r,NUM_COLS);
-  const headerCell = ws.getCell(r,1);
-  headerCell.value = `${sectionIndex}) ${section.name || '(Unnamed section)'}`;
-  headerCell.fill = SECTION_FILL;
-  headerCell.font = {bold:true, size:12, color:{argb:'FFFFFFFF'}};
-  headerCell.alignment = {horizontal:'left'};
-  for(let c=1;c<=NUM_COLS;c++){ ws.getCell(r,c).border = THIN_BORDER; }
-  r++;
-
-  const subHeaders = ['Sr.No','Particulars','Nos','Length','Breadth','Unit','Quantity','Remark'];
+  const subHeaders = ['Sr.No','Particulars','Length','Breadth','Nos.','Unit','Quantity','Remarks'];
   subHeaders.forEach((h,idx)=>{
     const cell = ws.getCell(r, idx+1);
     cell.value = h; cell.font={bold:true}; cell.alignment={horizontal:'center'}; cell.fill=PLAIN_FILL; cell.border=THIN_BORDER;
   });
   r++;
 
-  let sl = 1;
   const workRefs = [], deductRefs = [];
-  section.rows.forEach(row=>{
-    const qty = rowQuantity(row);
-    ws.getCell(r,1).value = sl;
-    ws.getCell(r,2).value = row.particulars || '';
-    ws.getCell(r,3).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
-    ws.getCell(r,4).value = row.length || '';
-    ws.getCell(r,5).value = row.unitType==='RF' ? '' : (row.breadth || '');
-    ws.getCell(r,6).value = row.unitType==='RF' ? 'RF' : 'SF';
-    // Length/Breadth are kept as the original feet-inches text (e.g. 11'6")
-    // so the sheet reads exactly like what was typed. Excel can't do
-    // arithmetic directly on that text, so Quantity here is a computed
-    // number (matching the on-screen value) rather than a live formula.
-    ws.getCell(r,7).value = qty;
-    ws.getCell(r,8).value = row.remark || '';
-    for(let c=1;c<=NUM_COLS;c++){ ws.getCell(r,c).alignment={horizontal: c===2||c===8 ? 'left' : 'center'}; ws.getCell(r,c).border=THIN_BORDER; }
-    if(row.deduction){ deductRefs.push(qty); ws.getCell(r,2).font = {color:{argb:'FFB3392C'}, bold:true}; }
-    else workRefs.push(qty);
-    r++; sl++;
+  flat.sections.forEach((section, sIdx)=>{
+    section.rows.forEach((row, rIdx)=>{
+      const qty = rowQuantity(row);
+      ws.getCell(r,1).value = rIdx===0 ? (sIdx+1) : '';
+      ws.getCell(r,2).value = row.particulars || '';
+      ws.getCell(r,3).value = row.length || '';
+      ws.getCell(r,4).value = row.unitType==='RF' ? '' : (row.breadth || '');
+      ws.getCell(r,5).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
+      ws.getCell(r,6).value = row.unitType==='RF' ? 'RF' : 'SF';
+      // Length/Breadth are kept as the original feet-inches text (e.g.
+      // 11'6") so the sheet reads exactly like what was typed. Excel can't
+      // do arithmetic directly on that text, so Quantity here is a
+      // computed number (matching the on-screen value) rather than a
+      // live formula.
+      ws.getCell(r,7).value = qty;
+      ws.getCell(r,8).value = row.remark || '';
+      for(let c=1;c<=NUM_COLS;c++){ ws.getCell(r,c).alignment={horizontal: c===2||c===8 ? 'left' : 'center'}; ws.getCell(r,c).border=THIN_BORDER; }
+      if(row.deduction){ deductRefs.push(qty); ws.getCell(r,2).font = {color:{argb:'FFB3392C'}, bold:true}; }
+      else workRefs.push(qty);
+      r++;
+    });
   });
 
   const workTotal = Math.round(workRefs.reduce((s,v)=>s+v,0)*100)/100;
   const deductTotal = Math.round(deductRefs.reduce((s,v)=>s+v,0)*100)/100;
   const netTotal = Math.round((workTotal-deductTotal)*100)/100;
 
+  r++; // blank spacer before totals
   ws.getCell(r,2).value = 'Total Work'; ws.getCell(r,2).font = {bold:true};
   ws.getCell(r,7).value = workTotal;
-  for(let c=1;c<=NUM_COLS;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
   ws.getCell(r,2).value = 'Total Deduction'; ws.getCell(r,2).font = {bold:true};
   ws.getCell(r,7).value = deductTotal;
-  for(let c=1;c<=NUM_COLS;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
-  ws.getCell(r,2).value = 'Total Quantity'; ws.getCell(r,2).font = {bold:true, size:12};
+  ws.getCell(r,2).value = 'Net Total'; ws.getCell(r,2).font = {bold:true, size:12};
   ws.getCell(r,7).value = netTotal;
   ws.getCell(r,7).font = {bold:true, size:12};
-  for(let c=1;c<=NUM_COLS;c++){ ws.getCell(r,c).border = THIN_BORDER; }
   r++;
-  r++; // spacer row between sections
 
-  return r;
-}
-
-function writeFlatBlock(ws, startRow, flat){
-  let r = writeFlatHeader(ws, startRow, flat);
-  flat.sections.forEach((section, idx)=>{
-    r = writeSectionBlock(ws, r, section, idx+1);
-  });
-  r++; // extra spacer between flats
   return r;
 }
 
@@ -719,22 +703,38 @@ function showStatus(msg, ok){
   el.className = 'status-msg show ' + (ok ? 'ok' : 'err');
 }
 
+function sheetNameForFlat(flat, usedNames){
+  let base = [flat.tower, flat.flatNo].filter(Boolean).join(' ').trim();
+  if(!base) base = 'Flat';
+  // Excel sheet names: max 31 chars, no \ / ? * [ ]
+  base = base.replace(/[\\\/?*\[\]]/g,'-').slice(0,31);
+  let name = base;
+  let n = 2;
+  while(usedNames.includes(name)){
+    const suffix = ' (' + n + ')';
+    name = base.slice(0, 31-suffix.length) + suffix;
+    n++;
+  }
+  usedNames.push(name);
+  return name;
+}
+
 document.getElementById('download-new-btn').addEventListener('click', async ()=>{
   if(!hasData()){ showStatus('Add at least one flat with data before downloading.', false); return; }
   try{
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Tile & Flooring Measurements');
-    worksheet.columns = [{width:7},{width:26},{width:7},{width:10},{width:10},{width:7},{width:11},{width:20}];
-    worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
-
-    let r = 1;
+    const usedNames = [];
     flats.forEach(f=>{
-      r = writeFlatBlock(worksheet, r, f);
+      const worksheet = workbook.addWorksheet(sheetNameForFlat(f, usedNames));
+      worksheet.columns = [{width:7.5},{width:26},{width:10.5},{width:10},{width:6.5},{width:7},{width:12},{width:14}];
+      worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
+      const r = writeFlatHeader(worksheet, 1, f);
+      writeFlatTable(worksheet, r, f);
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
     triggerDownload(buffer, 'Tile_Flooring_Measurements.xlsx');
-    showStatus('Downloaded Tile_Flooring_Measurements.xlsx', true);
+    showStatus('Downloaded Tile_Flooring_Measurements.xlsx - ' + flats.length + ' flat(s), each on its own sheet.', true);
   }catch(err){
     console.error(err);
     showStatus('Could not build the file: ' + err.message, false);
@@ -774,23 +774,20 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
 
-    // Create a brand new sheet for this batch rather than appending into an
-    // existing one - find a name that doesn't collide with what's already there.
-    let sheetName = 'Tile & Flooring Measurements';
-    let n = 2;
-    const existingNames = workbook.worksheets.map(ws => ws.name);
-    while(existingNames.includes(sheetName)){
-      sheetName = 'Tile & Flooring Measurements ' + n;
-      n++;
-    }
-    const worksheet = workbook.addWorksheet(sheetName);
-    worksheet.columns = [{width:7},{width:26},{width:7},{width:10},{width:10},{width:7},{width:11},{width:20}];
-    worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
-
-    let r = 1;
+    // Create a brand new sheet PER FLAT rather than appending into an
+    // existing one - names are checked against sheets already in the file
+    // (and against each other) to avoid any collision.
+    const usedNames = workbook.worksheets.map(ws => ws.name);
     const addedCount = flats.length;
+    const newSheetNames = [];
     flats.forEach(f=>{
-      r = writeFlatBlock(worksheet, r, f);
+      const sheetName = sheetNameForFlat(f, usedNames);
+      newSheetNames.push(sheetName);
+      const worksheet = workbook.addWorksheet(sheetName);
+      worksheet.columns = [{width:7.5},{width:26},{width:10.5},{width:10},{width:6.5},{width:7},{width:12},{width:14}];
+      worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
+      const r = writeFlatHeader(worksheet, 1, f);
+      writeFlatTable(worksheet, r, f);
     });
 
     const outBuffer = await workbook.xlsx.writeBuffer();
@@ -805,7 +802,7 @@ document.getElementById('save-to-existing-btn').addEventListener('click', async 
     saveFlats();
     render();
 
-    showStatus('Added ' + addedCount + ' flat(s) into a new sheet "' + sheetName + '" in "' + existingFileHandle.name + '" - no download needed.', true);
+    showStatus('Added ' + addedCount + ' flat(s) as new sheet(s) ("' + newSheetNames.join('", "') + '") in "' + existingFileHandle.name + '" - no download needed.', true);
   }catch(err){
     console.error(err);
     showStatus('Could not save to that file: ' + err.message, false);
