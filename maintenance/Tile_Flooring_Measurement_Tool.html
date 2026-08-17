@@ -219,8 +219,8 @@
     <div class="export-grid">
       <div class="export-card">
         <h3>Upload Measurement Sheet Photo</h3>
-        <p>Upload a photo of a handwritten "MEASUREMENT FORM" (tile/flooring work, with sections, Length, Breadth, and SF/RF units). The AI reads it and adds the flat, sections, and rows directly below for you to review and correct.</p>
-        <input type="file" id="ai-photo-input" accept="image/*">
+        <p>Upload one or more photos of a handwritten "MEASUREMENT FORM" (tile/flooring work, with sections, Length, Breadth, and SF/RF units). Select multiple pages at once and the AI reads each one, adding the flats, sections, and rows directly below for you to review and correct.</p>
+        <input type="file" id="ai-photo-input" accept="image/*" multiple>
         <button class="export-btn append" id="extract-photo-btn">Extract From Photo</button>
         <div class="status-msg" id="ai-status-msg"></div>
       </div>
@@ -886,73 +886,87 @@ function parseGeminiJson(text){
   return JSON.parse(cleaned);
 }
 
+function mergeExtractedItems(items, counts){
+  // Group extracted rows by Tower+Flat No.+Series into flats, then by
+  // section name into sections within each flat - usually every row in
+  // one photo belongs to the same flat, but this also handles a photo
+  // that happens to cover more than one flat.
+  items.forEach(it=>{
+    const tower = (it.tower||'').trim();
+    const flatNo = (it.flatNo||'').trim();
+    const series = (it.series||'').trim();
+    let flat = flats.find(f=>f.tower.trim()===tower && f.flatNo.trim()===flatNo && (tower||flatNo));
+    if(!flat){
+      flat = newFlat();
+      flat.tower = tower;
+      flat.flatNo = flatNo;
+      flat.series = series;
+      flat.nameOfWork = (it.nameOfWork||'').trim();
+      flat.billNo = (it.billNo||'').trim();
+      flats.push(flat);
+      counts.addedFlats++;
+    }
+    const sectionName = (it.section||'').trim();
+    let section = flat.sections.find(s=>s.name.trim()===sectionName && sectionName);
+    if(!section){
+      section = newSection();
+      section.name = sectionName;
+      flat.sections.push(section);
+      counts.addedSections++;
+    }
+    section.rows.push({
+      id: 'row_'+(idCounter++),
+      particulars: it.particulars || '',
+      nos: Number(it.nos)||1,
+      length: it.length || '',
+      breadth: it.breadth || '',
+      unitType: it.unitType === 'RF' ? 'RF' : 'SF',
+      deduction: !!it.deduction,
+      remark: ''
+    });
+    counts.addedRows++;
+  });
+}
+
 document.getElementById('extract-photo-btn').addEventListener('click', async () => {
   const fileInput = document.getElementById('ai-photo-input');
-  const file = fileInput.files[0];
+  const files = Array.from(fileInput.files || []);
   const apiKey = geminiKeyInput.value.trim();
   if(!apiKey){ showAiStatus('Save your Gemini API key first.', false); return; }
-  if(!file){ showAiStatus('Choose a photo first.', false); return; }
+  if(!files.length){ showAiStatus('Choose one or more photos first.', false); return; }
 
   const btn = document.getElementById('extract-photo-btn');
   btn.disabled = true;
-  showAiStatus('Reading photo with AI, this can take a few seconds...', true);
 
-  try{
-    const base64 = await fileToBase64(file);
-    const text = await callGemini(base64, file.type || 'image/jpeg', apiKey);
-    const items = parseGeminiJson(text);
-    if(!Array.isArray(items) || !items.length) throw new Error('AI did not find any measurement rows in this photo.');
+  const counts = { addedFlats: 0, addedSections: 0, addedRows: 0 };
+  const failures = [];
 
-    // Group extracted rows by Tower+Flat No.+Series into flats, then by
-    // section name into sections within each flat - usually every row in
-    // one photo belongs to the same flat, but this also handles a photo
-    // that happens to cover more than one flat.
-    let addedFlats = 0, addedSections = 0, addedRows = 0;
-    items.forEach(it=>{
-      const tower = (it.tower||'').trim();
-      const flatNo = (it.flatNo||'').trim();
-      const series = (it.series||'').trim();
-      let flat = flats.find(f=>f.tower.trim()===tower && f.flatNo.trim()===flatNo && (tower||flatNo));
-      if(!flat){
-        flat = newFlat();
-        flat.tower = tower;
-        flat.flatNo = flatNo;
-        flat.series = series;
-        flat.nameOfWork = (it.nameOfWork||'').trim();
-        flat.billNo = (it.billNo||'').trim();
-        flats.push(flat);
-        addedFlats++;
-      }
-      const sectionName = (it.section||'').trim();
-      let section = flat.sections.find(s=>s.name.trim()===sectionName && sectionName);
-      if(!section){
-        section = newSection();
-        section.name = sectionName;
-        flat.sections.push(section);
-        addedSections++;
-      }
-      section.rows.push({
-        id: 'row_'+(idCounter++),
-        particulars: it.particulars || '',
-        nos: Number(it.nos)||1,
-        length: it.length || '',
-        breadth: it.breadth || '',
-        unitType: it.unitType === 'RF' ? 'RF' : 'SF',
-        deduction: !!it.deduction,
-        remark: ''
-      });
-      addedRows++;
-    });
+  for(let i=0;i<files.length;i++){
+    const file = files[i];
+    showAiStatus(`Reading photo ${i+1} of ${files.length} with AI, this can take a few seconds...`, true);
+    try{
+      const base64 = await fileToBase64(file);
+      const text = await callGemini(base64, file.type || 'image/jpeg', apiKey);
+      const items = parseGeminiJson(text);
+      if(!Array.isArray(items) || !items.length) throw new Error('no measurement rows found');
+      mergeExtractedItems(items, counts);
+    }catch(err){
+      console.error(err);
+      failures.push(`${file.name}: ${err.message}`);
+    }
+  }
 
-    saveFlats();
-    render();
-    fileInput.value = '';
-    showAiStatus('Added ' + addedRows + ' row(s) across ' + addedSections + ' section(s) in ' + addedFlats + ' new flat(s) below. Please review and correct.', true);
-  }catch(err){
-    console.error(err);
-    showAiStatus('Could not read that photo: ' + err.message, false);
-  }finally{
-    btn.disabled = false;
+  saveFlats();
+  render();
+  fileInput.value = '';
+  btn.disabled = false;
+
+  if(counts.addedRows === 0){
+    showAiStatus('Could not read any of the photo(s): ' + failures.join('; '), false);
+  } else if(failures.length){
+    showAiStatus(`Added ${counts.addedRows} row(s) across ${counts.addedSections} section(s) in ${counts.addedFlats} new flat(s) below. ${failures.length} photo(s) failed: ${failures.join('; ')}`, false);
+  } else {
+    showAiStatus(`Added ${counts.addedRows} row(s) across ${counts.addedSections} section(s) in ${counts.addedFlats} new flat(s) from ${files.length} photo(s) below. Please review and correct.`, true);
   }
 });
 
