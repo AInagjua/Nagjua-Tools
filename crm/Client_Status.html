@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Search a client or flat number across every payment, loan, documentation, possession, and extra work sheet to see their full current situation. Shared live data for everyone.">
+<title>Client Status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#0F1B2D;
+    --navy-dark:#152347;
+    --steel:#F4F1EA;
+    --steel-line:#E1DDD2;
+    --card:#FFFFFF;
+    --ink:#1B2230;
+    --ink-soft:#5B6577;
+    --gold:#C9A227;
+    --gold-light:#DBB94A;
+    --danger:#B3392C;
+    --ok:#256644;
+    --ok-bg:#E4F3EA;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',Arial,sans-serif;background:var(--steel);color:var(--ink);}
+  .app{max-width:1400px;margin:0 auto;padding:0 0 80px;}
+  .topbar{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    background:var(--navy);color:#fff;padding:22px 32px;margin-bottom:26px;
+    border-bottom:3px solid var(--gold);
+  }
+  .topbar h1{font-family:'Playfair Display',serif;font-size:23px;font-weight:700;margin:0;letter-spacing:0.2px;color:#fff;}
+  .topbar .sub{font-size:11.5px;color:#AAB3C7;margin-top:4px;letter-spacing:0.6px;}
+  .topbar button{
+    background:rgba(255,255,255,.08);border:1px solid rgba(219,185,74,.4);color:var(--steel);
+    padding:7px 16px;border-radius:3px;font-size:12px;letter-spacing:.4px;cursor:pointer;
+  }
+  .topbar button:hover{border-color:var(--danger);color:#f2b3a8;}
+
+  .section-label{display:flex;align-items:center;gap:12px;margin:0;background:var(--navy);color:#fff;padding:16px 24px;}
+  .section-label .num{
+    width:26px;height:26px;border-radius:50%;background:var(--gold);color:var(--navy);
+    font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    font-family:'Playfair Display',serif;flex-shrink:0;
+  }
+  .section-label h2{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin:0;color:#fff;}
+
+  section.block{margin:0 20px 28px;background:var(--card);border:1px solid var(--steel-line);border-radius:6px;box-shadow:0 1px 3px rgba(15,27,53,.06);}
+  section.block > .section-label:first-child{border-radius:5px 5px 0 0;}
+
+  .upload-body{padding:20px;}
+  .upload-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+  .upload-row input[type=file]{
+    flex:1;min-width:260px;font-size:12.5px;padding:9px;border:1px solid var(--steel-line);
+    border-radius:5px;background:#FAFAF8;
+  }
+  .upload-btn{background:var(--gold);color:var(--navy);border:none;padding:10px 20px;border-radius:5px;
+    font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;}
+  .upload-btn:hover{background:var(--gold-light);}
+  .upload-hint{font-size:12px;color:var(--ink-soft);margin:0 0 14px;line-height:1.5;}
+
+  .file-list{display:flex;flex-direction:column;gap:8px;}
+  .file-row{
+    display:flex;align-items:center;gap:12px;padding:10px 14px;background:#FBFBF9;
+    border:1px solid var(--steel-line);border-radius:5px;font-size:12.5px;
+  }
+  .file-row .fname{flex:1;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-row select{
+    padding:6px 8px;border:1px solid var(--steel-line);border-radius:4px;font-size:12px;background:#fff;
+  }
+  .file-row .sheet-count{color:var(--ink-soft);font-size:11.5px;white-space:nowrap;}
+  .file-row .remove-file-btn{background:none;border:none;color:#C4BEB0;font-size:16px;cursor:pointer;padding:0 4px;}
+  .file-row .remove-file-btn:hover{color:var(--danger);}
+
+  .search-body{padding:20px;}
+  .search-row{display:flex;gap:12px;}
+  .search-row input{
+    flex:1;padding:13px 16px;border:1px solid var(--steel-line);border-radius:6px;
+    font-size:15px;background:#FAFAF8;
+  }
+  .search-row input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,.15);}
+  .search-btn{background:var(--navy);color:#fff;border:none;padding:0 28px;border-radius:6px;
+    font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
+  .search-btn:hover{background:var(--navy-dark);}
+  .search-meta{font-size:11.5px;color:var(--ink-soft);margin-top:10px;}
+
+  .results-empty{padding:40px 20px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+
+  .category-block{margin:0 20px 22px;}
+  .category-header{
+    display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:6px 6px 0 0;
+    font-family:'Playfair Display',serif;font-weight:700;font-size:14.5px;color:#fff;
+  }
+  .category-header .count-badge{
+    background:rgba(255,255,255,.22);padding:2px 10px;border-radius:12px;font-size:11.5px;
+    font-family:'Inter',sans-serif;font-weight:700;
+  }
+  .cat-payment{background:#2E5C8A;}
+  .cat-loan{background:#6B4C9A;}
+  .cat-documentation{background:#8A6D2E;}
+  .cat-possession{background:#2E7D53;}
+  .cat-extrawork{background:#8A3E2E;}
+  .cat-other{background:#5B6577;}
+
+  .sheet-match{border:1px solid var(--steel-line);border-top:none;background:var(--card);}
+  .sheet-match + .sheet-match{border-top:1px dashed var(--steel-line);}
+  .sheet-match-header{
+    padding:10px 18px;background:#FBFBF9;font-size:12px;color:var(--ink-soft);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;
+  }
+  .sheet-match-header b{color:var(--navy);}
+  .row-table-wrap{overflow-x:auto;}
+  table.row-table{border-collapse:collapse;font-size:12px;width:100%;min-width:600px;}
+  table.row-table th, table.row-table td{
+    border:1px solid var(--steel-line);padding:7px 10px;text-align:left;white-space:nowrap;
+  }
+  table.row-table th{background:#F6F3EC;color:var(--navy);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:0.3px;font-weight:700;position:sticky;top:0;}
+  table.row-table td{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink);}
+  table.row-table tr:nth-child(even) td{background:#FAFAF8;}
+  .match-highlight{background:#FBF1DD !important;font-weight:700;color:var(--navy) !important;}
+
+  .status-msg{font-size:12px;margin-top:10px;padding:9px 12px;border-radius:5px;display:none;}
+  .status-msg.show{display:block;}
+  .status-msg.ok{background:var(--ok-bg);color:var(--ok);border:1px solid #bfe0cc;}
+  .status-msg.err{background:#FBEAE6;color:var(--danger);border:1px solid #ecc7bf;}
+
+  .login-overlay{
+    position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:999;
+  }
+  .login-box{background:#fff;border-radius:8px;padding:36px 32px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.35);}
+  .login-box h2{font-family:'Playfair Display',serif;color:var(--navy);margin:0 0 22px;text-align:center;}
+  .login-box input{width:100%;padding:11px 13px;margin-bottom:12px;border:1px solid var(--steel-line);border-radius:5px;font-size:14px;}
+  .login-box button{width:100%;background:var(--gold);color:var(--navy);border:none;padding:11px;border-radius:5px;font-weight:700;font-size:14px;cursor:pointer;}
+  .login-box button:hover{background:var(--gold-light);}
+  .login-error{display:none;color:var(--danger);font-size:12.5px;margin-top:8px;text-align:center;}
+  .sync-status{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>Client Status</h2>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+    <button id="loginBtn">Sign In</button>
+    <div class="login-error" id="loginError">Incorrect email or password.</div>
+  </div>
+</div>
+
+<div class="app" id="mainWrap" style="display:none;">
+
+  <div class="topbar">
+    <div>
+      <h1>Client Status</h1>
+      <div class="sub">Search a flat or client across every payment, loan, documentation, possession &amp; extra work sheet - shared live data</div>
+    </div>
+    <div>
+      <button id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+
+  <section class="block" id="upload-section">
+    <div class="section-label"><div class="num">1</div><h2>Upload Sheets</h2></div>
+    <div class="upload-body">
+      <p class="upload-hint">Upload as many Excel files as you have (Payment, Loan, Documentation, Possession, Extra Work — any building/tower). Every sheet inside each file is read automatically. Once uploaded, files are saved to shared data - everyone sees the same list without re-uploading. This tool guesses a category from the filename — check the dropdown next to each file and correct it if needed.</p>
+      <div class="upload-row">
+        <input type="file" id="file-input" accept=".xlsx,.xls" multiple>
+        <button class="upload-btn" id="process-files-btn">Add Files</button>
+      </div>
+      <div class="status-msg" id="upload-status"></div>
+      <div class="file-list" id="file-list"></div>
+    </div>
+  </section>
+
+  <section class="block" id="search-section">
+    <div class="section-label"><div class="num">2</div><h2>Search</h2></div>
+    <div class="search-body">
+      <div class="search-row">
+        <input type="text" id="search-input" placeholder="Enter Flat No., Unit No., or Client Name — e.g. JD404 or Solanki">
+        <button class="search-btn" id="search-btn">Search</button>
+      </div>
+      <div class="search-meta" id="search-meta"></div>
+    </div>
+  </section>
+
+  <section class="block" id="results-section" style="display:none;">
+    <div class="section-label"><div class="num">3</div><h2>Results</h2></div>
+    <div id="results-container"></div>
+  </section>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Reuses the same Firebase project as Client & Flat Ledger Search - same
+// approved users can log into both tools, no new Firebase setup needed.
+const firebaseConfig = {
+  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
+  authDomain: "transaction-search-ng.firebaseapp.com",
+  projectId: "transaction-search-ng",
+  storageBucket: "transaction-search-ng.firebasestorage.app",
+  messagingSenderId: "913327997399",
+  appId: "1:913327997399:web:e1f777f9aae176d94e8b92"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
+setPersistence(auth, browserSessionPersistence);
+
+const COLLECTION = "clientStatusData";
+
+const loginOverlay = document.getElementById('loginOverlay');
+const mainWrap = document.getElementById('mainWrap');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+loginBtn.addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  loginError.style.display = 'none';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    loginError.style.display = 'block';
+  }
+});
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loginOverlay.style.display = 'none';
+    mainWrap.style.display = '';
+    loadFromFirestore();
+  } else {
+    loginOverlay.style.display = 'flex';
+    mainWrap.style.display = 'none';
+  }
+});
+
+
+let uploadedFiles = [];
+function makeFileId(filename){
+  const safe = filename.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40);
+  return `f_${Date.now()}_${Math.random().toString(36).slice(2,8)}_${safe}`;
+}
+
+const CATEGORY_KEYWORDS = [
+  { key: 'payment', label: 'Payment / Interest', match: /payment|interest/i },
+  { key: 'loan', label: 'Loan', match: /loan/i },
+  { key: 'possession', label: 'Possession', match: /possess?ion/i },
+  { key: 'extrawork', label: 'Extra Work', match: /extra.?work/i },
+  { key: 'documentation', label: 'Documentation', match: /document/i },
+];
+function guessCategory(filename){
+  for(const c of CATEGORY_KEYWORDS){
+    if(c.match.test(filename)) return c.key;
+  }
+  return 'other';
+}
+function categoryLabel(key){
+  const found = CATEGORY_KEYWORDS.find(c => c.key === key);
+  return found ? found.label : 'Other';
+}
+
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ---- File processing ----
+function readSheetAsRows(worksheet){
+  const raw = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
+  // Find the first row that looks like a real header row (at least 2
+  // non-empty cells) - some sheets have title/date rows before the real
+  // header, which would otherwise get treated as the header itself.
+  let headerRowIdx = 0;
+  for(let i=0;i<Math.min(raw.length, 10);i++){
+    const nonEmpty = raw[i].filter(c => String(c).trim() !== '').length;
+    if(nonEmpty >= 2){ headerRowIdx = i; break; }
+  }
+  const headers = (raw[headerRowIdx] || []).map(h => String(h||'').trim());
+  const rows = raw.slice(headerRowIdx + 1).filter(r => r.some(c => String(c).trim() !== ''));
+  return { headers, rows };
+}
+
+async function processFile(file){
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+  const sheets = workbook.SheetNames.map(name => {
+    const { headers, rows } = readSheetAsRows(workbook.Sheets[name]);
+    return { name, headers, rows };
+  }).filter(s => s.headers.length > 0 && s.rows.length > 0);
+
+  return {
+    id: makeFileId(file.name),
+    filename: file.name,
+    category: guessCategory(file.name),
+    sheets
+  };
+}
+
+// ---- Firestore storage (chunked per-sheet to stay under the 1MB/doc limit) ----
+const CHUNK_SIZE = 200; // rows per Firestore document - safe margin even for wide sheets
+
+async function saveFileToFirestore(file){
+  for(let sIdx=0; sIdx<file.sheets.length; sIdx++){
+    const sheet = file.sheets[sIdx];
+    const totalChunks = Math.max(1, Math.ceil(sheet.rows.length / CHUNK_SIZE));
+    for(let c=0; c<totalChunks; c++){
+      const chunkRows = sheet.rows.slice(c*CHUNK_SIZE, (c+1)*CHUNK_SIZE);
+      const docId = `${file.id}__s${sIdx}__c${c}`;
+      await setDoc(doc(db, COLLECTION, docId), {
+        fileId: file.id,
+        filename: file.filename,
+        category: file.category,
+        sheetIndex: sIdx,
+        sheetName: sheet.name,
+        headers: sheet.headers,
+        rows: chunkRows,
+        chunkIndex: c,
+        totalChunks
+      });
+    }
+  }
+}
+
+async function updateFileCategoryInFirestore(fileId, category){
+  const q = query(collection(db, COLLECTION), where('fileId', '==', fileId));
+  const snap = await getDocs(q);
+  const updates = [];
+  snap.forEach(docSnap => {
+    updates.push(setDoc(doc(db, COLLECTION, docSnap.id), { ...docSnap.data(), category }));
+  });
+  await Promise.all(updates);
+}
+
+async function deleteFileFromFirestore(fileId){
+  const q = query(collection(db, COLLECTION), where('fileId', '==', fileId));
+  const snap = await getDocs(q);
+  const deletions = [];
+  snap.forEach(docSnap => deletions.push(deleteDoc(doc(db, COLLECTION, docSnap.id))));
+  await Promise.all(deletions);
+}
+
+async function loadFromFirestore(){
+  const statusEl = document.getElementById('upload-status');
+  statusEl.className = 'status-msg show ok';
+  statusEl.textContent = 'Loading shared data...';
+  try{
+    const snap = await getDocs(collection(db, COLLECTION));
+    // Group chunks back by fileId -> sheetIndex, then reassemble in order
+    const fileMap = {};
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      if(!fileMap[d.fileId]) fileMap[d.fileId] = { id: d.fileId, filename: d.filename, category: d.category, sheetsByIdx: {} };
+      if(!fileMap[d.fileId].sheetsByIdx[d.sheetIndex]) {
+        fileMap[d.fileId].sheetsByIdx[d.sheetIndex] = { name: d.sheetName, headers: d.headers, chunks: [] };
+      }
+      fileMap[d.fileId].sheetsByIdx[d.sheetIndex].chunks[d.chunkIndex] = d.rows;
+    });
+
+    uploadedFiles = Object.values(fileMap).map(f => ({
+      id: f.id,
+      filename: f.filename,
+      category: f.category,
+      sheets: Object.keys(f.sheetsByIdx).sort((a,b)=>a-b).map(idx => {
+        const s = f.sheetsByIdx[idx];
+        return { name: s.name, headers: s.headers, rows: s.chunks.flat() };
+      })
+    }));
+
+    renderFileList();
+    if(uploadedFiles.length){
+      const totalSheets = uploadedFiles.reduce((s,f) => s + f.sheets.length, 0);
+      statusEl.className = 'status-msg show ok';
+      statusEl.textContent = `${uploadedFiles.length} file(s), ${totalSheets} sheet(s) loaded from shared data. Ready to search.`;
+    } else {
+      statusEl.className = 'status-msg';
+      statusEl.textContent = '';
+    }
+  }catch(err){
+    console.error(err);
+    statusEl.className = 'status-msg show err';
+    statusEl.textContent = 'Could not load shared data: ' + err.message;
+  }
+}
+
+document.getElementById('process-files-btn').addEventListener('click', async () => {
+  const input = document.getElementById('file-input');
+  const files = Array.from(input.files || []);
+  const statusEl = document.getElementById('upload-status');
+  if(!files.length){
+    statusEl.className = 'status-msg show err';
+    statusEl.textContent = 'Choose one or more Excel files first.';
+    return;
+  }
+  statusEl.className = 'status-msg show ok';
+  statusEl.textContent = `Reading ${files.length} file(s)...`;
+
+  const failures = [];
+  for(const file of files){
+    try{
+      const parsed = await processFile(file);
+      statusEl.textContent = `Saving "${file.name}" to shared data...`;
+      await saveFileToFirestore(parsed);
+      uploadedFiles.push(parsed);
+    }catch(err){
+      console.error(err);
+      failures.push(`${file.name}: ${err.message}`);
+    }
+  }
+
+  input.value = '';
+  renderFileList();
+
+  if(failures.length){
+    statusEl.className = 'status-msg show err';
+    statusEl.textContent = `Added ${files.length - failures.length} file(s). Failed: ${failures.join('; ')}`;
+  } else {
+    const totalSheets = uploadedFiles.reduce((s,f) => s + f.sheets.length, 0);
+    statusEl.className = 'status-msg show ok';
+    statusEl.textContent = `${uploadedFiles.length} file(s) loaded, ${totalSheets} sheet(s) total. Ready to search.`;
+  }
+});
+
+function renderFileList(){
+  const container = document.getElementById('file-list');
+  if(!uploadedFiles.length){
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = uploadedFiles.map(f => `
+    <div class="file-row" data-file-id="${f.id}">
+      <span class="fname" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</span>
+      <span class="sheet-count">${f.sheets.length} sheet(s)</span>
+      <select data-file-id="${f.id}" class="category-select">
+        ${CATEGORY_KEYWORDS.map(c => `<option value="${c.key}" ${f.category===c.key?'selected':''}>${c.label}</option>`).join('')}
+        <option value="other" ${f.category==='other'?'selected':''}>Other</option>
+      </select>
+      <button class="remove-file-btn" data-file-id="${f.id}" title="Remove this file">&times;</button>
+    </div>
+  `).join('');
+}
+
+document.getElementById('file-list').addEventListener('change', async (e) => {
+  if(e.target.classList.contains('category-select')){
+    const f = uploadedFiles.find(f => f.id === e.target.dataset.fileId);
+    if(f){
+      f.category = e.target.value;
+      try{ await updateFileCategoryInFirestore(f.id, f.category); }
+      catch(err){ console.error('Could not sync category change:', err); }
+    }
+  }
+});
+document.getElementById('file-list').addEventListener('click', async (e) => {
+  if(e.target.classList.contains('remove-file-btn')){
+    const fileId = e.target.dataset.fileId;
+    if(!confirm('Remove this file for everyone? This deletes it from the shared data.')) return;
+    e.target.disabled = true;
+    try{
+      await deleteFileFromFirestore(fileId);
+      uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+      renderFileList();
+    }catch(err){
+      console.error(err);
+      alert('Could not remove file: ' + err.message);
+      e.target.disabled = false;
+    }
+  }
+});
+
+// ---- Column detection (per sheet, at search time) ----
+const FLAT_HEADER_PATTERNS = [
+  /^flat\s*no\.?$/i, /^unit\s*no\.?$/i, /^unit\s*code$/i, /^flat\s*number$/i,
+  /flat\s*no/i, /unit\s*no/i, /unit\s*code/i, /^flat$/i, /^unit$/i,
+];
+const NAME_HEADER_PATTERNS = [
+  /^customer\s*name$/i, /^name\s*of\s*customer$/i, /^name\s*of\s*client$/i, /^client\s*name$/i,
+  /^name$/i, /customer\s*name/i, /name\s*of\s*customer/i, /name\s*of\s*client/i,
+];
+const NAME_EXCLUDE_PATTERNS = [
+  /bank\s*name/i, /assigned/i, /handover/i, /agency/i, /contractor/i, /engg/i, /supervisior/i, /supervisor/i, /bldg\s*name/i,
+];
+
+function detectColumns(headers){
+  const flatCols = [];
+  const nameCols = [];
+  headers.forEach((h, i) => {
+    const isFlat = FLAT_HEADER_PATTERNS.some(p => p.test(h));
+    const isExcluded = NAME_EXCLUDE_PATTERNS.some(p => p.test(h));
+    const isName = !isExcluded && NAME_HEADER_PATTERNS.some(p => p.test(h));
+    if(isFlat) flatCols.push(i);
+    if(isName) nameCols.push(i);
+  });
+  return { flatCols, nameCols };
+}
+
+function normalizeForMatch(str){
+  return String(str||'').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+// ---- Search ----
+document.getElementById('search-btn').addEventListener('click', runSearch);
+document.getElementById('search-input').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') runSearch();
+});
+
+function runSearch(){
+  const query = document.getElementById('search-input').value.trim();
+  const metaEl = document.getElementById('search-meta');
+  const resultsSection = document.getElementById('results-section');
+  const resultsContainer = document.getElementById('results-container');
+
+  if(!query){
+    metaEl.textContent = 'Enter a Flat No., Unit No., or Client Name to search.';
+    resultsSection.style.display = 'none';
+    return;
+  }
+  if(!uploadedFiles.length){
+    metaEl.textContent = 'Upload at least one file first.';
+    resultsSection.style.display = 'none';
+    return;
+  }
+
+  const normQuery = normalizeForMatch(query);
+  const queryLower = query.toLowerCase();
+  const isNumericish = /^[a-z]{0,3}\d+$/i.test(query.replace(/[\s-]/g,''));
+
+  // Group matches by category -> file+sheet -> matching row indices
+  const matchesByCategory = {};
+  let totalMatches = 0;
+
+  uploadedFiles.forEach(file => {
+    file.sheets.forEach(sheet => {
+      const { flatCols, nameCols } = detectColumns(sheet.headers);
+      const searchCols = flatCols.length || nameCols.length ? [...flatCols, ...nameCols] : sheet.headers.map((_,i)=>i);
+
+      const matchingRows = [];
+      sheet.rows.forEach((row, rIdx) => {
+        let isMatch = false;
+        const matchedCellIdx = new Set();
+        for(const colIdx of searchCols){
+          const cellVal = row[colIdx];
+          if(cellVal == null || cellVal === '') continue;
+          const cellStr = String(cellVal);
+          const isFlatCol = flatCols.includes(colIdx);
+          let hit = false;
+          if(isFlatCol){
+            const normCell = normalizeForMatch(cellStr);
+            if(normCell && (normCell.includes(normQuery) || normQuery.includes(normCell))) hit = true;
+          } else {
+            if(cellStr.toLowerCase().includes(queryLower)) hit = true;
+          }
+          if(hit){ isMatch = true; matchedCellIdx.add(colIdx); }
+        }
+        if(isMatch) matchingRows.push({ row, rIdx, matchedCellIdx });
+      });
+
+      if(matchingRows.length){
+        totalMatches += matchingRows.length;
+        if(!matchesByCategory[file.category]) matchesByCategory[file.category] = [];
+        matchesByCategory[file.category].push({
+          filename: file.filename,
+          sheetName: sheet.name,
+          headers: sheet.headers,
+          matchingRows
+        });
+      }
+    });
+  });
+
+  metaEl.textContent = `${totalMatches} matching row(s) found across ${uploadedFiles.reduce((s,f)=>s+f.sheets.length,0)} sheet(s) searched.`;
+  renderResults(matchesByCategory, totalMatches);
+}
+
+function renderResults(matchesByCategory, totalMatches){
+  const resultsSection = document.getElementById('results-section');
+  const resultsContainer = document.getElementById('results-container');
+  resultsSection.style.display = 'block';
+
+  if(totalMatches === 0){
+    resultsContainer.innerHTML = '<div class="results-empty">No matching rows found. Try a shorter/partial flat number or just the surname.</div>';
+    return;
+  }
+
+  // Preferred category display order
+  const order = ['payment','loan','documentation','possession','extrawork','other'];
+  const categoryClass = { payment:'cat-payment', loan:'cat-loan', documentation:'cat-documentation', possession:'cat-possession', extrawork:'cat-extrawork', other:'cat-other' };
+
+  resultsContainer.innerHTML = order
+    .filter(cat => matchesByCategory[cat] && matchesByCategory[cat].length)
+    .map(cat => {
+      const sheetsMatched = matchesByCategory[cat];
+      const rowCount = sheetsMatched.reduce((s,sm) => s + sm.matchingRows.length, 0);
+      const sheetsHtml = sheetsMatched.map(sm => `
+        <div class="sheet-match">
+          <div class="sheet-match-header">
+            <span><b>${escapeHtml(sm.filename)}</b> — ${escapeHtml(sm.sheetName)}</span>
+            <span>${sm.matchingRows.length} row(s)</span>
+          </div>
+          <div class="row-table-wrap">
+            <table class="row-table">
+              <thead><tr>${sm.headers.map(h => `<th>${escapeHtml(h || '—')}</th>`).join('')}</tr></thead>
+              <tbody>
+                ${sm.matchingRows.map(({row, matchedCellIdx}) => `
+                  <tr>${sm.headers.map((h,i) => `<td class="${matchedCellIdx.has(i)?'match-highlight':''}">${escapeHtml(row[i])}</td>`).join('')}</tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="category-block">
+          <div class="category-header ${categoryClass[cat]}">
+            ${categoryLabel(cat)}
+            <span class="count-badge">${rowCount} match${rowCount===1?'':'es'}</span>
+          </div>
+          ${sheetsHtml}
+        </div>
+      `;
+    }).join('');
+}
+</script>
+</body>
+</html>
