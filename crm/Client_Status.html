@@ -435,20 +435,30 @@ function renderManifest(){
   emptyEl.style.display = 'none';
   tableEl.style.display = 'table';
 
-  body.innerHTML = uploadedFiles.map(f => `
-    <tr>
-      <td title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</td>
+  body.innerHTML = uploadedFiles.map(f => {
+    // If a file's actual loaded sheet count doesn't match what was recorded
+    // at upload time, its data is stuck in an old/incompatible storage
+    // format and can't be read - flag it clearly so it's obvious this entry
+    // needs removing and re-uploading, rather than silently showing 0.
+    const isBroken = f.sheets.length !== f.sheetCount;
+    return `
+    <tr ${isBroken ? 'style="background:#FBEAE6;"' : ''}>
+      <td title="${escapeHtml(f.filename)}">
+        ${escapeHtml(f.filename)}
+        ${isBroken ? `<div style="color:var(--danger);font-size:11px;margin-top:3px;">⚠ Could not load this file's data (saved in an older format) — remove and re-upload it</div>` : ''}
+      </td>
       <td>
         <select data-id="${f.id}" class="category-select">
           ${CATEGORY_KEYWORDS.map(c => `<option value="${c.key}" ${f.category===c.key?'selected':''}>${c.label}</option>`).join('')}
           <option value="other" ${f.category==='other'?'selected':''}>Other</option>
         </select>
       </td>
-      <td>${f.sheets.length}</td>
+      <td>${isBroken ? `0 of ${f.sheetCount}` : f.sheets.length}</td>
       <td>${escapeHtml(f.uploadedAt||'')}</td>
       <td><button class="remove-btn" data-id="${f.id}">Remove</button></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   body.querySelectorAll('.category-select').forEach(sel => {
     sel.addEventListener('change', e => renameCategory(e.target.dataset.id, e.target.value));
@@ -461,6 +471,7 @@ function renderManifest(){
 async function renameCategory(fileId, newCategory){
   const entry = uploadedFiles.find(f => f.id === fileId);
   if(!entry) return;
+
   entry.category = newCategory;
   await storageSet('manifest', uploadedFiles.map(f => ({
     id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, chunkCounts: f.chunkCounts, uploadedAt: f.uploadedAt
