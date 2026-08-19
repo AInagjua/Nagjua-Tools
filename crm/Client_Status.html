@@ -607,38 +607,58 @@ function normalizeForMatch(str){
   return String(str||'').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-// ---- Status column priority per category (furthest-along stage first for loan) ----
-const STATUS_COLUMN_PATTERNS = {
+// ---- Key fields shown per category (multiple, not just one status line) ----
+// "stage" fields use a priority list (furthest-along non-empty wins, e.g.
+// loan checks Disbursement before Sanction before Login...). Plain fields
+// just report the first matching column's value.
+const KEY_FIELDS_BY_CATEGORY = {
   payment: [
-    /^status$/i, /outstanding/i, /payment.*%|%.*payment/i,
+    { label: 'Status', type: 'stage', patterns: [/^status$/i] },
+    { label: 'Paid %', type: 'plain', patterns: [/payment.*%|%.*payment|percentage/i] },
+    { label: 'Outstanding', type: 'plain', patterns: [/outstanding/i] },
+    { label: 'Bank', type: 'plain', patterns: [/^bank$/i, /bank\s*name/i] },
   ],
   loan: [
-    /disbursement/i, /^sanction$/i, /^login$/i, /in\s*principle\s*sanction/i,
-    /banker\s*meet/i, /document\s*collect/i, /^phonecall$/i, /^lead$/i,
-    /loan\s*stage/i, /^status$/i,
+    { label: 'Stage', type: 'stage', patterns: [
+      /disbursement/i, /^sanction$/i, /^login$/i, /in\s*principle\s*sanction/i,
+      /banker\s*meet/i, /document\s*collect/i, /^phonecall$/i, /^lead$/i, /loan\s*stage/i, /^status$/i,
+    ]},
+    { label: 'Bank', type: 'plain', patterns: [/^banks$/i, /bank\s*name/i, /^bank$/i] },
+    { label: 'Loan Amount', type: 'plain', patterns: [/loan\s*amount/i] },
+    { label: 'DSA', type: 'plain', patterns: [/^dsa$/i] },
   ],
   documentation: [
-    /^status$/i,
+    { label: 'Status', type: 'plain', patterns: [/^status$/i] },
+    { label: 'Assigned To', type: 'plain', patterns: [/assigned\s*to/i] },
+    { label: 'Target Date', type: 'plain', patterns: [/target\s*date/i] },
   ],
   possession: [
-    /final\s*possession\s*status/i, /possession.*status/i, /^status$/i,
+    { label: 'Final Possession Status', type: 'stage', patterns: [/final\s*possession\s*status/i, /possession.*status/i, /^status$/i] },
+    { label: 'Possession Commitment Date', type: 'plain', patterns: [/possession\s*commitment\s*date/i] },
+    { label: 'Remark', type: 'plain', patterns: [/^remark/i] },
   ],
   extrawork: [
-    /work\s*status/i, /payment\s*status/i,
+    { label: 'Work Status', type: 'plain', patterns: [/work\s*status/i] },
+    { label: 'Payment Status', type: 'plain', patterns: [/payment\s*status/i] },
+    { label: 'Description', type: 'plain', patterns: [/description\s*of\s*work/i] },
   ],
 };
-function computeStatus(category, headers, row){
-  const patterns = STATUS_COLUMN_PATTERNS[category] || [/^status$/i];
-  for(const pattern of patterns){
-    const idx = headers.findIndex(h => pattern.test(h));
-    if(idx !== -1){
-      const val = row[idx];
-      if(val != null && String(val).trim() !== ''){
-        return { label: headers[idx], value: String(val).trim() };
+function computeKeyFields(category, headers, row){
+  const fieldDefs = KEY_FIELDS_BY_CATEGORY[category] || [{ label: 'Status', patterns: [/^status$/i] }];
+  const results = [];
+  fieldDefs.forEach(def => {
+    for(const pattern of def.patterns){
+      const idx = headers.findIndex(h => pattern.test(h));
+      if(idx !== -1){
+        const val = row[idx];
+        if(val != null && String(val).trim() !== ''){
+          results.push({ label: def.label, value: String(val).trim() });
+          break; // found a non-empty value for this field, stop trying its other patterns
+        }
       }
     }
-  }
-  return null;
+  });
+  return results;
 }
 
 // ---- Live search (as-you-type, matching Client & Flat Ledger Search) ----
@@ -648,6 +668,27 @@ searchInput.addEventListener('input', () => {
   clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(runSearch, 180);
 });
+
+// A row must match EVERY space-separated term in the query (AND logic),
+// not just any one of them. This is what actually lets "jade 404" narrow
+// down to just that building's flat 404, instead of matching every
+// building's flat 404 the way a single-term "contains" search would.
+function rowMatchesQuery(row, searchCols, flatCols, terms){
+  return terms.every(term => {
+    const normTerm = normalizeForMatch(term);
+    const termLower = term.toLowerCase();
+    return searchCols.some(colIdx => {
+      const cellVal = row[colIdx];
+      if(cellVal == null || cellVal === '') return false;
+      const cellStr = String(cellVal);
+      if(flatCols.includes(colIdx)){
+        const normCell = normalizeForMatch(cellStr);
+        return normCell && (normCell.includes(normTerm) || normTerm.includes(normCell));
+      }
+      return cellStr.toLowerCase().includes(termLower);
+    });
+  });
+}
 
 function runSearch(){
   const query = searchInput.value.trim();
@@ -662,8 +703,7 @@ function runSearch(){
     return;
   }
 
-  const normQuery = normalizeForMatch(query);
-  const queryLower = query.toLowerCase();
+  const terms = query.split(/\s+/).filter(Boolean);
 
   const matchesByCategory = {};
   let totalMatches = 0;
@@ -676,32 +716,18 @@ function runSearch(){
         : sheet.headers.map((_,i)=>i);
 
       sheet.rows.forEach((row) => {
-        let isMatch = false;
-        for(const colIdx of searchCols){
-          const cellVal = row[colIdx];
-          if(cellVal == null || cellVal === '') continue;
-          const cellStr = String(cellVal);
-          const isFlatCol = flatCols.includes(colIdx);
-          if(isFlatCol){
-            const normCell = normalizeForMatch(cellStr);
-            if(normCell && (normCell.includes(normQuery) || normQuery.includes(normCell))) isMatch = true;
-          } else {
-            if(cellStr.toLowerCase().includes(queryLower)) isMatch = true;
-          }
-          if(isMatch) break;
-        }
-        if(!isMatch) return;
+        if(!rowMatchesQuery(row, searchCols, flatCols, terms)) return;
 
         const flatVal = flatCols.length ? row[flatCols[0]] : '';
         const buildingVal = buildingCols.length ? row[buildingCols[0]] : '';
         const nameVal = nameCols.length ? row[nameCols[0]] : '';
-        const status = computeStatus(file.category, sheet.headers, row);
+        const fields = computeKeyFields(file.category, sheet.headers, row);
 
         totalMatches++;
         if(!matchesByCategory[file.category]) matchesByCategory[file.category] = [];
         matchesByCategory[file.category].push({
           filename: file.filename, sheetName: sheet.name,
-          flat: flatVal, building: buildingVal, name: nameVal, status
+          flat: flatVal, building: buildingVal, name: nameVal, fields
         });
       });
     });
@@ -714,7 +740,7 @@ function renderResults(matchesByCategory, totalMatches){
   const resultsEl = document.getElementById('results');
 
   if(totalMatches === 0){
-    resultsEl.innerHTML = '<div class="results-empty">No matching rows found. Try a shorter/partial flat number or just the surname.</div>';
+    resultsEl.innerHTML = '<div class="results-empty">No matching rows found. Try a shorter/partial flat number, just the surname, or fewer search words.</div>';
     return;
   }
 
@@ -727,7 +753,9 @@ function renderResults(matchesByCategory, totalMatches){
       const matches = matchesByCategory[cat];
       const rowsHtml = matches.map(m => {
         const idBits = [m.building, m.flat].filter(Boolean).join(' ');
-        const statusText = m.status ? `${escapeHtml(m.status.label)}: ${escapeHtml(m.status.value)}` : '<span style="color:var(--ink-soft);">No status column found</span>';
+        const fieldsHtml = m.fields.length
+          ? m.fields.map(f => `<div><span style="color:var(--ink-soft);">${escapeHtml(f.label)}:</span> <b>${escapeHtml(f.value)}</b></div>`).join('')
+          : '<span style="color:var(--ink-soft);">No matching status columns found</span>';
         return `
           <div class="sheet-match">
             <div class="sheet-match-header">
@@ -736,7 +764,7 @@ function renderResults(matchesByCategory, totalMatches){
                 <span style="color:var(--ink-soft);">${escapeHtml(m.filename)} / ${escapeHtml(m.sheetName)}</span>
               </span>
             </div>
-            <div style="padding:10px 18px;font-size:13px;">${statusText}</div>
+            <div style="padding:10px 18px;font-size:13px;display:flex;flex-direction:column;gap:4px;">${fieldsHtml}</div>
           </div>
         `;
       }).join('');
