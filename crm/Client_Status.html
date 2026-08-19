@@ -374,35 +374,45 @@ async function handleFiles(fileList){
   if(files.length === 0){ showToast('Please upload .xls or .xlsx files.'); return; }
   showLoading(true);
 
-  const failures = [];
-  for(const file of files){
+  // Process every file (and every chunk within it) in parallel rather than
+  // one Firestore write at a time - this makes uploading several large,
+  // multi-sheet files dramatically faster.
+  const results = await Promise.all(files.map(async (file) => {
     try{
       const sheets = await parseFile(file);
-      const id = 'f-' + sanitizeId(file.name) + '-' + Date.now();
-      const chunkCounts = [];
-      // Save each sheet as its own document(s) - a single file with several
-      // large sheets (e.g. a multi-tab loan tracker) can easily exceed
-      // Firestore's 1MB-per-document limit if combined into one, and even
-      // one large sheet can exceed it alone, so each sheet is further
-      // split into row-chunks if needed.
-      for(let i=0;i<sheets.length;i++){
-        const chunks = chunkSheetRows(sheets[i]);
-        for(let c=0;c<chunks.length;c++){
-          const ok = await storageSet(`file:${id}:sheet:${i}:chunk:${c}`, chunks[c]);
-          if(!ok) throw new Error(`Sheet "${sheets[i].name}" could not be saved (part ${c+1} of ${chunks.length})`);
-        }
-        chunkCounts.push(chunks.length);
-      }
+      const id = 'f-' + sanitizeId(file.name) + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+      const chunkCounts = new Array(sheets.length);
+
+      const saveTasks = [];
+      sheets.forEach((sheet, i) => {
+        const chunks = chunkSheetRows(sheet);
+        chunkCounts[i] = chunks.length;
+        chunks.forEach((chunk, c) => {
+          saveTasks.push(
+            storageSet(`file:${id}:sheet:${i}:chunk:${c}`, chunk).then(ok => {
+              if(!ok) throw new Error(`Sheet "${sheet.name}" could not be saved (part ${c+1} of ${chunks.length})`);
+            })
+          );
+        });
+      });
+      await Promise.all(saveTasks);
+
       const entry = {
         id, filename: file.name, category: guessCategory(file.name),
         sheetCount: sheets.length, chunkCounts, uploadedAt: new Date().toISOString().slice(0,10)
       };
-      uploadedFiles.push({ ...entry, sheets });
+      return { ok: true, entry: { ...entry, sheets } };
     }catch(err){
       console.error(err);
-      failures.push(`${file.name}: ${err.message}`);
+      return { ok: false, filename: file.name, message: err.message };
     }
-  }
+  }));
+
+  const failures = [];
+  results.forEach(r => {
+    if(r.ok) uploadedFiles.push(r.entry);
+    else failures.push(`${r.filename}: ${r.message}`);
+  });
 
   await storageSet('manifest', uploadedFiles.map(f => ({
     id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, chunkCounts: f.chunkCounts, uploadedAt: f.uploadedAt
@@ -486,12 +496,16 @@ async function removeFile(fileId){
   const ok = confirm(`Remove "${entry.filename}"?\n\nThis cannot be undone.`);
   if(!ok) return;
   showLoading(true);
+
+  const deleteTasks = [];
   for(let i=0;i<entry.sheetCount;i++){
     const chunkCount = (entry.chunkCounts && entry.chunkCounts[i]) || 1;
     for(let c=0;c<chunkCount;c++){
-      await storageDelete(`file:${fileId}:sheet:${i}:chunk:${c}`);
+      deleteTasks.push(storageDelete(`file:${fileId}:sheet:${i}:chunk:${c}`));
     }
   }
+  await Promise.all(deleteTasks);
+
   uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
   await storageSet('manifest', uploadedFiles.map(f => ({
     id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, chunkCounts: f.chunkCounts, uploadedAt: f.uploadedAt
@@ -522,26 +536,33 @@ document.getElementById('manifestToggle').addEventListener('click', () => {
 async function init(){
   showLoading(true);
   const manifest = await storageGet('manifest') || [];
-  uploadedFiles = [];
-  for(const entry of manifest){
-    const sheets = [];
+
+  uploadedFiles = await Promise.all(manifest.map(async (entry) => {
+    const sheetPromises = [];
     for(let i=0;i<entry.sheetCount;i++){
       const chunkCount = (entry.chunkCounts && entry.chunkCounts[i]) || 1;
-      let headers = [];
-      let rows = [];
-      let name = '';
+      const chunkPromises = [];
       for(let c=0;c<chunkCount;c++){
-        const chunk = await storageGet(`file:${entry.id}:sheet:${i}:chunk:${c}`);
-        if(chunk){
-          name = chunk.name;
-          headers = chunk.headers;
-          rows = rows.concat(chunk.rows);
-        }
+        chunkPromises.push(storageGet(`file:${entry.id}:sheet:${i}:chunk:${c}`));
       }
-      if(name) sheets.push({ name, headers, rows });
+      sheetPromises.push(
+        Promise.all(chunkPromises).then(chunks => {
+          let name = '', headers = [], rows = [];
+          chunks.forEach(chunk => {
+            if(chunk){
+              name = chunk.name;
+              headers = chunk.headers;
+              rows = rows.concat(chunk.rows);
+            }
+          });
+          return name ? { name, headers, rows } : null;
+        })
+      );
     }
-    uploadedFiles.push({ ...entry, sheets });
-  }
+    const sheets = (await Promise.all(sheetPromises)).filter(Boolean);
+    return { ...entry, sheets };
+  }));
+
   renderManifest();
   showLoading(false);
 }
@@ -622,7 +643,11 @@ function computeStatus(category, headers, row){
 
 // ---- Live search (as-you-type, matching Client & Flat Ledger Search) ----
 const searchInput = document.getElementById('searchInput');
-searchInput.addEventListener('input', () => runSearch());
+let searchDebounceTimer = null;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(runSearch, 180);
+});
 
 function runSearch(){
   const query = searchInput.value.trim();
