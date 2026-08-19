@@ -611,54 +611,167 @@ function normalizeForMatch(str){
 // "stage" fields use a priority list (furthest-along non-empty wins, e.g.
 // loan checks Disbursement before Sanction before Login...). Plain fields
 // just report the first matching column's value.
-const KEY_FIELDS_BY_CATEGORY = {
-  payment: [
-    { label: 'Status', type: 'stage', patterns: [/^status$/i] },
-    { label: 'Paid %', type: 'plain', patterns: [/payment.*%|%.*payment|percentage/i] },
-    { label: 'Outstanding', type: 'plain', patterns: [/outstanding/i] },
-    { label: 'Bank', type: 'plain', patterns: [/^bank$/i, /bank\s*name/i] },
-  ],
-  loan: [
-    { label: 'Stage', type: 'stage', patterns: [
-      /disbursement/i, /^sanction$/i, /^login$/i, /in\s*principle\s*sanction/i,
-      /banker\s*meet/i, /document\s*collect/i, /^phonecall$/i, /^lead$/i, /loan\s*stage/i, /^status$/i,
-    ]},
-    { label: 'Bank', type: 'plain', patterns: [/^banks$/i, /bank\s*name/i, /^bank$/i] },
-    { label: 'Loan Amount', type: 'plain', patterns: [/loan\s*amount/i] },
-    { label: 'DSA', type: 'plain', patterns: [/^dsa$/i] },
-  ],
-  documentation: [
-    { label: 'Status', type: 'plain', patterns: [/^status$/i] },
-    { label: 'Assigned To', type: 'plain', patterns: [/assigned\s*to/i] },
-    { label: 'Target Date', type: 'plain', patterns: [/target\s*date/i] },
-  ],
-  possession: [
-    { label: 'Final Possession Status', type: 'stage', patterns: [/final\s*possession\s*status/i, /possession.*status/i, /^status$/i] },
-    { label: 'Possession Commitment Date', type: 'plain', patterns: [/possession\s*commitment\s*date/i] },
-    { label: 'Remark', type: 'plain', patterns: [/^remark/i] },
-  ],
-  extrawork: [
-    { label: 'Work Status', type: 'plain', patterns: [/work\s*status/i] },
-    { label: 'Payment Status', type: 'plain', patterns: [/payment\s*status/i] },
-    { label: 'Description', type: 'plain', patterns: [/description\s*of\s*work/i] },
-  ],
-};
-function computeKeyFields(category, headers, row){
-  const fieldDefs = KEY_FIELDS_BY_CATEGORY[category] || [{ label: 'Status', patterns: [/^status$/i] }];
+// ---- Category-specific field computation, matching exact formats requested ----
+
+function findColumnValue(headers, row, patterns){
+  for(const p of patterns){
+    const idx = headers.findIndex(h => p.test(h));
+    if(idx !== -1 && row[idx] != null && String(row[idx]).trim() !== '') return String(row[idx]).trim();
+  }
+  return null;
+}
+
+// Documentation & Possession: show every column as a "Label: Done/Pending"
+// checklist line, except identifying columns (flat/name/building), known
+// meta columns (assigned by, dates of assignment, etc), and a few columns
+// whose actual text value matters more than a done/pending flag (dates,
+// final status) - those are shown as-is instead.
+const DOC_EXCLUDE_PATTERNS = [
+  /^sr\.?\s*no/i, /assigned\s*by/i, /assigned\s*date/i, /assigned\s*to/i, /request\s*date/i,
+  /completion\s*date/i, /delays/i, /^note/i, /work\s*type/i, /^wing$/i, /^time$/i,
+  /doc\.?\s*type/i, /^column\d*$/i,
+];
+const POSS_EXCLUDE_PATTERNS = [
+  /intimation/i, /mail/i, /client\s*visit/i, /current\s*on\s*going/i, /^remark/i,
+  /paym.*sd.*status/i, /sd\s*status/i, /^status\s*as\s*on/i, /^note/i, /^bldg\b/i,
+];
+const VALUE_NOT_CHECKLIST_PATTERNS = [
+  /date/i, /final\s*possession/i, /^status$/i,
+];
+function computeChecklistFields(headers, row, excludePatterns){
   const results = [];
-  fieldDefs.forEach(def => {
-    for(const pattern of def.patterns){
-      const idx = headers.findIndex(h => pattern.test(h));
-      if(idx !== -1){
-        const val = row[idx];
-        if(val != null && String(val).trim() !== ''){
-          results.push({ label: def.label, value: String(val).trim() });
-          break; // found a non-empty value for this field, stop trying its other patterns
-        }
-      }
+  headers.forEach((h, i) => {
+    if(!h) return;
+    if(FLAT_HEADER_PATTERNS.some(p=>p.test(h))) return;
+    const isExcludedName = NAME_EXCLUDE_PATTERNS.some(p=>p.test(h));
+    if(!isExcludedName && NAME_HEADER_PATTERNS.some(p=>p.test(h))) return;
+    if(BUILDING_HEADER_PATTERNS.some(p=>p.test(h))) return;
+    if(excludePatterns.some(p=>p.test(h))) return;
+
+    const val = row[i];
+    const hasValue = val != null && String(val).trim() !== '';
+    const isValueField = VALUE_NOT_CHECKLIST_PATTERNS.some(p=>p.test(h));
+
+    if(isValueField){
+      if(hasValue) results.push({ label: h, value: String(val).trim() });
+    } else {
+      results.push({ label: h, value: hasValue ? 'Done' : 'Pending' });
     }
   });
   return results;
+}
+
+// Loan: simple fields + a computed "current stage" label, with the full
+// follow-up remarks history shown underneath it (not just that stage
+// column's own cell, which is usually just a date). Her remarks columns
+// are a running log of dated entries appended over time (e.g.
+// "16-07-26 Called..."), so this splits on date-like prefixes into
+// separate lines rather than showing one unbroken block of text.
+function splitDatedEntries(text){
+  if(!text) return null;
+  const datePattern = /(\d{1,2}[-.\/]\d{1,2}[-.\/]\d{2,4})/g;
+  const matches = [...text.matchAll(datePattern)];
+  if(matches.length <= 1) return text;
+  const entries = [];
+  for(let i=0;i<matches.length;i++){
+    const start = matches[i].index;
+    const end = i+1 < matches.length ? matches[i+1].index : text.length;
+    entries.push(text.slice(start, end).trim());
+  }
+  return entries;
+}
+const LOAN_STAGE_PATTERNS = [
+  /disbursement/i, /^sanction$/i, /^login$/i, /in\s*principle\s*sanction/i,
+  /banker\s*meet/i, /document\s*collect/i, /^phonecall$/i, /^lead$/i, /loan\s*stage/i, /^status$/i,
+];
+function computeLoanFields(headers, row){
+  const results = [];
+  const loanAmount = findColumnValue(headers, row, [/loan\s*amount/i]);
+  if(loanAmount) results.push({ label: 'Loan Amount', value: loanAmount });
+  const bank = findColumnValue(headers, row, [/^banks$/i, /bank\s*name/i, /^bank$/i]);
+  if(bank) results.push({ label: 'Bank', value: bank });
+  const inHouse = findColumnValue(headers, row, [/in\s*house\s*loan/i]);
+  if(inHouse) results.push({ label: 'In House Loan', value: inHouse });
+
+  let stageName = null;
+  for(const p of LOAN_STAGE_PATTERNS){
+    const idx = headers.findIndex(h => p.test(h));
+    if(idx !== -1 && row[idx] != null && String(row[idx]).trim() !== ''){
+      stageName = headers[idx];
+      break;
+    }
+  }
+  if(stageName){
+    const remarks = findColumnValue(headers, row, [/folloups?\s*re\s*-?mark/i, /remarks?$/i]);
+    const entries = splitDatedEntries(remarks);
+    const value = Array.isArray(entries) ? entries.join('\n') : (entries || '(no remarks logged)');
+    results.push({ label: `Current Stage - ${stageName}`, value, multiline: true });
+  }
+  return results;
+}
+
+// Payment: structured fields, outstanding shown as amount + %, and a
+// "last 10 remarks" line, using the same dated-entry splitting as loan
+// but capped to the most recent 10 entries.
+function parseLastNRemarks(text, n){
+  const entries = splitDatedEntries(text);
+  if(!Array.isArray(entries)) return entries;
+  return entries.slice(-n).join('\n');
+}
+function computePaymentFields(headers, row){
+  const results = [];
+  const bookingDate = findColumnValue(headers, row, [/booking\s*date/i]);
+  if(bookingDate) results.push({ label: 'Booking Date', value: bookingDate });
+  const totalCost = findColumnValue(headers, row, [/sum\s*of\s*total\s*cost/i]);
+  if(totalCost) results.push({ label: 'Sum of Total Cost', value: totalCost });
+  const totalPayment = findColumnValue(headers, row, [/sum\s*of\s*total\s*payment(?!\s*\(%)/i]);
+  if(totalPayment) results.push({ label: 'Sum of Total Payment', value: totalPayment });
+
+  const outstandingAmt = findColumnValue(headers, row, [/outstanding/i]);
+  const outstandingPct = findColumnValue(headers, row, [/payment.*%|%.*payment|percentage/i]);
+  if(outstandingAmt || outstandingPct){
+    const parts = [];
+    if(outstandingAmt) parts.push(outstandingAmt);
+    if(outstandingPct) parts.push(`(${outstandingPct})`);
+    results.push({ label: 'Outstanding', value: parts.join(' ') });
+  }
+
+  const remarks = findColumnValue(headers, row, [/^re-?marks?$/i, /^remarks?$/i]);
+  if(remarks) results.push({ label: 'Last 10 Remarks', value: parseLastNRemarks(remarks, 10), multiline: true });
+
+  const nextFollowup = findColumnValue(headers, row, [/n[x]?t\s*foll?w?oup\s*dt?/i, /next\s*followup/i]);
+  if(nextFollowup) results.push({ label: 'Next Followup', value: nextFollowup });
+
+  return results;
+}
+
+// Extra Work: the work item description + its status + which agency did
+// it, plus a separate deduction line if that row also has one.
+function computeExtraWorkFields(headers, row){
+  const results = [];
+  const item = findColumnValue(headers, row, [/description\s*of\s*work/i, /^extra\s*work/i]);
+  const status = findColumnValue(headers, row, [/^work\s*status$/i]);
+  const agency = findColumnValue(headers, row, [/work\s*done\s*by\s*agency/i, /^agency/i]);
+  if(item || status || agency){
+    const parts = [item].filter(Boolean);
+    if(status) parts.push(`[${status}]`);
+    if(agency) parts.push(`— ${agency}`);
+    results.push({ label: 'Extra Work', value: parts.join(' ') || '(no description)' });
+  }
+  const deduction = findColumnValue(headers, row, [/^deduction/i]);
+  if(deduction) results.push({ label: 'Deduction', value: deduction });
+  return results;
+}
+
+function computeCategoryFields(category, headers, row){
+  switch(category){
+    case 'documentation': return computeChecklistFields(headers, row, DOC_EXCLUDE_PATTERNS);
+    case 'possession': return computeChecklistFields(headers, row, POSS_EXCLUDE_PATTERNS);
+    case 'loan': return computeLoanFields(headers, row);
+    case 'payment': return computePaymentFields(headers, row);
+    case 'extrawork': return computeExtraWorkFields(headers, row);
+    default: return [];
+  }
 }
 
 // ---- Live search (as-you-type, matching Client & Flat Ledger Search) ----
@@ -721,7 +834,7 @@ function runSearch(){
         const flatVal = flatCols.length ? row[flatCols[0]] : '';
         const buildingVal = buildingCols.length ? row[buildingCols[0]] : '';
         const nameVal = nameCols.length ? row[nameCols[0]] : '';
-        const fields = computeKeyFields(file.category, sheet.headers, row);
+        const fields = computeCategoryFields(file.category, sheet.headers, row);
 
         totalMatches++;
         if(!matchesByCategory[file.category]) matchesByCategory[file.category] = [];
@@ -754,7 +867,12 @@ function renderResults(matchesByCategory, totalMatches){
       const rowsHtml = matches.map(m => {
         const idBits = [m.building, m.flat].filter(Boolean).join(' ');
         const fieldsHtml = m.fields.length
-          ? m.fields.map(f => `<div><span style="color:var(--ink-soft);">${escapeHtml(f.label)}:</span> <b>${escapeHtml(f.value)}</b></div>`).join('')
+          ? m.fields.map(f => {
+              const valueHtml = f.multiline
+                ? `<div style="white-space:pre-line;margin-top:2px;">${escapeHtml(f.value)}</div>`
+                : ` <b>${escapeHtml(f.value)}</b>`;
+              return `<div><span style="color:var(--ink-soft);">${escapeHtml(f.label)}:</span>${valueHtml}</div>`;
+            }).join('')
           : '<span style="color:var(--ink-soft);">No matching status columns found</span>';
         return `
           <div class="sheet-match">
