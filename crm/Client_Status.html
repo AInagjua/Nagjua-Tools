@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Search a client or flat number across every payment, loan, documentation, possession, and extra work sheet to see their full current situation. Shared live data for everyone.">
+<meta name="description" content="Search a client or flat number across every payment, loan, documentation, possession, and extra work sheet to see their full current situation.">
 <title>Client Status</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -25,7 +25,20 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',Arial,sans-serif;background:var(--steel);color:var(--ink);}
-  .app{max-width:1400px;margin:0 auto;padding:0 0 80px;}
+
+  /* ---- Login overlay (matches Client & Flat Ledger Search) ---- */
+  .login-overlay{
+    position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:999;
+  }
+  .login-box{background:#fff;border-radius:8px;padding:36px 32px;width:340px;box-shadow:0 8px 30px rgba(0,0,0,.3);}
+  .login-box h1{font-family:'Playfair Display',serif;font-size:20px;color:var(--navy);margin:0 0 4px;}
+  .login-box .sub{font-size:12px;color:var(--ink-soft);margin:0 0 22px;}
+  .login-box input{width:100%;padding:11px 12px;margin-bottom:12px;border:1px solid var(--steel-line);border-radius:5px;font-size:14px;}
+  .login-box button{width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:5px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
+  .login-box button:hover{background:var(--navy-dark);}
+  .login-error{display:none;background:#FBEAE6;color:var(--danger);border:1px solid #ecc7bf;padding:9px 12px;border-radius:5px;font-size:12.5px;margin-bottom:14px;}
+
+  .app{max-width:1400px;margin:0 auto;padding:0 0 80px;display:none;}
   .topbar{
     display:flex;justify-content:space-between;align-items:flex-end;
     background:var(--navy);color:#fff;padding:22px 32px;margin-bottom:26px;
@@ -61,18 +74,18 @@
   .upload-btn:hover{background:var(--gold-light);}
   .upload-hint{font-size:12px;color:var(--ink-soft);margin:0 0 14px;line-height:1.5;}
 
-  .file-list{display:flex;flex-direction:column;gap:8px;}
-  .file-row{
-    display:flex;align-items:center;gap:12px;padding:10px 14px;background:#FBFBF9;
-    border:1px solid var(--steel-line);border-radius:5px;font-size:12.5px;
+  /* ---- Manifest table (matches Client & Flat Ledger Search) ---- */
+  .manifest-meta{font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;}
+  .manifest-empty{padding:24px 0;text-align:center;color:var(--ink-soft);font-size:13px;}
+  table.manifest-table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  table.manifest-table th{
+    background:#F6F3EC;color:var(--navy);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;
+    font-weight:700;padding:8px 10px;text-align:left;border:1px solid var(--steel-line);
   }
-  .file-row .fname{flex:1;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .file-row select{
-    padding:6px 8px;border:1px solid var(--steel-line);border-radius:4px;font-size:12px;background:#fff;
-  }
-  .file-row .sheet-count{color:var(--ink-soft);font-size:11.5px;white-space:nowrap;}
-  .file-row .remove-file-btn{background:none;border:none;color:#C4BEB0;font-size:16px;cursor:pointer;padding:0 4px;}
-  .file-row .remove-file-btn:hover{color:var(--danger);}
+  table.manifest-table td{padding:8px 10px;border:1px solid var(--steel-line);vertical-align:middle;}
+  table.manifest-table select{padding:6px 8px;border:1px solid var(--steel-line);border-radius:4px;font-size:12px;background:#fff;width:100%;}
+  .remove-btn{background:none;border:1px solid var(--steel-line);color:var(--danger);border-radius:4px;padding:5px 10px;font-size:11.5px;cursor:pointer;}
+  .remove-btn:hover{background:#FBEAE6;}
 
   .search-body{padding:20px;}
   .search-row{display:flex;gap:12px;}
@@ -127,58 +140,62 @@
   .status-msg.ok{background:var(--ok-bg);color:var(--ok);border:1px solid #bfe0cc;}
   .status-msg.err{background:#FBEAE6;color:var(--danger);border:1px solid #ecc7bf;}
 
-  .login-overlay{
-    position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:999;
-  }
-  .login-box{background:#fff;border-radius:8px;padding:36px 32px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.35);}
-  .login-box h2{font-family:'Playfair Display',serif;color:var(--navy);margin:0 0 22px;text-align:center;}
-  .login-box input{width:100%;padding:11px 13px;margin-bottom:12px;border:1px solid var(--steel-line);border-radius:5px;font-size:14px;}
-  .login-box button{width:100%;background:var(--gold);color:var(--navy);border:none;padding:11px;border-radius:5px;font-weight:700;font-size:14px;cursor:pointer;}
-  .login-box button:hover{background:var(--gold-light);}
-  .login-error{display:none;color:var(--danger);font-size:12.5px;margin-top:8px;text-align:center;}
-  .sync-status{font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:10px;}
+  .loading-overlay{position:fixed;inset:0;background:rgba(15,27,53,.55);display:none;align-items:center;justify-content:center;z-index:900;}
+  .spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.25);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
 
-<div class="login-overlay" id="loginOverlay">
+<div id="loginOverlay" class="login-overlay">
   <div class="login-box">
-    <h2>Client Status</h2>
+    <h1>Client Status</h1>
+    <div class="sub">Sign in to search payment, loan, documentation, possession &amp; extra work data</div>
+    <div id="loginError" class="login-error">Incorrect email or password.</div>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
     <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
     <button id="loginBtn">Sign In</button>
-    <div class="login-error" id="loginError">Incorrect email or password.</div>
   </div>
 </div>
 
-<div class="app" id="mainWrap" style="display:none;">
+<div class="app" id="mainWrap">
 
   <div class="topbar">
     <div>
       <h1>Client Status</h1>
-      <div class="sub">Search a flat or client across every payment, loan, documentation, possession &amp; extra work sheet - shared live data</div>
+      <div class="sub">Search a flat or client across every payment, loan, documentation, possession &amp; extra work sheet</div>
     </div>
     <div>
-      <button id="logoutBtn">Log out</button>
+      <button id="logoutBtn">Sign Out</button>
     </div>
   </div>
-
 
   <section class="block" id="upload-section">
     <div class="section-label"><div class="num">1</div><h2>Upload Sheets</h2></div>
     <div class="upload-body">
-      <p class="upload-hint">Upload as many Excel files as you have (Payment, Loan, Documentation, Possession, Extra Work — any building/tower). Every sheet inside each file is read automatically. Once uploaded, files are saved to shared data - everyone sees the same list without re-uploading. This tool guesses a category from the filename — check the dropdown next to each file and correct it if needed.</p>
+      <p class="upload-hint">Upload Excel files — Payment, Loan, Documentation, Possession, Extra Work — for any building/tower. Every sheet inside each file is read automatically and saved so everyone on the team sees the same data. This tool guesses a category from the filename — check the dropdown next to each file below and correct it if needed.</p>
       <div class="upload-row">
         <input type="file" id="file-input" accept=".xlsx,.xls" multiple>
         <button class="upload-btn" id="process-files-btn">Add Files</button>
       </div>
       <div class="status-msg" id="upload-status"></div>
-      <div class="file-list" id="file-list"></div>
+    </div>
+  </section>
+
+  <section class="block" id="manifest-section">
+    <div class="section-label"><div class="num">2</div><h2>Loaded Files</h2></div>
+    <div class="upload-body">
+      <div class="manifest-meta" id="manifest-meta"></div>
+      <div class="manifest-empty" id="manifest-empty" style="display:none;">No files uploaded yet. Add files above to get started.</div>
+      <table class="manifest-table" id="manifest-table" style="display:none;">
+        <thead><tr><th style="width:26%">Filename</th><th style="width:20%">Category</th><th style="width:10%">Sheets</th><th style="width:14%">Uploaded</th><th style="width:10%"></th></tr></thead>
+        <tbody id="manifest-body"></tbody>
+      </table>
     </div>
   </section>
 
   <section class="block" id="search-section">
-    <div class="section-label"><div class="num">2</div><h2>Search</h2></div>
+    <div class="section-label"><div class="num">3</div><h2>Search</h2></div>
     <div class="search-body">
       <div class="search-row">
         <input type="text" id="search-input" placeholder="Enter Flat No., Unit No., or Client Name — e.g. JD404 or Solanki">
@@ -189,19 +206,21 @@
   </section>
 
   <section class="block" id="results-section" style="display:none;">
-    <div class="section-label"><div class="num">3</div><h2>Results</h2></div>
+    <div class="section-label"><div class="num">4</div><h2>Results</h2></div>
     <div id="results-container"></div>
   </section>
 
 </div>
 
+<div id="loadingOverlay" class="loading-overlay"><div class="spinner"></div></div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// Reuses the same Firebase project as Client & Flat Ledger Search - same
-// approved users can log into both tools, no new Firebase setup needed.
+// Same Firebase project as Client & Flat Ledger Search - separate Firestore
+// collection so the two tools' data never collide.
 const firebaseConfig = {
   apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
   authDomain: "transaction-search-ng.firebaseapp.com",
@@ -239,19 +258,44 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     loginOverlay.style.display = 'none';
     mainWrap.style.display = '';
-    loadFromFirestore();
+    if (typeof init === 'function') init();
   } else {
     loginOverlay.style.display = 'flex';
     mainWrap.style.display = 'none';
   }
 });
 
+function showLoading(v){ document.getElementById('loadingOverlay').style.display = v ? 'flex' : 'none'; }
+
+async function storageSet(key, obj){
+  try { await setDoc(doc(db, COLLECTION, key), { json: JSON.stringify(obj) }); return true; }
+  catch(e){ console.error('storage set failed', key, e); return false; }
+}
+async function storageGet(key){
+  try {
+    const snap = await getDoc(doc(db, COLLECTION, key));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return (d && d.json) ? JSON.parse(d.json) : null;
+  } catch(e){ console.error('storage get failed', key, e); return null; }
+}
+async function storageDelete(key){
+  try { await deleteDoc(doc(db, COLLECTION, key)); } catch(e){ console.error('storage delete failed', key, e); }
+}
+
+function sanitizeId(s){
+  return String(s).replace(/\s+/g, '_').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 180);
+}
+
+// ==================================================================
+// Client Status - data model
+// uploadedFiles = [{ id, filename, category, uploadedAt, sheets: [{ name, headers: [...], rows: [[...]] }] }]
+// Manifest (Firestore doc 'manifest') holds just id/filename/category/
+// sheetCount/uploadedAt for each file; the actual sheet data lives in a
+// separate 'file:{id}' document, mirroring Client & Flat Ledger Search.
+// ==================================================================
 
 let uploadedFiles = [];
-function makeFileId(filename){
-  const safe = filename.replace(/[^a-zA-Z0-9]/g,'_').slice(0,40);
-  return `f_${Date.now()}_${Math.random().toString(36).slice(2,8)}_${safe}`;
-}
 
 const CATEGORY_KEYWORDS = [
   { key: 'payment', label: 'Payment / Interest', match: /payment|interest/i },
@@ -278,9 +322,6 @@ function escapeHtml(str){
 // ---- File processing ----
 function readSheetAsRows(worksheet){
   const raw = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
-  // Find the first row that looks like a real header row (at least 2
-  // non-empty cells) - some sheets have title/date rows before the real
-  // header, which would otherwise get treated as the header itself.
   let headerRowIdx = 0;
   for(let i=0;i<Math.min(raw.length, 10);i++){
     const nonEmpty = raw[i].filter(c => String(c).trim() !== '').length;
@@ -291,106 +332,14 @@ function readSheetAsRows(worksheet){
   return { headers, rows };
 }
 
-async function processFile(file){
+async function parseFile(file){
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   const sheets = workbook.SheetNames.map(name => {
     const { headers, rows } = readSheetAsRows(workbook.Sheets[name]);
     return { name, headers, rows };
   }).filter(s => s.headers.length > 0 && s.rows.length > 0);
-
-  return {
-    id: makeFileId(file.name),
-    filename: file.name,
-    category: guessCategory(file.name),
-    sheets
-  };
-}
-
-// ---- Firestore storage (chunked per-sheet to stay under the 1MB/doc limit) ----
-const CHUNK_SIZE = 200; // rows per Firestore document - safe margin even for wide sheets
-
-async function saveFileToFirestore(file){
-  for(let sIdx=0; sIdx<file.sheets.length; sIdx++){
-    const sheet = file.sheets[sIdx];
-    const totalChunks = Math.max(1, Math.ceil(sheet.rows.length / CHUNK_SIZE));
-    for(let c=0; c<totalChunks; c++){
-      const chunkRows = sheet.rows.slice(c*CHUNK_SIZE, (c+1)*CHUNK_SIZE);
-      const docId = `${file.id}__s${sIdx}__c${c}`;
-      await setDoc(doc(db, COLLECTION, docId), {
-        fileId: file.id,
-        filename: file.filename,
-        category: file.category,
-        sheetIndex: sIdx,
-        sheetName: sheet.name,
-        headers: sheet.headers,
-        rows: chunkRows,
-        chunkIndex: c,
-        totalChunks
-      });
-    }
-  }
-}
-
-async function updateFileCategoryInFirestore(fileId, category){
-  const q = query(collection(db, COLLECTION), where('fileId', '==', fileId));
-  const snap = await getDocs(q);
-  const updates = [];
-  snap.forEach(docSnap => {
-    updates.push(setDoc(doc(db, COLLECTION, docSnap.id), { ...docSnap.data(), category }));
-  });
-  await Promise.all(updates);
-}
-
-async function deleteFileFromFirestore(fileId){
-  const q = query(collection(db, COLLECTION), where('fileId', '==', fileId));
-  const snap = await getDocs(q);
-  const deletions = [];
-  snap.forEach(docSnap => deletions.push(deleteDoc(doc(db, COLLECTION, docSnap.id))));
-  await Promise.all(deletions);
-}
-
-async function loadFromFirestore(){
-  const statusEl = document.getElementById('upload-status');
-  statusEl.className = 'status-msg show ok';
-  statusEl.textContent = 'Loading shared data...';
-  try{
-    const snap = await getDocs(collection(db, COLLECTION));
-    // Group chunks back by fileId -> sheetIndex, then reassemble in order
-    const fileMap = {};
-    snap.forEach(docSnap => {
-      const d = docSnap.data();
-      if(!fileMap[d.fileId]) fileMap[d.fileId] = { id: d.fileId, filename: d.filename, category: d.category, sheetsByIdx: {} };
-      if(!fileMap[d.fileId].sheetsByIdx[d.sheetIndex]) {
-        fileMap[d.fileId].sheetsByIdx[d.sheetIndex] = { name: d.sheetName, headers: d.headers, chunks: [] };
-      }
-      fileMap[d.fileId].sheetsByIdx[d.sheetIndex].chunks[d.chunkIndex] = d.rows;
-    });
-
-    uploadedFiles = Object.values(fileMap).map(f => ({
-      id: f.id,
-      filename: f.filename,
-      category: f.category,
-      sheets: Object.keys(f.sheetsByIdx).sort((a,b)=>a-b).map(idx => {
-        const s = f.sheetsByIdx[idx];
-        return { name: s.name, headers: s.headers, rows: s.chunks.flat() };
-      })
-    }));
-
-    renderFileList();
-    if(uploadedFiles.length){
-      const totalSheets = uploadedFiles.reduce((s,f) => s + f.sheets.length, 0);
-      statusEl.className = 'status-msg show ok';
-      statusEl.textContent = `${uploadedFiles.length} file(s), ${totalSheets} sheet(s) loaded from shared data. Ready to search.`;
-    } else {
-      statusEl.className = 'status-msg';
-      statusEl.textContent = '';
-    }
-  }catch(err){
-    console.error(err);
-    statusEl.className = 'status-msg show err';
-    statusEl.textContent = 'Could not load shared data: ' + err.message;
-  }
+  return sheets;
 }
 
 document.getElementById('process-files-btn').addEventListener('click', async () => {
@@ -402,24 +351,35 @@ document.getElementById('process-files-btn').addEventListener('click', async () 
     statusEl.textContent = 'Choose one or more Excel files first.';
     return;
   }
+  showLoading(true);
   statusEl.className = 'status-msg show ok';
-  statusEl.textContent = `Reading ${files.length} file(s)...`;
+  statusEl.textContent = `Reading and saving ${files.length} file(s)...`;
 
   const failures = [];
   for(const file of files){
     try{
-      const parsed = await processFile(file);
-      statusEl.textContent = `Saving "${file.name}" to shared data...`;
-      await saveFileToFirestore(parsed);
-      uploadedFiles.push(parsed);
+      const sheets = await parseFile(file);
+      const id = 'f-' + sanitizeId(file.name) + '-' + Date.now();
+      const entry = {
+        id, filename: file.name, category: guessCategory(file.name),
+        sheetCount: sheets.length, uploadedAt: new Date().toISOString().slice(0,10)
+      };
+      const ok = await storageSet('file:' + id, sheets);
+      if(!ok) throw new Error('Could not save to shared storage');
+      uploadedFiles.push({ ...entry, sheets });
     }catch(err){
       console.error(err);
       failures.push(`${file.name}: ${err.message}`);
     }
   }
 
+  await storageSet('manifest', uploadedFiles.map(f => ({
+    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, uploadedAt: f.uploadedAt
+  })));
+
   input.value = '';
-  renderFileList();
+  renderManifest();
+  showLoading(false);
 
   if(failures.length){
     statusEl.className = 'status-msg show err';
@@ -431,51 +391,82 @@ document.getElementById('process-files-btn').addEventListener('click', async () 
   }
 });
 
-function renderFileList(){
-  const container = document.getElementById('file-list');
+function renderManifest(){
+  const meta = document.getElementById('manifest-meta');
+  const emptyEl = document.getElementById('manifest-empty');
+  const tableEl = document.getElementById('manifest-table');
+  const body = document.getElementById('manifest-body');
+
+  meta.textContent = uploadedFiles.length ? `${uploadedFiles.length} file(s) loaded — visible to everyone using this tool` : '';
+
   if(!uploadedFiles.length){
-    container.innerHTML = '';
+    emptyEl.style.display = 'block';
+    tableEl.style.display = 'none';
     return;
   }
-  container.innerHTML = uploadedFiles.map(f => `
-    <div class="file-row" data-file-id="${f.id}">
-      <span class="fname" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</span>
-      <span class="sheet-count">${f.sheets.length} sheet(s)</span>
-      <select data-file-id="${f.id}" class="category-select">
-        ${CATEGORY_KEYWORDS.map(c => `<option value="${c.key}" ${f.category===c.key?'selected':''}>${c.label}</option>`).join('')}
-        <option value="other" ${f.category==='other'?'selected':''}>Other</option>
-      </select>
-      <button class="remove-file-btn" data-file-id="${f.id}" title="Remove this file">&times;</button>
-    </div>
+  emptyEl.style.display = 'none';
+  tableEl.style.display = 'table';
+
+  body.innerHTML = uploadedFiles.map(f => `
+    <tr>
+      <td title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</td>
+      <td>
+        <select data-id="${f.id}" class="category-select">
+          ${CATEGORY_KEYWORDS.map(c => `<option value="${c.key}" ${f.category===c.key?'selected':''}>${c.label}</option>`).join('')}
+          <option value="other" ${f.category==='other'?'selected':''}>Other</option>
+        </select>
+      </td>
+      <td>${f.sheets.length}</td>
+      <td>${escapeHtml(f.uploadedAt||'')}</td>
+      <td><button class="remove-btn" data-id="${f.id}">Remove</button></td>
+    </tr>
   `).join('');
+
+  body.querySelectorAll('.category-select').forEach(sel => {
+    sel.addEventListener('change', e => renameCategory(e.target.dataset.id, e.target.value));
+  });
+  body.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => removeFile(e.target.dataset.id));
+  });
 }
 
-document.getElementById('file-list').addEventListener('change', async (e) => {
-  if(e.target.classList.contains('category-select')){
-    const f = uploadedFiles.find(f => f.id === e.target.dataset.fileId);
-    if(f){
-      f.category = e.target.value;
-      try{ await updateFileCategoryInFirestore(f.id, f.category); }
-      catch(err){ console.error('Could not sync category change:', err); }
-    }
+async function renameCategory(fileId, newCategory){
+  const entry = uploadedFiles.find(f => f.id === fileId);
+  if(!entry) return;
+  entry.category = newCategory;
+  await storageSet('manifest', uploadedFiles.map(f => ({
+    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, uploadedAt: f.uploadedAt
+  })));
+}
+
+async function removeFile(fileId){
+  const entry = uploadedFiles.find(f => f.id === fileId);
+  if(!entry) return;
+  const ok = confirm(`Remove "${entry.filename}"?\n\nThis cannot be undone and removes it for everyone.`);
+  if(!ok) return;
+  showLoading(true);
+  await storageDelete('file:' + fileId);
+  uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+  await storageSet('manifest', uploadedFiles.map(f => ({
+    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, uploadedAt: f.uploadedAt
+  })));
+  renderManifest();
+  showLoading(false);
+}
+
+// ---- Init: load manifest + all files from Firestore on login ----
+async function init(){
+  showLoading(true);
+  const manifest = await storageGet('manifest') || [];
+  uploadedFiles = [];
+  for(const entry of manifest){
+    const sheets = await storageGet('file:' + entry.id) || [];
+    uploadedFiles.push({ ...entry, sheets });
   }
-});
-document.getElementById('file-list').addEventListener('click', async (e) => {
-  if(e.target.classList.contains('remove-file-btn')){
-    const fileId = e.target.dataset.fileId;
-    if(!confirm('Remove this file for everyone? This deletes it from the shared data.')) return;
-    e.target.disabled = true;
-    try{
-      await deleteFileFromFirestore(fileId);
-      uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
-      renderFileList();
-    }catch(err){
-      console.error(err);
-      alert('Could not remove file: ' + err.message);
-      e.target.disabled = false;
-    }
-  }
-});
+  renderManifest();
+  showLoading(false);
+}
+window.init = init;
 
 // ---- Column detection (per sheet, at search time) ----
 const FLAT_HEADER_PATTERNS = [
@@ -517,7 +508,6 @@ function runSearch(){
   const query = document.getElementById('search-input').value.trim();
   const metaEl = document.getElementById('search-meta');
   const resultsSection = document.getElementById('results-section');
-  const resultsContainer = document.getElementById('results-container');
 
   if(!query){
     metaEl.textContent = 'Enter a Flat No., Unit No., or Client Name to search.';
@@ -532,9 +522,7 @@ function runSearch(){
 
   const normQuery = normalizeForMatch(query);
   const queryLower = query.toLowerCase();
-  const isNumericish = /^[a-z]{0,3}\d+$/i.test(query.replace(/[\s-]/g,''));
 
-  // Group matches by category -> file+sheet -> matching row indices
   const matchesByCategory = {};
   let totalMatches = 0;
 
@@ -591,7 +579,6 @@ function renderResults(matchesByCategory, totalMatches){
     return;
   }
 
-  // Preferred category display order
   const order = ['payment','loan','documentation','possession','extrawork','other'];
   const categoryClass = { payment:'cat-payment', loan:'cat-loan', documentation:'cat-documentation', possession:'cat-possession', extrawork:'cat-extrawork', other:'cat-other' };
 
