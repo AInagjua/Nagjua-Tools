@@ -343,6 +343,32 @@ uploadZone.addEventListener('drop', e => {
   handleFiles(e.dataTransfer.files);
 });
 
+// Splits a sheet's rows across multiple documents if it would exceed
+// Firestore's 1MB-per-document limit on its own. Uses a safe threshold
+// well under the hard limit to leave margin for JSON overhead.
+const MAX_CHUNK_BYTES = 700000;
+function chunkSheetRows(sheet){
+  const headerOverhead = JSON.stringify({ name: sheet.name, headers: sheet.headers, rows: [] }).length;
+  const chunks = [];
+  let currentRows = [];
+  let currentSize = headerOverhead;
+
+  for(const row of sheet.rows){
+    const rowSize = JSON.stringify(row).length + 1;
+    if(currentSize + rowSize > MAX_CHUNK_BYTES && currentRows.length > 0){
+      chunks.push({ name: sheet.name, headers: sheet.headers, rows: currentRows });
+      currentRows = [];
+      currentSize = headerOverhead;
+    }
+    currentRows.push(row);
+    currentSize += rowSize;
+  }
+  if(currentRows.length > 0 || chunks.length === 0){
+    chunks.push({ name: sheet.name, headers: sheet.headers, rows: currentRows });
+  }
+  return chunks;
+}
+
 async function handleFiles(fileList){
   const files = Array.from(fileList).filter(f => /\.(xls|xlsx)$/i.test(f.name));
   if(files.length === 0){ showToast('Please upload .xls or .xlsx files.'); return; }
@@ -353,17 +379,24 @@ async function handleFiles(fileList){
     try{
       const sheets = await parseFile(file);
       const id = 'f-' + sanitizeId(file.name) + '-' + Date.now();
+      const chunkCounts = [];
+      // Save each sheet as its own document(s) - a single file with several
+      // large sheets (e.g. a multi-tab loan tracker) can easily exceed
+      // Firestore's 1MB-per-document limit if combined into one, and even
+      // one large sheet can exceed it alone, so each sheet is further
+      // split into row-chunks if needed.
+      for(let i=0;i<sheets.length;i++){
+        const chunks = chunkSheetRows(sheets[i]);
+        for(let c=0;c<chunks.length;c++){
+          const ok = await storageSet(`file:${id}:sheet:${i}:chunk:${c}`, chunks[c]);
+          if(!ok) throw new Error(`Sheet "${sheets[i].name}" could not be saved (part ${c+1} of ${chunks.length})`);
+        }
+        chunkCounts.push(chunks.length);
+      }
       const entry = {
         id, filename: file.name, category: guessCategory(file.name),
-        sheetCount: sheets.length, uploadedAt: new Date().toISOString().slice(0,10)
+        sheetCount: sheets.length, chunkCounts, uploadedAt: new Date().toISOString().slice(0,10)
       };
-      // Save each sheet as its own document - a single file with several
-      // large sheets (e.g. a multi-tab loan tracker) can easily exceed
-      // Firestore's 1MB-per-document limit if combined into one.
-      for(let i=0;i<sheets.length;i++){
-        const ok = await storageSet(`file:${id}:sheet:${i}`, sheets[i]);
-        if(!ok) throw new Error(`Sheet "${sheets[i].name}" is too large to save (try splitting this file)`);
-      }
       uploadedFiles.push({ ...entry, sheets });
     }catch(err){
       console.error(err);
@@ -372,7 +405,7 @@ async function handleFiles(fileList){
   }
 
   await storageSet('manifest', uploadedFiles.map(f => ({
-    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, uploadedAt: f.uploadedAt
+    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, chunkCounts: f.chunkCounts, uploadedAt: f.uploadedAt
   })));
 
   fileInput.value = '';
@@ -430,7 +463,7 @@ async function renameCategory(fileId, newCategory){
   if(!entry) return;
   entry.category = newCategory;
   await storageSet('manifest', uploadedFiles.map(f => ({
-    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, uploadedAt: f.uploadedAt
+    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, chunkCounts: f.chunkCounts, uploadedAt: f.uploadedAt
   })));
   showToast(`Category updated.`);
   if(document.getElementById('searchInput').value.trim().length >= 2) runSearch();
@@ -443,11 +476,14 @@ async function removeFile(fileId){
   if(!ok) return;
   showLoading(true);
   for(let i=0;i<entry.sheetCount;i++){
-    await storageDelete(`file:${fileId}:sheet:${i}`);
+    const chunkCount = (entry.chunkCounts && entry.chunkCounts[i]) || 1;
+    for(let c=0;c<chunkCount;c++){
+      await storageDelete(`file:${fileId}:sheet:${i}:chunk:${c}`);
+    }
   }
   uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
   await storageSet('manifest', uploadedFiles.map(f => ({
-    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, uploadedAt: f.uploadedAt
+    id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, chunkCounts: f.chunkCounts, uploadedAt: f.uploadedAt
   })));
   renderManifest();
   showLoading(false);
@@ -479,8 +515,19 @@ async function init(){
   for(const entry of manifest){
     const sheets = [];
     for(let i=0;i<entry.sheetCount;i++){
-      const sheet = await storageGet(`file:${entry.id}:sheet:${i}`);
-      if(sheet) sheets.push(sheet);
+      const chunkCount = (entry.chunkCounts && entry.chunkCounts[i]) || 1;
+      let headers = [];
+      let rows = [];
+      let name = '';
+      for(let c=0;c<chunkCount;c++){
+        const chunk = await storageGet(`file:${entry.id}:sheet:${i}:chunk:${c}`);
+        if(chunk){
+          name = chunk.name;
+          headers = chunk.headers;
+          rows = rows.concat(chunk.rows);
+        }
+      }
+      if(name) sheets.push({ name, headers, rows });
     }
     uploadedFiles.push({ ...entry, sheets });
   }
