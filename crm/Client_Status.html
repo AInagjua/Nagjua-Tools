@@ -257,7 +257,7 @@ logoutBtn.addEventListener('click', () => signOut(auth));
 onAuthStateChanged(auth, (user) => {
   if (user) {
     loginOverlay.style.display = 'none';
-    mainWrap.style.display = '';
+    mainWrap.style.display = 'block';
     if (typeof init === 'function') init();
   } else {
     loginOverlay.style.display = 'flex';
