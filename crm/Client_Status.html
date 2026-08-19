@@ -357,8 +357,13 @@ async function handleFiles(fileList){
         id, filename: file.name, category: guessCategory(file.name),
         sheetCount: sheets.length, uploadedAt: new Date().toISOString().slice(0,10)
       };
-      const ok = await storageSet('file:' + id, sheets);
-      if(!ok) throw new Error('Could not save to shared storage');
+      // Save each sheet as its own document - a single file with several
+      // large sheets (e.g. a multi-tab loan tracker) can easily exceed
+      // Firestore's 1MB-per-document limit if combined into one.
+      for(let i=0;i<sheets.length;i++){
+        const ok = await storageSet(`file:${id}:sheet:${i}`, sheets[i]);
+        if(!ok) throw new Error(`Sheet "${sheets[i].name}" is too large to save (try splitting this file)`);
+      }
       uploadedFiles.push({ ...entry, sheets });
     }catch(err){
       console.error(err);
@@ -437,7 +442,9 @@ async function removeFile(fileId){
   const ok = confirm(`Remove "${entry.filename}"?\n\nThis cannot be undone.`);
   if(!ok) return;
   showLoading(true);
-  await storageDelete('file:' + fileId);
+  for(let i=0;i<entry.sheetCount;i++){
+    await storageDelete(`file:${fileId}:sheet:${i}`);
+  }
   uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
   await storageSet('manifest', uploadedFiles.map(f => ({
     id: f.id, filename: f.filename, category: f.category, sheetCount: f.sheetCount, uploadedAt: f.uploadedAt
@@ -470,7 +477,11 @@ async function init(){
   const manifest = await storageGet('manifest') || [];
   uploadedFiles = [];
   for(const entry of manifest){
-    const sheets = await storageGet('file:' + entry.id) || [];
+    const sheets = [];
+    for(let i=0;i<entry.sheetCount;i++){
+      const sheet = await storageGet(`file:${entry.id}:sheet:${i}`);
+      if(sheet) sheets.push(sheet);
+    }
     uploadedFiles.push({ ...entry, sheets });
   }
   renderManifest();
