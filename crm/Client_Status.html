@@ -559,20 +559,65 @@ const NAME_HEADER_PATTERNS = [
 const NAME_EXCLUDE_PATTERNS = [
   /bank\s*name/i, /assigned/i, /handover/i, /agency/i, /contractor/i, /engg/i, /supervisior/i, /supervisor/i, /bldg\s*name/i,
 ];
+// Some sheets keep building/tower in its own column separate from the flat
+// number (e.g. Possession sheets: "BLDG" + "FLAT NO."), rather than combined
+// into one field like "JD404". Detecting this lets the building name show
+// up alongside the flat number in results, so same-numbered flats in
+// different buildings/towers stay visually distinguishable.
+const BUILDING_HEADER_PATTERNS = [
+  /^bldg\.?$/i, /^bldg\s*name$/i, /^building$/i, /^building\s*name$/i, /^tower$/i, /^name\s*of\s*bldg/i,
+];
 function detectColumns(headers){
   const flatCols = [];
   const nameCols = [];
+  const buildingCols = [];
   headers.forEach((h, i) => {
     const isFlat = FLAT_HEADER_PATTERNS.some(p => p.test(h));
     const isExcluded = NAME_EXCLUDE_PATTERNS.some(p => p.test(h));
     const isName = !isExcluded && NAME_HEADER_PATTERNS.some(p => p.test(h));
+    const isBuilding = BUILDING_HEADER_PATTERNS.some(p => p.test(h));
     if(isFlat) flatCols.push(i);
     if(isName) nameCols.push(i);
+    if(isBuilding) buildingCols.push(i);
   });
-  return { flatCols, nameCols };
+  return { flatCols, nameCols, buildingCols };
 }
 function normalizeForMatch(str){
   return String(str||'').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+// ---- Status column priority per category (furthest-along stage first for loan) ----
+const STATUS_COLUMN_PATTERNS = {
+  payment: [
+    /^status$/i, /outstanding/i, /payment.*%|%.*payment/i,
+  ],
+  loan: [
+    /disbursement/i, /^sanction$/i, /^login$/i, /in\s*principle\s*sanction/i,
+    /banker\s*meet/i, /document\s*collect/i, /^phonecall$/i, /^lead$/i,
+    /loan\s*stage/i, /^status$/i,
+  ],
+  documentation: [
+    /^status$/i,
+  ],
+  possession: [
+    /final\s*possession\s*status/i, /possession.*status/i, /^status$/i,
+  ],
+  extrawork: [
+    /work\s*status/i, /payment\s*status/i,
+  ],
+};
+function computeStatus(category, headers, row){
+  const patterns = STATUS_COLUMN_PATTERNS[category] || [/^status$/i];
+  for(const pattern of patterns){
+    const idx = headers.findIndex(h => pattern.test(h));
+    if(idx !== -1){
+      const val = row[idx];
+      if(val != null && String(val).trim() !== ''){
+        return { label: headers[idx], value: String(val).trim() };
+      }
+    }
+  }
+  return null;
 }
 
 // ---- Live search (as-you-type, matching Client & Flat Ledger Search) ----
@@ -600,37 +645,40 @@ function runSearch(){
 
   uploadedFiles.forEach(file => {
     file.sheets.forEach(sheet => {
-      const { flatCols, nameCols } = detectColumns(sheet.headers);
-      const searchCols = flatCols.length || nameCols.length ? [...flatCols, ...nameCols] : sheet.headers.map((_,i)=>i);
+      const { flatCols, nameCols, buildingCols } = detectColumns(sheet.headers);
+      const searchCols = flatCols.length || nameCols.length || buildingCols.length
+        ? [...flatCols, ...nameCols, ...buildingCols]
+        : sheet.headers.map((_,i)=>i);
 
-      const matchingRows = [];
       sheet.rows.forEach((row) => {
         let isMatch = false;
-        const matchedCellIdx = new Set();
         for(const colIdx of searchCols){
           const cellVal = row[colIdx];
           if(cellVal == null || cellVal === '') continue;
           const cellStr = String(cellVal);
           const isFlatCol = flatCols.includes(colIdx);
-          let hit = false;
           if(isFlatCol){
             const normCell = normalizeForMatch(cellStr);
-            if(normCell && (normCell.includes(normQuery) || normQuery.includes(normCell))) hit = true;
+            if(normCell && (normCell.includes(normQuery) || normQuery.includes(normCell))) isMatch = true;
           } else {
-            if(cellStr.toLowerCase().includes(queryLower)) hit = true;
+            if(cellStr.toLowerCase().includes(queryLower)) isMatch = true;
           }
-          if(hit){ isMatch = true; matchedCellIdx.add(colIdx); }
+          if(isMatch) break;
         }
-        if(isMatch) matchingRows.push({ row, matchedCellIdx });
-      });
+        if(!isMatch) return;
 
-      if(matchingRows.length){
-        totalMatches += matchingRows.length;
+        const flatVal = flatCols.length ? row[flatCols[0]] : '';
+        const buildingVal = buildingCols.length ? row[buildingCols[0]] : '';
+        const nameVal = nameCols.length ? row[nameCols[0]] : '';
+        const status = computeStatus(file.category, sheet.headers, row);
+
+        totalMatches++;
         if(!matchesByCategory[file.category]) matchesByCategory[file.category] = [];
         matchesByCategory[file.category].push({
-          filename: file.filename, sheetName: sheet.name, headers: sheet.headers, matchingRows
+          filename: file.filename, sheetName: sheet.name,
+          flat: flatVal, building: buildingVal, name: nameVal, status
         });
-      }
+      });
     });
   });
 
@@ -651,34 +699,30 @@ function renderResults(matchesByCategory, totalMatches){
   resultsEl.innerHTML = order
     .filter(cat => matchesByCategory[cat] && matchesByCategory[cat].length)
     .map(cat => {
-      const sheetsMatched = matchesByCategory[cat];
-      const rowCount = sheetsMatched.reduce((s,sm) => s + sm.matchingRows.length, 0);
-      const sheetsHtml = sheetsMatched.map(sm => `
-        <div class="sheet-match">
-          <div class="sheet-match-header">
-            <span><b>${escapeHtml(sm.filename)}</b> — ${escapeHtml(sm.sheetName)}</span>
-            <span>${sm.matchingRows.length} row(s)</span>
+      const matches = matchesByCategory[cat];
+      const rowsHtml = matches.map(m => {
+        const idBits = [m.building, m.flat].filter(Boolean).join(' ');
+        const statusText = m.status ? `${escapeHtml(m.status.label)}: ${escapeHtml(m.status.value)}` : '<span style="color:var(--ink-soft);">No status column found</span>';
+        return `
+          <div class="sheet-match">
+            <div class="sheet-match-header">
+              <span>
+                ${idBits ? `<b>${escapeHtml(idBits)}</b> — ` : ''}${m.name ? escapeHtml(m.name) + ' — ' : ''}
+                <span style="color:var(--ink-soft);">${escapeHtml(m.filename)} / ${escapeHtml(m.sheetName)}</span>
+              </span>
+            </div>
+            <div style="padding:10px 18px;font-size:13px;">${statusText}</div>
           </div>
-          <div class="row-table-wrap">
-            <table class="row-table">
-              <thead><tr>${sm.headers.map(h => `<th>${escapeHtml(h || '—')}</th>`).join('')}</tr></thead>
-              <tbody>
-                ${sm.matchingRows.map(({row, matchedCellIdx}) => `
-                  <tr>${sm.headers.map((h,i) => `<td class="${matchedCellIdx.has(i)?'match-highlight':''}">${escapeHtml(row[i])}</td>`).join('')}</tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
       return `
         <div class="category-block">
           <div class="category-header ${categoryClass[cat]}">
             ${categoryLabel(cat)}
-            <span class="count-badge">${rowCount} match${rowCount===1?'':'es'}</span>
+            <span class="count-badge">${matches.length} match${matches.length===1?'':'es'}</span>
           </div>
-          ${sheetsHtml}
+          ${rowsHtml}
         </div>
       `;
     }).join('');
