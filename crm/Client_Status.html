@@ -661,6 +661,24 @@ function computeChecklistFields(headers, row, excludePatterns){
   return results;
 }
 
+// Some documentation sheets use a "long" format: one row per document, with
+// a "Doc Type" column naming which document this row is about (e.g.
+// "Margin Receipt") and a separate "Status" column for it - rather than
+// one column per document spread across a single row. Detect and prefer
+// this when present, falling back to the wide checklist format otherwise.
+function computeDocumentationFields(headers, row){
+  const docTypeIdx = headers.findIndex(h => /doc\.?\s*type/i.test(h));
+  const statusIdx = headers.findIndex(h => /^status$/i.test(h));
+  if(docTypeIdx !== -1 && statusIdx !== -1){
+    const docType = row[docTypeIdx];
+    if(docType != null && String(docType).trim() !== ''){
+      const status = row[statusIdx];
+      return [{ label: String(docType).trim(), value: (status != null && String(status).trim() !== '') ? String(status).trim() : 'Pending' }];
+    }
+  }
+  return computeChecklistFields(headers, row, DOC_EXCLUDE_PATTERNS);
+}
+
 // Loan: simple fields + a computed "current stage" label, with the full
 // follow-up remarks history shown underneath it (not just that stage
 // column's own cell, which is usually just a date). Her remarks columns
@@ -765,7 +783,7 @@ function computeExtraWorkFields(headers, row){
 
 function computeCategoryFields(category, headers, row){
   switch(category){
-    case 'documentation': return computeChecklistFields(headers, row, DOC_EXCLUDE_PATTERNS);
+    case 'documentation': return computeDocumentationFields(headers, row);
     case 'possession': return computeChecklistFields(headers, row, POSS_EXCLUDE_PATTERNS);
     case 'loan': return computeLoanFields(headers, row);
     case 'payment': return computePaymentFields(headers, row);
@@ -800,6 +818,23 @@ function rowMatchesQuery(row, searchCols, flatCols, terms){
       }
       return cellStr.toLowerCase().includes(termLower);
     });
+  });
+}
+
+function mergeSameEntryMatches(matchesByCategory){
+  Object.keys(matchesByCategory).forEach(cat => {
+    const merged = [];
+    const keyToIndex = new Map();
+    matchesByCategory[cat].forEach(m => {
+      const key = `${m.filename}|${m.sheetName}|${m.flat}|${m.name}`;
+      if(keyToIndex.has(key)){
+        merged[keyToIndex.get(key)].fields.push(...m.fields);
+      } else {
+        keyToIndex.set(key, merged.length);
+        merged.push({ ...m, fields: [...m.fields] });
+      }
+    });
+    matchesByCategory[cat] = merged;
   });
 }
 
@@ -846,6 +881,7 @@ function runSearch(){
     });
   });
 
+  mergeSameEntryMatches(matchesByCategory);
   renderResults(matchesByCategory, totalMatches);
 }
 
