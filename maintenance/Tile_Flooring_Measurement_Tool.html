@@ -360,7 +360,10 @@ function parseFeetInches(str){
 function rowQuantity(row){
   const nos = Number(row.nos)||0;
   const l = parseFeetInches(row.length);
-  if(row.unitType === 'RF') return Math.round(nos*l*100)/100;
+  // Breadth is used whenever it's actually filled in, regardless of the
+  // SF/RF label - some RF-marked items (e.g. window sills) still have a
+  // real breadth, and the label alone shouldn't decide the math.
+  if(row.breadth == null || String(row.breadth).trim() === '') return Math.round(nos*l*100)/100;
   const b = parseFeetInches(row.breadth);
   return Math.round(nos*l*b*100)/100;
 }
@@ -492,7 +495,7 @@ function renderRow(flatId, sectionId, row){
     </td>
     <td><input type="number" min="0" step="1" value="${row.nos}" data-flat-id="${flatId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="nos"></td>
     <td><input type="text" value="${escapeHtml(row.length)}" data-flat-id="${flatId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="length" placeholder="11'6&quot;"></td>
-    <td><input type="text" value="${escapeHtml(row.breadth)}" data-flat-id="${flatId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="breadth" placeholder="9'0&quot;" ${row.unitType==='RF'?'disabled':''}></td>
+    <td><input type="text" value="${escapeHtml(row.breadth)}" data-flat-id="${flatId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="breadth" placeholder="9'0&quot; (leave blank if not needed)"></td>
     <td class="sft-cell" data-row-qty>${qty.toFixed(2)}</td>
     <td><input type="text" value="${escapeHtml(row.remark||'')}" data-flat-id="${flatId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="remark" placeholder="optional note"></td>
     <td><button type="button" class="remove-row-btn" aria-label="Remove this row">✕</button></td>
@@ -506,8 +509,6 @@ function updateRowDisplay(tr, row){
   const cell = tr.querySelector('[data-row-qty]');
   if(cell) cell.textContent = rowQuantity(row).toFixed(2);
   tr.classList.toggle('deduct-row', row.deduction);
-  const breadthInput = tr.querySelector('[data-field="breadth"]');
-  if(breadthInput) breadthInput.disabled = row.unitType === 'RF';
 }
 function updateSectionFooter(cardEl, section){
   const {work, deduction, net, amt} = sectionTotals(section);
@@ -677,23 +678,39 @@ function normalizeLengthText(str){
   str = (str||'').trim();
   if(!str) return str;
   str = str.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
-  if(!/"$/.test(str)) str += '"';
-  return str;
+  if(/"$/.test(str)) return str; // already properly closed
+  if(!/'/.test(str)) return str; // no apostrophe at all - plain number, e.g. "5" - nothing to close
+  if(/'\s*$/.test(str)) return str; // ends right at the apostrophe, e.g. "3'" - feet only, no inches to close
+  return str + '"'; // has inch digits after the apostrophe but no closing quote, e.g. "11'6" - add it
 }
 
 // Builds the Excel-formula fragment that parses a feet-inches text cell
 // (e.g. 11'6") into decimal feet, using the exact inch->decimal lookup
 // table (matches manual calculation, not pure inch/12 division) via
-// CHOOSE - classic functions that evaluate reliably everywhere.
+// CHOOSE - classic functions that evaluate reliably everywhere. Also
+// handles cells that aren't compulsorily in full feet+inches form: a
+// plain number with no apostrophe at all (feet only, e.g. "5"), an
+// apostrophe with nothing after it (e.g. "5'"), and inches-only text
+// with just a closing quote (e.g. "6\"").
 function feetInchesFormulaFragment(cellRef){
   // Excel's own AutoCorrect often turns a typed straight apostrophe (')
   // into a curly one (') - normalize both curly variants to straight
   // first, so FIND("'",...) below still locates it reliably.
   const norm = `SUBSTITUTE(SUBSTITUTE(${cellRef},"\u2018","'"),"\u2019","'")`;
-  const feetPart = `LEFT(${norm},FIND("'",${norm})-1)`;
-  const inchPart = `MID(${norm},FIND("'",${norm})+1,LEN(${norm})-FIND("'",${norm})-1)`;
-  const lookup = `CHOOSE(${inchPart}+1,0,0.083,0.16,0.25,0.33,0.41,0.5,0.58,0.66,0.75,0.83,0.91,1)`;
-  return `(${feetPart}+${lookup})`;
+  const aposPos = `FIND("'",${norm})`;
+  const quotePos = `FIND(CHAR(34),${norm})`;
+  const lookup = (x) => `CHOOSE(${x}+1,0,0.083,0.16,0.25,0.33,0.41,0.5,0.58,0.66,0.75,0.83,0.91,1)`;
+
+  const feetPart = `LEFT(${norm},${aposPos}-1)`;
+  const inchText = `MID(${norm},${aposPos}+1,LEN(${norm})-${aposPos}-1)`;
+  const withApostrophe = `(${feetPart}+IF(LEN(${norm})=${aposPos},0,${lookup(inchText)}))`;
+
+  const inchesOnlyText = `LEFT(${norm},LEN(${norm})-1)`;
+  const inchesOnly = lookup(inchesOnlyText);
+
+  const plainNumber = `VALUE(${norm})`;
+
+  return `IF(ISNUMBER(${aposPos}),${withApostrophe},IF(ISNUMBER(${quotePos}),${inchesOnly},${plainNumber}))`;
 }
 
 function writeFlatTable(ws, startRow, flat){
@@ -713,7 +730,8 @@ function writeFlatTable(ws, startRow, flat){
 
     section.rows.forEach((row, rIdx)=>{
       const lengthText = normalizeLengthText(row.length);
-      const breadthText = row.unitType==='RF' ? '' : normalizeLengthText(row.breadth);
+      const hasBreadth = row.breadth != null && String(row.breadth).trim() !== '';
+      const breadthText = hasBreadth ? normalizeLengthText(row.breadth) : '';
       ws.getCell(r,1).value = rIdx===0 ? (sIdx+1) : '';
       ws.getCell(r,2).value = row.particulars || '';
       ws.getCell(r,3).value = lengthText;
@@ -722,11 +740,14 @@ function writeFlatTable(ws, startRow, flat){
       ws.getCell(r,6).value = row.unitType==='RF' ? 'RF' : 'SF';
 
       // Real formula: parses the feet-inches text directly in Excel and
-      // recalculates if Length/Breadth/Nos are edited there.
+      // recalculates if Length/Breadth/Nos are edited there. Breadth is
+      // only multiplied in when it's actually filled - the SF/RF label
+      // alone doesn't decide this, since some RF-marked items still carry
+      // a real breadth value.
       const cRef = `C${r}`, dRef = `D${r}`, eRef = `E${r}`;
-      const formula = row.unitType==='RF'
-        ? `IFERROR(${feetInchesFormulaFragment(cRef)}*${eRef},0)`
-        : `IFERROR(${feetInchesFormulaFragment(cRef)}*${feetInchesFormulaFragment(dRef)}*${eRef},0)`;
+      const formula = hasBreadth
+        ? `IFERROR(${feetInchesFormulaFragment(cRef)}*${feetInchesFormulaFragment(dRef)}*${eRef},0)`
+        : `IFERROR(${feetInchesFormulaFragment(cRef)}*${eRef},0)`;
       ws.getCell(r,7).value = { formula: `ROUND(${formula},2)` };
       ws.getCell(r,8).value = row.remark || '';
 
