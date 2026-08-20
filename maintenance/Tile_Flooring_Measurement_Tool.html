@@ -1032,6 +1032,34 @@ function parseGeminiJson(text){
   return JSON.parse(cleaned);
 }
 
+// Common misspellings seen in handwritten measurement forms (often
+// phonetic/transliteration-style errors) - corrected automatically when
+// merging AI-extracted photo data, preserving the original casing style.
+const SPELLING_CORRECTIONS = {
+  'koman':'common', 'comon':'common', 'comman':'common', 'kaman':'common', 'comen':'common',
+  'badroom':'bedroom', 'bedrum':'bedroom', 'bedrom':'bedroom', 'badrum':'bedroom',
+  'mastor':'master', 'mastar':'master', 'maste':'master', 'mater':'master',
+  'lech':'latch', 'lach':'latch', 'letch':'latch',
+  'balkani':'balcony', 'balcani':'balcony', 'balkony':'balcony', 'balconey':'balcony', 'balkoni':'balcony',
+  'bathrum':'bathroom', 'bathrom':'bathroom', 'bathrume':'bathroom',
+  'kichan':'kitchen', 'kitchan':'kitchen', 'kitchin':'kitchen', 'kitchane':'kitchen',
+  'flouring':'flooring', 'flouing':'flooring', 'floring':'flooring',
+  'skirtting':'skirting', 'skerting':'skirting', 'skirtin':'skirting',
+  'granate':'granite', 'granit':'granite',
+  'cieling':'ceiling', 'ceilling':'ceiling',
+};
+function correctSpelling(text){
+  if(!text) return text;
+  return text.replace(/[A-Za-z]+/g, (word) => {
+    const lower = word.toLowerCase();
+    if(!SPELLING_CORRECTIONS.hasOwnProperty(lower)) return word;
+    const correct = SPELLING_CORRECTIONS[lower];
+    if(word === word.toUpperCase()) return correct.toUpperCase();
+    if(word[0] === word[0].toUpperCase()) return correct.charAt(0).toUpperCase() + correct.slice(1);
+    return correct;
+  });
+}
+
 function mergeExtractedItems(items, counts){
   // Group extracted rows by Tower+Flat No.+Series into flats, then by
   // section name into sections within each flat - usually every row in
@@ -1047,12 +1075,12 @@ function mergeExtractedItems(items, counts){
       flat.tower = tower;
       flat.flatNo = flatNo;
       flat.series = series;
-      flat.nameOfWork = (it.nameOfWork||'').trim();
+      flat.nameOfWork = correctSpelling((it.nameOfWork||'').trim());
       flat.billNo = (it.billNo||'').trim();
       flats.push(flat);
       counts.addedFlats++;
     }
-    const sectionName = (it.section||'').trim();
+    const sectionName = correctSpelling((it.section||'').trim());
     let section = flat.sections.find(s=>s.name.trim()===sectionName && sectionName);
     if(!section){
       section = newSection();
@@ -1062,7 +1090,7 @@ function mergeExtractedItems(items, counts){
     }
     section.rows.push({
       id: 'row_'+(idCounter++),
-      particulars: it.particulars || '',
+      particulars: correctSpelling(it.particulars || ''),
       nos: Number(it.nos)||1,
       length: it.length || '',
       breadth: it.breadth || '',
