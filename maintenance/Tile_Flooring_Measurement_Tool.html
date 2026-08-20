@@ -178,6 +178,12 @@
   .flat-footer .value{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:700;color:var(--navy);margin-top:2px;}
   .flat-footer .tot.deduct .value{color:var(--deduct);}
   .flat-footer .tot.net .value{color:var(--work);}
+  .flat-footer .tot.amt .value{color:var(--navy);font-weight:800;}
+  .flat-footer .tot.rate .rate-input{
+    width:90px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;
+    color:var(--navy);border:1px solid var(--steel-line);border-radius:4px;padding:6px 8px;margin-top:2px;background:#fff;
+  }
+  .flat-footer .tot.rate .rate-input:focus{outline:none;border-color:var(--gold);}
 
   .totals-bar{
     position:sticky;bottom:14px;display:flex;gap:14px;background:var(--navy);
@@ -290,7 +296,7 @@ function newRow(){
   return { id: 'row_'+(idCounter++), particulars: '', nos: 1, length: '', breadth: '', unitType: 'SF', deduction: false, remark: '' };
 }
 function newSection(){
-  return { id: 'section_'+(idCounter++), name: '', rows: [] };
+  return { id: 'section_'+(idCounter++), name: '', rate: '', rows: [] };
 }
 function newFlat(){
   return { id: 'flat_'+(idCounter++), tower: '', flatNo: '', series: '', nameOfWork: '', billNo: '', date: '', sections: [] };
@@ -311,6 +317,7 @@ function loadFlats(){
       f.sections.forEach(s=>{
         s.id = 'section_'+(idCounter++);
         if(!s.rows) s.rows = [];
+        if(s.rate == null) s.rate = '';
         s.rows.forEach(r=>{ r.id = 'row_'+(idCounter++); if(!r.unitType) r.unitType = 'SF'; });
       });
       return f;
@@ -366,7 +373,9 @@ function sectionTotals(section){
   work = Math.round(work*100)/100;
   deduction = Math.round(deduction*100)/100;
   const net = Math.round((work-deduction)*100)/100;
-  return {work, deduction, net};
+  const rate = Number(section.rate)||0;
+  const amt = Math.round(net*rate*100)/100;
+  return {work, deduction, net, rate, amt};
 }
 function hasData(){
   return flats.some(f=>f.tower.trim()!=='' || f.flatNo.trim()!=='' || f.sections.some(s=>s.name.trim()!=='' || s.rows.some(r=>r.particulars.trim()!=='')));
@@ -422,7 +431,7 @@ function renderFlatCard(flat){
 }
 
 function renderSectionCard(flatId, section){
-  const {work, deduction, net} = sectionTotals(section);
+  const {work, deduction, net, amt} = sectionTotals(section);
   const rowsHtml = section.rows.length
     ? section.rows.map(row=>renderRow(flatId, section.id, row)).join('')
     : `<tr class="empty-row"><td colspan="9" style="padding:14px;color:var(--ink-soft);">No rows yet — click "+ Add Row" below.</td></tr>`;
@@ -454,7 +463,12 @@ function renderSectionCard(flatId, section){
     <div class="flat-footer">
       <div class="tot work"><div class="label">Total Work</div><div class="value" data-section-work>${work.toFixed(2)}</div></div>
       <div class="tot deduct"><div class="label">Total Deduction</div><div class="value" data-section-deduction>${deduction.toFixed(2)}</div></div>
-      <div class="tot net"><div class="label">Section Total Quantity</div><div class="value" data-section-net>${net.toFixed(2)}</div></div>
+      <div class="tot net"><div class="label">Total</div><div class="value" data-section-net>${net.toFixed(2)}</div></div>
+      <div class="tot rate">
+        <div class="label">Rate</div>
+        <input type="number" class="rate-input" step="0.01" value="${escapeHtml(section.rate)}" data-flat-id="${flatId}" data-section-id="${section.id}" data-field="rate" placeholder="0">
+      </div>
+      <div class="tot amt"><div class="label">Amt.</div><div class="value" data-section-amt>${amt.toFixed(2)}</div></div>
     </div>
   </div>`;
 }
@@ -496,10 +510,11 @@ function updateRowDisplay(tr, row){
   if(breadthInput) breadthInput.disabled = row.unitType === 'RF';
 }
 function updateSectionFooter(cardEl, section){
-  const {work, deduction, net} = sectionTotals(section);
+  const {work, deduction, net, amt} = sectionTotals(section);
   cardEl.querySelector('[data-section-work]').textContent = work.toFixed(2);
   cardEl.querySelector('[data-section-deduction]').textContent = deduction.toFixed(2);
   cardEl.querySelector('[data-section-net]').textContent = net.toFixed(2);
+  cardEl.querySelector('[data-section-amt]').textContent = amt.toFixed(2);
 }
 
 // ---- Event delegation ----
@@ -523,7 +538,10 @@ flatsContainer.addEventListener('input', (e)=>{
     updateSectionFooter(t.closest('.section-card'), section);
   } else if(t.dataset.sectionId){
     const section = getSection(flat, t.dataset.sectionId);
-    if(section) section[field] = t.value;
+    if(section){
+      section[field] = t.value;
+      updateSectionFooter(t.closest('.section-card'), section);
+    }
   } else {
     flat[field] = t.value;
   }
@@ -541,6 +559,13 @@ flatsContainer.addEventListener('change', (e)=>{
   if(!row) return;
   if(t.dataset.field === 'deduction'){
     row.deduction = t.value === 'deduct';
+    if(row.deduction){
+      if(!/^less\s/i.test(row.particulars)) row.particulars = ('LESS ' + row.particulars).trim();
+    } else {
+      row.particulars = row.particulars.replace(/^less\s+/i, '');
+    }
+    const particularsInput = t.closest('tr[data-row-id]').querySelector('[data-field="particulars"]');
+    if(particularsInput) particularsInput.value = row.particulars;
   } else if(t.dataset.field === 'unitType'){
     row.unitType = t.value;
   } else {
@@ -680,8 +705,12 @@ function writeFlatTable(ws, startRow, flat){
   });
   r++;
 
-  const workRowRefs = [], deductRowRefs = [];
+  const allDeductRowRefs = []; // every deduction row across every section, for the overall Total Deduction
+  const sectionAmtRefs = [];   // each section's Amt. cell, for the overall Total Work
+
   flat.sections.forEach((section, sIdx)=>{
+    const sectionWorkRefs = [], sectionDeductRefs = [];
+
     section.rows.forEach((row, rIdx)=>{
       const lengthText = normalizeLengthText(row.length);
       const breadthText = row.unitType==='RF' ? '' : normalizeLengthText(row.breadth);
@@ -706,21 +735,45 @@ function writeFlatTable(ws, startRow, flat){
         ws.getCell(r,c).border=THIN_BORDER;
         if(row.deduction) ws.getCell(r,c).font = {color:{argb:'FFB3392C'}, bold:true};
       }
-      if(row.deduction) deductRowRefs.push(`G${r}`); else workRowRefs.push(`G${r}`);
+      if(row.deduction){ sectionDeductRefs.push(`G${r}`); allDeductRowRefs.push(`G${r}`); }
+      else sectionWorkRefs.push(`G${r}`);
       r++;
     });
+
+    // Per-section Total / Rate / Amt. block, matching the reference file:
+    // Total = section's work quantity minus its own deduction quantity;
+    // Rate is the manually-entered price per unit; Amt. = Total x Rate.
+    const totalRow = r;
+    ws.getCell(r,6).value = 'Total'; ws.getCell(r,6).font = {bold:true}; ws.getCell(r,6).alignment={horizontal:'right'};
+    const workSum = sectionWorkRefs.length ? `SUM(${sectionWorkRefs.join(',')})` : '0';
+    const deductSum = sectionDeductRefs.length ? `SUM(${sectionDeductRefs.join(',')})` : '0';
+    ws.getCell(r,7).value = { formula: `${workSum}-${deductSum}` };
+    ws.getCell(r,7).font = {bold:true};
+    r++;
+
+    const rateRow = r;
+    ws.getCell(r,6).value = 'Rate'; ws.getCell(r,6).font = {bold:true}; ws.getCell(r,6).alignment={horizontal:'right'};
+    ws.getCell(r,7).value = Number(section.rate) || 0;
+    r++;
+
+    const amtRow = r;
+    ws.getCell(r,6).value = 'Amt.'; ws.getCell(r,6).font = {bold:true}; ws.getCell(r,6).alignment={horizontal:'right'};
+    ws.getCell(r,7).value = { formula: `G${totalRow}*G${rateRow}` };
+    ws.getCell(r,7).font = {bold:true};
+    sectionAmtRefs.push(`G${amtRow}`);
+    r++;
   });
 
-  r++; // blank spacer before totals
+  r++; // blank spacer before the flat's overall totals
+  ws.getCell(r,4).value = 'Total Work'; ws.getCell(r,4).font = {bold:true};
+  ws.getCell(r,7).value = sectionAmtRefs.length ? {formula:`SUM(${sectionAmtRefs.join(',')})`} : 0;
   const workRow = r;
-  ws.getCell(r,2).value = 'Total Work'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,7).value = workRowRefs.length ? {formula:`SUM(${workRowRefs.join(',')})`} : 0;
   r++;
+  ws.getCell(r,4).value = 'Total Deduction'; ws.getCell(r,4).font = {bold:true};
+  ws.getCell(r,7).value = allDeductRowRefs.length ? {formula:`SUM(${allDeductRowRefs.join(',')})`} : 0;
   const deductRow = r;
-  ws.getCell(r,2).value = 'Total Deduction'; ws.getCell(r,2).font = {bold:true};
-  ws.getCell(r,7).value = deductRowRefs.length ? {formula:`SUM(${deductRowRefs.join(',')})`} : 0;
   r++;
-  ws.getCell(r,2).value = 'Net Total'; ws.getCell(r,2).font = {bold:true, size:12};
+  ws.getCell(r,4).value = 'Net Total'; ws.getCell(r,4).font = {bold:true, size:12};
   ws.getCell(r,7).value = {formula:`G${workRow}-G${deductRow}`};
   ws.getCell(r,7).font = {bold:true, size:12};
   r++;
