@@ -299,7 +299,7 @@ function newSection(){
   return { id: 'section_'+(idCounter++), name: '', rate: '', rows: [] };
 }
 function newFlat(){
-  return { id: 'flat_'+(idCounter++), tower: '', flatNo: '', series: '', nameOfWork: '', billNo: '', date: '', sections: [] };
+  return { id: 'flat_'+(idCounter++), tower: '', flatNo: '', series: '', nameOfWork: '', billNo: '', date: '', pageNo: '', sections: [] };
 }
 
 function saveFlats(){
@@ -313,6 +313,7 @@ function loadFlats(){
     if(!Array.isArray(parsed) || !parsed.length) return null;
     return parsed.map(f=>{
       f.id = 'flat_'+(idCounter++);
+      if(f.pageNo == null) f.pageNo = '';
       if(!f.sections) f.sections = [];
       f.sections.forEach(s=>{
         s.id = 'section_'+(idCounter++);
@@ -425,6 +426,10 @@ function renderFlatCard(flat){
       <div class="field">
         <label>Date</label>
         <input type="date" value="${escapeHtml(flat.date)}" data-flat-id="${flat.id}" data-field="date" style="color-scheme:dark;">
+      </div>
+      <div class="field">
+        <label>No.</label>
+        <input type="text" value="${escapeHtml(flat.pageNo)}" data-flat-id="${flat.id}" data-field="pageNo" placeholder="e.g. 1" style="max-width:60px;">
       </div>
       <button type="button" class="remove-flat-btn" aria-label="Remove this flat">✕ Remove Flat</button>
     </div>
@@ -638,31 +643,21 @@ function fmtDateSlash(d){
 
 function writeFlatHeader(ws, startRow, flat){
   let r = startRow;
-  const parts = [];
-  if(flat.tower) parts.push(`Tower: ${flat.tower}`);
-  if(flat.flatNo) parts.push(`Flat No.: ${flat.flatNo}`);
-  if(flat.series) parts.push(`Series: ${flat.series}`);
-  ws.mergeCells(r,1,r,NUM_COLS);
-  let cell = ws.getCell(r,1);
-  cell.value = parts.length ? parts.join('   |   ') : '(Tower / Flat / Series not entered)';
-  cell.fill = HEADER_FILL;
-  cell.font = {bold:true, size:13, color:{argb:'FFFFFFFF'}};
-  cell.alignment = {horizontal:'center'};
-  for(let c=1;c<=NUM_COLS;c++){ ws.getCell(r,c).border = THIN_BORDER; }
-  r++;
 
-  function headerLine(label, value){
+  function plainLine(text){
     ws.mergeCells(r,1,r,NUM_COLS);
     const c = ws.getCell(r,1);
-    c.value = `${label}: ${value || '____________'}`;
+    c.value = text;
     c.font = {bold:true, size:11};
     c.alignment = {horizontal:'left'};
     for(let col=1;col<=NUM_COLS;col++){ ws.getCell(r,col).border = THIN_BORDER; }
     r++;
   }
-  headerLine('Name of Work', flat.nameOfWork);
-  headerLine('Bill No.', flat.billNo);
-  headerLine('Date', flat.date ? fmtDateSlash(new Date(flat.date+'T00:00:00')) : '');
+
+  const dateText = flat.date ? fmtDateSlash(new Date(flat.date+'T00:00:00')) : '____________';
+  plainLine(`Tower :- ${flat.tower || '____________'}     Flat No.:- ${flat.flatNo || '____________'}     Series :- ${flat.series || '____________'}`);
+  plainLine(`Name of Work : ${flat.nameOfWork || '____________'}`);
+  plainLine(`Bill No. : ${flat.billNo || '______'}     Date : ${dateText}     No.:- ${flat.pageNo || '____________'}`);
   r++; // blank spacer before the table
   return r;
 }
