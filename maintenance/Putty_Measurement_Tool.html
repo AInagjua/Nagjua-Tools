@@ -834,7 +834,7 @@ function fileToBase64(file){
   });
 }
 
-const EXTRACTION_PROMPT = "You are reading a photo of a handwritten construction 'Measurement Book' sheet for PUTTY (P.U.) finish work - a wall/ceiling area takeoff. Near the top it usually has a Tower/Project name, a 'Measurement Form No.', a Date, and a 'Work' line naming the specific area or component being measured (e.g. 'Dadlar / Dadlor P.U. S.F.T.', where 'Dadlar' is the section/work-area name) - use that Work/section name for every row on this page, even though it is usually written only once at the top.\n\nBelow that is a table with columns similar to Sr.No/Description of Work or Material/No./Length/Breadth/Quantity. Each row describes one wall or ceiling segment: a description (e.g. 'Dadlar Terrace Ceiling', 'Dadlar Landing Wall', 'Dadlar Side Wall'), a Length and Breadth written in feet-inches (e.g. 11'6\" means 11 feet 6 inches; 18'10\" means 18 feet 10 inches), and a multiplier count (often labelled No., e.g. '2' or '20' for that many identical segments) - if this multiplier is blank or unclear, use 1.\n\nRows whose description mentions deduction, or that appear under a 'Less: Window/Door' or similar heading (window deduction, door deduction, terrace door, etc.) are deductions - openings subtracted from the subtotal. Everything else is a normal addition.\n\nReturn ONLY a valid JSON array (no markdown fences, no explanation), one object per row, in this exact shape:\n[{\"sectionName\":\"\",\"particulars\":\"\",\"nos\":1,\"length\":\"11'6\\\"\",\"breadth\":\"9'0\\\"\",\"deduction\":false}]\n\nRules:\n- Write length and breadth EXACTLY as feet'inches\\\" text, e.g. \"11'6\\\"\" or \"9'0\\\"\" - keep them as this exact text format, do not convert to decimal. Inches can include a decimal if a fraction is written (e.g. half an inch = 11'0.5\\\").\n- 'sectionName' is the Work/area name from the top of the sheet (e.g. 'Dadlar').\n- Skip 'Subtotal', 'Total', 'Net', and any final summary rows entirely - only return individual measurement rows, the tool computes totals itself.\n- If nos is blank or unclear, use 1.\n- Double check handwritten digits carefully - they can be cramped or ambiguous.\n- Output nothing except the JSON array.";
+const EXTRACTION_PROMPT = "You are reading a photo of a handwritten construction 'Measurement Book' sheet for PUTTY (P.U.) finish work - a wall/ceiling area takeoff. Near the top it usually has a Tower/Project name, a 'Measurement Form No.', a Date, and a 'Work' line naming the specific area or component being measured (e.g. 'Dadlar / Dadlor P.U. S.F.T.', where 'Dadlar' is the section/work-area name and the whole line is the Work). Read these header values once from the top of the sheet, and repeat the SAME header values on every row object you return below - even though they are usually written only once at the top of the page.\n\nBelow that is a table with columns similar to Sr.No/Description of Work or Material/No./Length/Breadth/Quantity. Each row describes one wall or ceiling segment: a description (e.g. 'Dadlar Terrace Ceiling', 'Dadlar Landing Wall', 'Dadlar Side Wall'), a Length and Breadth written in feet-inches (e.g. 11'6\" means 11 feet 6 inches; 18'10\" means 18 feet 10 inches), and a multiplier count (often labelled No., e.g. '2' or '20' for that many identical segments) - if this multiplier is blank or unclear, use 1.\n\nRows whose description mentions deduction, or that appear under a 'Less: Window/Door' or similar heading (window deduction, door deduction, terrace door, etc.) are deductions - openings subtracted from the subtotal. Everything else is a normal addition.\n\nReturn ONLY a valid JSON array (no markdown fences, no explanation), one object per row, in this exact shape:\n[{\"tower\":\"\",\"formNo\":\"\",\"date\":\"\",\"work\":\"\",\"sectionName\":\"\",\"particulars\":\"\",\"nos\":1,\"length\":\"11'6\\\"\",\"breadth\":\"9'0\\\"\",\"deduction\":false}]\n\nRules:\n- Write length and breadth EXACTLY as feet'inches\\\" text, e.g. \"11'6\\\"\" or \"9'0\\\"\" - keep them as this exact text format, do not convert to decimal. Inches can include a decimal if a fraction is written (e.g. half an inch = 11'0.5\\\").\n- 'tower' is the Tower/Project name written at the top (e.g. 'K Tower Tropical Greens (Silvassa)').\n- 'formNo' is the Measurement Form No. value (just the number/text, e.g. '1'), leave empty if not visible.\n- 'date' should be written as DD-MM-YYYY if you can read it clearly (e.g. '30-07-2026'), otherwise leave empty rather than guessing.\n- 'work' is the full Work line at the top (e.g. 'Dadlar / Dadlor P.U. S.F.T.').\n- 'sectionName' is the specific area/component name used in the Particulars descriptions below (e.g. 'Dadlar') - this is usually the same word repeated at the start of most Particulars entries, and is often also the main word in the Work line.\n- Skip 'Subtotal', 'Total', 'Net', and any final summary rows entirely - only return individual measurement rows, the tool computes totals itself.\n- If nos is blank or unclear, use 1.\n- Double check handwritten digits carefully - they can be cramped or ambiguous.\n- Output nothing except the JSON array.";
 
 async function callGemini(base64Image, mimeType, apiKey){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
@@ -887,6 +887,26 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
     const text = await callGemini(base64, file.type || 'image/jpeg', apiKey);
     const items = parseGeminiJson(text);
     if(!Array.isArray(items) || !items.length) throw new Error('AI did not find any measurement rows in this photo.');
+
+    // Populate the document-level header fields (Tower/Form No./Date/Work)
+    // from the first row's values, but only if the field is currently
+    // empty - so a second photo for a different section under the same
+    // document doesn't clobber a header you already confirmed.
+    if(items.length){
+      const first = items[0];
+      const towerInput = document.getElementById('docTower');
+      const formNoInput = document.getElementById('docFormNo');
+      const dateInput = document.getElementById('docDate');
+      const workInput = document.getElementById('docWork');
+      if(!towerInput.value.trim() && first.tower) towerInput.value = first.tower.trim();
+      if(!formNoInput.value.trim() && first.formNo) formNoInput.value = String(first.formNo).trim();
+      if(!dateInput.value && first.date){
+        // AI returns DD-MM-YYYY per the prompt; the date input needs YYYY-MM-DD.
+        const m = String(first.date).trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+        if(m) dateInput.value = `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+      }
+      if(!workInput.value.trim() && first.work) workInput.value = first.work.trim();
+    }
 
     // Group extracted rows by Section Name - usually every row in one
     // photo belongs to the same section (e.g. "Dadlar"), but this also
