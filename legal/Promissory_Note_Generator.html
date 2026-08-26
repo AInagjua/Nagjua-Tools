@@ -579,6 +579,7 @@ function autofillFromFlat() {
   if (rec.c1occ)  document.getElementById('f_b1occ').value   = rec.c1occ;
   if (rec.c1addr) document.getElementById('f_addr').value    = rec.c1addr;
   if (rec.c1rname) document.getElementById('f_b1fname').value = rec.c1rname;
+  if (rec.b1pan)  document.getElementById('f_b1pan').value   = rec.b1pan;
   // Customer 2
   if (rec.c2) {
     document.getElementById('f_single').checked = false;
@@ -587,6 +588,7 @@ function autofillFromFlat() {
     if (rec.c2age)   document.getElementById('f_b2age').value   = rec.c2age;
     if (rec.c2occ)   document.getElementById('f_b2occ').value   = rec.c2occ;
     if (rec.c2rname) document.getElementById('f_b2hname').value = rec.c2rname;
+    if (rec.b2pan)   document.getElementById('f_b2pan').value   = rec.b2pan;
   } else {
     document.getElementById('f_single').checked = true;
     toggleB2();
