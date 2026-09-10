@@ -268,7 +268,7 @@
       </div>
       <div class="export-card" id="live-update-card">
         <h3>Update Existing Sheet (Live)</h3>
-        <p>Pick your existing file once. After that, "Save" writes your current working list straight into that same file — no download dialog, no re-picking the file each time. (Needs Chrome or Edge. Flat-wise only.)</p>
+        <p>Pick your existing file once. After that, "Save" writes your current working list straight into that same file — no download dialog, no re-picking the file each time. (Needs Chrome or Edge. Flat-wise adds a new tab per flat; Tower-wise adds to the single combined "Tower-wise" list, creating it if it doesn't exist yet.)</p>
         <button class="export-btn append" id="pick-existing-btn">Pick Existing File</button>
         <div id="existing-file-status" style="font-size:12px;color:var(--ink-soft);margin-top:8px;"></div>
         <button class="export-btn new" id="save-to-existing-btn" style="margin-top:10px;display:none;">Save To This File</button>
@@ -484,7 +484,6 @@ function setMode(mode){
   });
   document.getElementById('download-desc-flat').style.display = mode==='flat' ? '' : 'none';
   document.getElementById('download-desc-tower').style.display = mode==='tower' ? '' : 'none';
-  document.getElementById('live-update-card').style.display = mode==='flat' ? '' : 'none';
 }
 document.querySelectorAll('.mode-btn').forEach(b=>{
   b.addEventListener('click', ()=>setMode(b.dataset.mode));
@@ -1342,6 +1341,54 @@ document.getElementById('pick-existing-btn').addEventListener('click', async ()=
 
 document.getElementById('save-to-existing-btn').addEventListener('click', async ()=>{
   if(!existingFileHandle){ showStatus('Pick your existing file first.', false); return; }
+
+  if(currentMode === 'tower'){
+    if(!hasTowerData()){ showStatus('Your working list below is empty - nothing to add.', false); return; }
+    try{
+      const file = await existingFileHandle.getFile();
+      const buffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+
+      // Find the single combined "Tower-wise" sheet if it already exists
+      // in this file and append below its existing content; otherwise
+      // create it fresh. Either way, all towers stay in ONE list.
+      let worksheet = workbook.getWorksheet('Tower-wise');
+      let r;
+      if(!worksheet){
+        worksheet = workbook.addWorksheet('Tower-wise');
+        worksheet.columns = [{width:7.5},{width:26},{width:10.5},{width:10},{width:6.5},{width:7},{width:12},{width:14}];
+        worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
+        r = 1;
+      } else {
+        r = worksheet.rowCount + 2; // gap below whatever's already there
+      }
+
+      const addedCount = towers.length;
+      towers.forEach(t=>{
+        r = writeTowerHeader(worksheet, r, t);
+        r = writeTowerTable(worksheet, r, t);
+      });
+
+      const outBuffer = await workbook.xlsx.writeBuffer();
+      const newFile = new Blob([outBuffer]);
+      const writable = await existingFileHandle.createWritable();
+      await writable.write(newFile);
+      await writable.close();
+
+      towers = [];
+      lastAutoTowerId = null;
+      saveTowers();
+      renderTowers();
+
+      showStatus('Added ' + addedCount + ' tower(s) into the "Tower-wise" list in "' + existingFileHandle.name + '" - no download needed.', true);
+    }catch(err){
+      console.error(err);
+      showStatus('Could not save to that file: ' + err.message, false);
+    }
+    return;
+  }
+
   if(!hasData()){ showStatus('Your working list below is empty - nothing to add.', false); return; }
 
   try{
