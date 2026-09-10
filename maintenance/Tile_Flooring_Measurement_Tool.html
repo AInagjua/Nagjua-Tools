@@ -718,6 +718,7 @@ towersContainer.addEventListener('click', (e)=>{
   } else if(e.target.classList.contains('remove-tower-btn')){
     const towerId = e.target.closest('.flat-card').dataset.towerId;
     towers = towers.filter(t=>t.id!==towerId);
+    if(lastAutoTowerId === towerId) lastAutoTowerId = null;
     renderTowers();
     saveTowers();
   }
@@ -958,6 +959,7 @@ document.getElementById('reset-btn').addEventListener('click',()=>{
   if(confirm('Clear all entered flats AND towers? This also clears the saved data in this browser.')){
     flats = [];
     towers = [];
+    lastAutoTowerId = null;
     render();
     renderTowers();
     saveFlats();
@@ -1563,10 +1565,30 @@ function mergeExtractedFlatPage(header, rows, counts){
   });
 }
 
+// Tracks the tower most recently created/added-to by the AI extraction,
+// so a later page with a BLANK tower name (very common - the paper form
+// usually only writes the tower name once, at the top of the first page)
+// continues into that SAME tower instead of starting a new one. Only a
+// page with a genuinely different, non-blank tower name starts a new
+// tower. Persists across separate "Extract From Photo" clicks in this
+// browser session (cleared on Reset or when removed from the list).
+let lastAutoTowerId = null;
+
 function mergeExtractedTowerPage(header, rows, counts){
   const towerName = (header.tower||'').trim();
   const nameOfWork = correctSpelling((header.nameOfWork||'').trim());
-  let tower = towers.find(t=>t.tower.trim()===towerName && towerName && t.nameOfWork.trim()===nameOfWork);
+  let tower = null;
+
+  if(towerName){
+    // Named page: reuse an existing tower with this exact name if we
+    // already have one, otherwise this starts a new tower.
+    tower = towers.find(t=>t.tower.trim()===towerName);
+  } else {
+    // Unnamed/continuation page: keep going on whichever tower was
+    // last touched, as long as it's still in the list.
+    tower = towers.find(t=>t.id===lastAutoTowerId) || null;
+  }
+
   if(!tower){
     tower = newTower();
     tower.tower = towerName;
@@ -1575,7 +1597,16 @@ function mergeExtractedTowerPage(header, rows, counts){
     tower.billNo = (header.billNo||'').trim();
     towers.push(tower);
     counts.addedTowers++;
+  } else {
+    // Fill in any header fields the running tower is still missing,
+    // in case a later page in the same set has them filled in.
+    if(!tower.tower && towerName) tower.tower = towerName;
+    if(!tower.nameOfWork && nameOfWork) tower.nameOfWork = nameOfWork;
+    if(!tower.item && header.item) tower.item = (header.item||'').trim();
+    if(!tower.billNo && header.billNo) tower.billNo = (header.billNo||'').trim();
   }
+  lastAutoTowerId = tower.id;
+
   rows.forEach(it=>{
     const sectionName = correctSpelling((it.section||'').trim());
     let section = tower.sections.find(s=>s.name.trim()===sectionName && sectionName);
