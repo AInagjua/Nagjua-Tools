@@ -226,7 +226,7 @@
     <div class="export-grid">
       <div class="export-card">
         <h3>Upload Measurement Sheet Photo</h3>
-        <p>Upload one or more photos of a handwritten "MEASUREMENT FORM" (tile/flooring work, with sections, Length, Breadth, and SF/RF units). Select multiple pages at once and the AI reads each one, adding the flats, sections, and rows directly below for you to review and correct.</p>
+        <p>Upload one or more photos of a handwritten "MEASUREMENT FORM" (tile/flooring work). The AI automatically detects whether each photo is a <b>Flat-wise</b> sheet (has Tower/Flat No./Series header) or a <b>Tower-wise</b> sheet (one running numbered list for a whole tower), and adds it to the correct section below for you to review and correct.</p>
         <input type="file" id="ai-photo-input" accept="image/*,.zip,application/zip" multiple>
         <button class="export-btn append" id="extract-photo-btn">Extract From Photo</button>
         <div class="status-msg" id="ai-status-msg"></div>
@@ -234,7 +234,12 @@
     </div>
   </section>
 
-  <section class="block" id="entry-section">
+  <div class="mode-toggle" id="mode-toggle" style="display:flex;gap:0;margin:0 0 18px;border:1.5px solid var(--steel-line,#D8D3C4);border-radius:8px;overflow:hidden;width:fit-content;">
+    <button type="button" class="mode-btn active" data-mode="flat" style="padding:10px 22px;border:none;background:var(--navy,#1E2A44);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Flat-wise</button>
+    <button type="button" class="mode-btn" data-mode="tower" style="padding:10px 22px;border:none;background:#EFEBE0;color:var(--navy,#1E2A44);font-weight:700;font-size:13px;cursor:pointer;">Tower-wise</button>
+  </div>
+
+  <section class="block" id="entry-section" data-mode-section="flat">
     <div class="section-label">
       <div class="num">2</div><h2>Flats &amp; Sections</h2>
       <button type="button" class="add-flat-btn" id="add-flat-btn">+ Add Flat</button>
@@ -243,17 +248,27 @@
     <div id="flats-container"></div>
   </section>
 
+  <section class="block" id="tower-entry-section" data-mode-section="tower" style="display:none;">
+    <div class="section-label">
+      <div class="num">2</div><h2>Towers &amp; Items</h2>
+      <button type="button" class="add-flat-btn" id="add-tower-btn">+ Add Tower</button>
+    </div>
+    <p class="hint-text">Each card below is one tower's full measurement list (like your paper "Measurement Form"). Inside a tower, add an <b>Item</b> for each numbered group on your sheet (e.g. "Top Terrace Landing Floor Tiles", "Skirting", "Tapper Granite Top") - each item gets its own rows. Mark a row <b>SF</b>, <b>RF</b>, or <b>NOS</b> (plain count, e.g. "Tanki - 1 Nos"). Unlike Flat-wise, all towers are written into <b>one single list</b>, not separate sheet tabs.</p>
+    <div id="towers-container"></div>
+  </section>
+
   <section class="block" id="export-section">
     <div class="section-label"><div class="num">3</div><h2>Export</h2></div>
     <div class="export-grid">
       <div class="export-card">
         <h3>Download Excel Sheet</h3>
-        <p>Everything you enter is saved automatically in this browser as you go — you only need to download when you're actually ready to share the file.</p>
+        <p id="download-desc-flat">Everything you enter is saved automatically in this browser as you go — you only need to download when you're actually ready to share the file. Each flat becomes its own sheet tab.</p>
+        <p id="download-desc-tower" style="display:none;">Everything you enter is saved automatically in this browser as you go. All towers are combined into <b>one single list</b> on one sheet, matching your paper measurement form.</p>
         <button class="export-btn new" id="download-new-btn">Download Excel</button>
       </div>
-      <div class="export-card">
+      <div class="export-card" id="live-update-card">
         <h3>Update Existing Sheet (Live)</h3>
-        <p>Pick your existing file once. After that, "Save" writes your current working list straight into that same file — no download dialog, no re-picking the file each time. (Needs Chrome or Edge.)</p>
+        <p>Pick your existing file once. After that, "Save" writes your current working list straight into that same file — no download dialog, no re-picking the file each time. (Needs Chrome or Edge. Flat-wise only.)</p>
         <button class="export-btn append" id="pick-existing-btn">Pick Existing File</button>
         <div id="existing-file-status" style="font-size:12px;color:var(--ink-soft);margin-top:8px;"></div>
         <button class="export-btn new" id="save-to-existing-btn" style="margin-top:10px;display:none;">Save To This File</button>
@@ -385,6 +400,96 @@ function hasData(){
   return flats.some(f=>f.tower.trim()!=='' || f.flatNo.trim()!=='' || f.sections.some(s=>s.name.trim()!=='' || s.rows.some(r=>r.particulars.trim()!=='')));
 }
 
+// ==================================================================
+// Tower-wise data model - same Section/Row shape as a Flat, but the
+// container has no Flat No./Series (a whole tower's work list instead
+// of one flat), and rows support a third unit type NOS (plain count,
+// e.g. "Tanki - 1 Nos" - no Length/Breadth math). Unlike Flat-wise
+// (one sheet tab per flat), every Tower is written into ONE combined
+// list/sheet on export.
+// ==================================================================
+const TOWER_STORAGE_KEY = 'nagjua_tile_flooring_measurement_towers_v1';
+let towers = [];
+let currentMode = 'flat'; // 'flat' | 'tower'
+
+function newTowerRow(){
+  return { id: 'trow_'+(idCounter++), particulars: '', nos: 1, length: '', breadth: '', unitType: 'SFT', deduction: false, remark: '' };
+}
+function newTowerSection(){
+  return { id: 'tsection_'+(idCounter++), name: '', rate: '', rows: [] };
+}
+function newTower(){
+  return { id: 'tower_'+(idCounter++), tower: '', nameOfWork: '', item: '', billNo: '', date: '', sections: [] };
+}
+function saveTowers(){
+  try{ localStorage.setItem(TOWER_STORAGE_KEY, JSON.stringify(towers)); }catch(e){ console.error('Could not save to this browser:', e); }
+}
+function loadTowers(){
+  try{
+    const raw = localStorage.getItem(TOWER_STORAGE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!Array.isArray(parsed) || !parsed.length) return null;
+    return parsed.map(t=>{
+      t.id = 'tower_'+(idCounter++);
+      if(!t.sections) t.sections = [];
+      t.sections.forEach(s=>{
+        s.id = 'tsection_'+(idCounter++);
+        if(!s.rows) s.rows = [];
+        if(s.rate == null) s.rate = '';
+        s.rows.forEach(r=>{ r.id = 'trow_'+(idCounter++); if(!r.unitType) r.unitType = 'SFT'; });
+      });
+      return t;
+    });
+  }catch(e){ return null; }
+}
+function getTower(id){ return towers.find(t=>t.id===id); }
+function getTowerSection(tower, id){ return tower.sections.find(s=>s.id===id); }
+
+function towerRowQuantity(row){
+  const nos = Number(row.nos)||0;
+  if(row.unitType === 'NOS') return Math.round(nos*100)/100;
+  const l = parseFeetInches(row.length);
+  if(row.breadth == null || String(row.breadth).trim() === '') return Math.round(nos*l*100)/100;
+  const b = parseFeetInches(row.breadth);
+  return Math.round(nos*l*b*100)/100;
+}
+function towerSectionTotals(section){
+  let work=0, deduction=0;
+  section.rows.forEach(row=>{
+    const q = towerRowQuantity(row);
+    if(row.deduction) deduction += q; else work += q;
+  });
+  work = Math.round(work*100)/100;
+  deduction = Math.round(deduction*100)/100;
+  const net = Math.round((work-deduction)*100)/100;
+  const rate = Number(section.rate)||0;
+  const amt = Math.round(net*rate*100)/100;
+  return {work, deduction, net, rate, amt};
+}
+function hasTowerData(){
+  return towers.some(t=>t.tower.trim()!=='' || t.sections.some(s=>s.name.trim()!=='' || s.rows.some(r=>r.particulars.trim()!=='')));
+}
+
+function setMode(mode){
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>{
+    const active = b.dataset.mode === mode;
+    b.classList.toggle('active', active);
+    b.style.background = active ? 'var(--navy,#1E2A44)' : '#EFEBE0';
+    b.style.color = active ? '#fff' : 'var(--navy,#1E2A44)';
+  });
+  document.querySelectorAll('[data-mode-section]').forEach(s=>{
+    s.style.display = s.dataset.modeSection === mode ? '' : 'none';
+  });
+  document.getElementById('download-desc-flat').style.display = mode==='flat' ? '' : 'none';
+  document.getElementById('download-desc-tower').style.display = mode==='tower' ? '' : 'none';
+  document.getElementById('live-update-card').style.display = mode==='flat' ? '' : 'none';
+}
+document.querySelectorAll('.mode-btn').forEach(b=>{
+  b.addEventListener('click', ()=>setMode(b.dataset.mode));
+});
+
 // ---- Rendering ----
 const flatsContainer = document.getElementById('flats-container');
 
@@ -395,6 +500,234 @@ function render(){
     flatsContainer.innerHTML = flats.map(renderFlatCard).join('');
   }
 }
+
+// ---- Tower rendering (mirrors Flat rendering above) ----
+const towersContainer = document.getElementById('towers-container');
+
+function renderTowers(){
+  if(!towers.length){
+    towersContainer.innerHTML = '<div class="empty-hint">No towers yet — click "+ Add Tower" above, or use "Upload &amp; Extract" to add one from a photo.</div>';
+  } else {
+    towersContainer.innerHTML = towers.map(renderTowerCard).join('');
+  }
+}
+
+function renderTowerCard(tower){
+  const sectionsHtml = tower.sections.length
+    ? tower.sections.map(s=>renderTowerSectionCard(tower.id, s)).join('')
+    : '<div class="empty-hint" style="padding:16px;">No items yet — click "+ Add Item" below.</div>';
+  return `
+  <div class="flat-card" data-tower-id="${tower.id}">
+    <div class="flat-card-header">
+      <div class="field">
+        <label>Tower</label>
+        <input type="text" value="${escapeHtml(tower.tower)}" data-tower-id="${tower.id}" data-field="tower" placeholder="e.g. L-Tower">
+      </div>
+      <div class="field grow">
+        <label>Name of Work</label>
+        <input type="text" value="${escapeHtml(tower.nameOfWork)}" data-tower-id="${tower.id}" data-field="nameOfWork" placeholder="e.g. Ladder Toppa &amp; Tiles">
+      </div>
+      <div class="field">
+        <label>Item</label>
+        <input type="text" value="${escapeHtml(tower.item)}" data-tower-id="${tower.id}" data-field="item" placeholder="e.g. Work">
+      </div>
+      <div class="field">
+        <label>Bill No.</label>
+        <input type="text" value="${escapeHtml(tower.billNo)}" data-tower-id="${tower.id}" data-field="billNo">
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" value="${escapeHtml(tower.date)}" data-tower-id="${tower.id}" data-field="date" style="color-scheme:dark;">
+      </div>
+      <button type="button" class="remove-flat-btn remove-tower-btn" aria-label="Remove this tower">✕ Remove Tower</button>
+    </div>
+    <div class="sections-container" data-tower-id="${tower.id}">${sectionsHtml}</div>
+    <button type="button" class="add-section-btn add-tower-section-btn" data-tower-id="${tower.id}">+ Add Item</button>
+  </div>`;
+}
+
+function renderTowerSectionCard(towerId, section){
+  const {work, deduction, net, amt} = towerSectionTotals(section);
+  const rowsHtml = section.rows.length
+    ? section.rows.map(row=>renderTowerRow(towerId, section.id, row)).join('')
+    : `<tr class="empty-row"><td colspan="9" style="padding:14px;color:var(--ink-soft);">No rows yet — click "+ Add Row" below.</td></tr>`;
+  return `
+  <div class="section-card" data-tower-id="${towerId}" data-section-id="${section.id}">
+    <div class="section-card-header">
+      <input type="text" class="section-name-input" value="${escapeHtml(section.name)}" data-tower-id="${towerId}" data-section-id="${section.id}" data-field="name" placeholder="Item name, e.g. Top Terrace Landing Floor Tiles">
+      <button type="button" class="remove-section-btn remove-tower-section-btn" data-tower-id="${towerId}" data-section-id="${section.id}" aria-label="Remove this item">✕ Remove Item</button>
+    </div>
+    <div class="table-scroll">
+      <table class="rows-table">
+        <thead>
+          <tr>
+            <th style="min-width:190px;">Particulars</th>
+            <th>Type</th>
+            <th>Unit</th>
+            <th>Nos</th>
+            <th style="min-width:90px;">Length</th>
+            <th style="min-width:90px;">Breadth</th>
+            <th>Quantity</th>
+            <th style="min-width:130px;">Remark</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody data-tower-id="${towerId}" data-section-id="${section.id}">${rowsHtml}</tbody>
+      </table>
+    </div>
+    <button type="button" class="add-row-btn add-tower-row-btn" data-tower-id="${towerId}" data-section-id="${section.id}">+ Add Row</button>
+    <div class="flat-footer">
+      <div class="tot work"><div class="label">Total Work</div><div class="value" data-section-work>${work.toFixed(2)}</div></div>
+      <div class="tot deduct"><div class="label">Total Deduction</div><div class="value" data-section-deduction>${deduction.toFixed(2)}</div></div>
+      <div class="tot net"><div class="label">Total</div><div class="value" data-section-net>${net.toFixed(2)}</div></div>
+      <div class="tot rate">
+        <div class="label">Rate</div>
+        <input type="number" class="rate-input" step="0.01" value="${escapeHtml(section.rate)}" data-tower-id="${towerId}" data-section-id="${section.id}" data-field="rate" placeholder="0">
+      </div>
+      <div class="tot amt"><div class="label">Amt.</div><div class="value" data-section-amt>${amt.toFixed(2)}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderTowerRow(towerId, sectionId, row){
+  const qty = towerRowQuantity(row);
+  const isNos = row.unitType === 'NOS';
+  return `
+  <tr data-row-id="${row.id}" class="${row.deduction?'deduct-row':''}">
+    <td><input type="text" value="${escapeHtml(row.particulars)}" data-tower-id="${towerId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="particulars" placeholder="e.g. Riser"></td>
+    <td>
+      <select data-tower-id="${towerId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="deduction">
+        <option value="add" ${!row.deduction?'selected':''}>Add</option>
+        <option value="deduct" ${row.deduction?'selected':''}>Deduct</option>
+      </select>
+    </td>
+    <td>
+      <select data-tower-id="${towerId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="unitType">
+        <option value="SFT" ${row.unitType==='SFT'?'selected':''}>SFT</option>
+        <option value="RFT" ${row.unitType==='RFT'?'selected':''}>RFT</option>
+        <option value="NOS" ${row.unitType==='NOS'?'selected':''}>NOS</option>
+      </select>
+    </td>
+    <td><input type="number" min="0" step="1" value="${row.nos}" data-tower-id="${towerId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="nos"></td>
+    <td><input type="text" value="${escapeHtml(row.length)}" data-tower-id="${towerId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="length" placeholder="${isNos?'not needed':"11'6&quot;"}" ${isNos?'disabled':''}></td>
+    <td><input type="text" value="${escapeHtml(row.breadth)}" data-tower-id="${towerId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="breadth" placeholder="${isNos?'not needed':"9'0&quot; (leave blank if RFT)"}" ${isNos?'disabled':''}></td>
+    <td class="sft-cell" data-row-qty>${qty.toFixed(2)}</td>
+    <td><input type="text" value="${escapeHtml(row.remark||'')}" data-tower-id="${towerId}" data-section-id="${sectionId}" data-row-id="${row.id}" data-field="remark" placeholder="optional note"></td>
+    <td><button type="button" class="remove-row-btn" aria-label="Remove this row">✕</button></td>
+  </tr>`;
+}
+
+function updateTowerRowDisplay(tr, row){
+  const cell = tr.querySelector('[data-row-qty]');
+  if(cell) cell.textContent = towerRowQuantity(row).toFixed(2);
+  tr.classList.toggle('deduct-row', row.deduction);
+}
+function updateTowerSectionFooter(cardEl, section){
+  const {work, deduction, net, amt} = towerSectionTotals(section);
+  cardEl.querySelector('[data-section-work]').textContent = work.toFixed(2);
+  cardEl.querySelector('[data-section-deduction]').textContent = deduction.toFixed(2);
+  cardEl.querySelector('[data-section-net]').textContent = net.toFixed(2);
+  cardEl.querySelector('[data-section-amt]').textContent = amt.toFixed(2);
+}
+
+towersContainer.addEventListener('input', (e)=>{
+  const t = e.target;
+  const towerId = t.dataset.towerId;
+  if(!towerId) return;
+  const tower = getTower(towerId);
+  if(!tower) return;
+  const field = t.dataset.field;
+  if(!field) return;
+
+  if(t.dataset.rowId){
+    const section = getTowerSection(tower, t.dataset.sectionId);
+    if(!section) return;
+    const row = section.rows.find(r=>r.id===t.dataset.rowId);
+    if(!row) return;
+    row[field] = (field==='particulars' || field==='remark' || field==='length' || field==='breadth') ? t.value : (t.value==='' ? '' : (parseFloat(t.value)||0));
+    const tr = t.closest('tr[data-row-id]');
+    updateTowerRowDisplay(tr, row);
+    updateTowerSectionFooter(t.closest('.section-card'), section);
+  } else if(t.dataset.sectionId){
+    const section = getTowerSection(tower, t.dataset.sectionId);
+    if(section){
+      section[field] = t.value;
+      updateTowerSectionFooter(t.closest('.section-card'), section);
+    }
+  } else {
+    tower[field] = t.value;
+  }
+  saveTowers();
+});
+
+towersContainer.addEventListener('change', (e)=>{
+  const t = e.target;
+  if(!t.dataset.rowId) return;
+  const tower = getTower(t.dataset.towerId);
+  if(!tower) return;
+  const section = getTowerSection(tower, t.dataset.sectionId);
+  if(!section) return;
+  const row = section.rows.find(r=>r.id===t.dataset.rowId);
+  if(!row) return;
+  if(t.dataset.field === 'deduction'){
+    row.deduction = t.value === 'deduct';
+    if(row.deduction){
+      if(!/^less\s/i.test(row.particulars)) row.particulars = ('LESS ' + row.particulars).trim();
+    } else {
+      row.particulars = row.particulars.replace(/^less\s+/i, '');
+    }
+    const particularsInput = t.closest('tr[data-row-id]').querySelector('[data-field="particulars"]');
+    if(particularsInput) particularsInput.value = row.particulars;
+  } else if(t.dataset.field === 'unitType'){
+    row.unitType = t.value;
+    if(row.unitType === 'NOS'){ row.length=''; row.breadth=''; }
+    renderTowers(); saveTowers(); return;
+  } else {
+    return;
+  }
+  const tr = t.closest('tr[data-row-id]');
+  updateTowerRowDisplay(tr, row);
+  updateTowerSectionFooter(t.closest('.section-card'), section);
+  saveTowers();
+});
+
+towersContainer.addEventListener('click', (e)=>{
+  if(e.target.classList.contains('remove-row-btn')){
+    const tr = e.target.closest('tr[data-row-id]');
+    const tower = getTower(tr.closest('.flat-card').dataset.towerId);
+    const section = getTowerSection(tower, tr.closest('.section-card').dataset.sectionId);
+    section.rows = section.rows.filter(r=>r.id!==tr.dataset.rowId);
+    renderTowers();
+    saveTowers();
+  } else if(e.target.classList.contains('add-tower-row-btn')){
+    const tower = getTower(e.target.dataset.towerId);
+    const section = getTowerSection(tower, e.target.dataset.sectionId);
+    section.rows.push(newTowerRow());
+    renderTowers();
+    saveTowers();
+  } else if(e.target.classList.contains('remove-tower-section-btn')){
+    const tower = getTower(e.target.dataset.towerId);
+    tower.sections = tower.sections.filter(s=>s.id!==e.target.dataset.sectionId);
+    renderTowers();
+    saveTowers();
+  } else if(e.target.classList.contains('add-tower-section-btn')){
+    const tower = getTower(e.target.dataset.towerId);
+    tower.sections.push(newTowerSection());
+    renderTowers();
+    saveTowers();
+  } else if(e.target.classList.contains('remove-tower-btn')){
+    const towerId = e.target.closest('.flat-card').dataset.towerId;
+    towers = towers.filter(t=>t.id!==towerId);
+    renderTowers();
+    saveTowers();
+  }
+});
+
+document.getElementById('add-tower-btn').addEventListener('click', ()=>{
+  towers.push(newTower());
+  renderTowers();
+  saveTowers();
+});
 
 function renderFlatCard(flat){
   const sectionsHtml = flat.sections.length
@@ -622,10 +955,13 @@ document.getElementById('add-flat-btn').addEventListener('click', ()=>{
 });
 
 document.getElementById('reset-btn').addEventListener('click',()=>{
-  if(confirm('Clear all entered flats? This also clears the saved data in this browser.')){
+  if(confirm('Clear all entered flats AND towers? This also clears the saved data in this browser.')){
     flats = [];
+    towers = [];
     render();
+    renderTowers();
     saveFlats();
+    saveTowers();
   }
 });
 
@@ -797,6 +1133,114 @@ function writeFlatTable(ws, startRow, flat){
   return r;
 }
 
+// ---- Tower-wise Excel export: ALL towers written into ONE continuous
+// list on a single worksheet (not one tab per tower), per user's
+// instruction that tower-wise output is "one list". ----
+function writeTowerHeader(ws, startRow, tower){
+  let r = startRow;
+  function plainLine(text){
+    ws.mergeCells(r,1,r,NUM_COLS);
+    const c = ws.getCell(r,1);
+    c.value = text;
+    c.font = {bold:true, size:11};
+    c.alignment = {horizontal:'left'};
+    for(let col=1;col<=NUM_COLS;col++){ ws.getCell(r,col).border = THIN_BORDER; }
+    r++;
+  }
+  const dateText = tower.date ? fmtDateSlash(new Date(tower.date+'T00:00:00')) : '____________';
+  plainLine(`Tower :- ${tower.tower || '____________'}`);
+  plainLine(`Name of Work : ${tower.nameOfWork || '____________'}     Item : ${tower.item || '____________'}`);
+  plainLine(`Bill No. : ${tower.billNo || '______'}     Date : ${dateText}`);
+  r++;
+  return r;
+}
+
+function writeTowerTable(ws, startRow, tower){
+  let r = startRow;
+  const subHeaders = ['Sr.No','Particulars','Length','Breadth','Nos.','Unit','Quantity','Remarks'];
+  subHeaders.forEach((h,idx)=>{
+    const cell = ws.getCell(r, idx+1);
+    cell.value = h; cell.font={bold:true}; cell.alignment={horizontal:'center'}; cell.fill=PLAIN_FILL; cell.border=THIN_BORDER;
+  });
+  r++;
+
+  const allDeductRowRefs = [];
+  const sectionAmtRefs = [];
+
+  tower.sections.forEach((section, sIdx)=>{
+    const sectionWorkRefs = [], sectionDeductRefs = [];
+    section.rows.forEach((row, rIdx)=>{
+      const isNos = row.unitType === 'NOS';
+      const lengthText = isNos ? '' : normalizeLengthText(row.length);
+      const hasBreadth = !isNos && row.breadth != null && String(row.breadth).trim() !== '';
+      const breadthText = hasBreadth ? normalizeLengthText(row.breadth) : '';
+      ws.getCell(r,1).value = rIdx===0 ? (sIdx+1) : '';
+      ws.getCell(r,2).value = row.particulars || '';
+      ws.getCell(r,3).value = lengthText;
+      ws.getCell(r,4).value = breadthText;
+      ws.getCell(r,5).value = row.nos===''||row.nos==null ? '' : Number(row.nos);
+      ws.getCell(r,6).value = row.unitType || 'SFT';
+
+      const cRef = `C${r}`, dRef = `D${r}`, eRef = `E${r}`;
+      let formula;
+      if(isNos){
+        formula = `IFERROR(${eRef},0)`;
+      } else if(hasBreadth){
+        formula = `IFERROR(${feetInchesFormulaFragment(cRef)}*${feetInchesFormulaFragment(dRef)}*${eRef},0)`;
+      } else {
+        formula = `IFERROR(${feetInchesFormulaFragment(cRef)}*${eRef},0)`;
+      }
+      ws.getCell(r,7).value = { formula: `ROUND(${formula},2)` };
+      ws.getCell(r,8).value = row.remark || '';
+
+      for(let c=1;c<=NUM_COLS;c++){
+        ws.getCell(r,c).alignment={horizontal: c===2||c===8 ? 'left' : 'center'};
+        ws.getCell(r,c).border=THIN_BORDER;
+        if(row.deduction) ws.getCell(r,c).font = {color:{argb:'FFB3392C'}, bold:true};
+      }
+      if(row.deduction){ sectionDeductRefs.push(`G${r}`); allDeductRowRefs.push(`G${r}`); }
+      else sectionWorkRefs.push(`G${r}`);
+      r++;
+    });
+
+    const totalRow = r;
+    ws.getCell(r,6).value = 'Total'; ws.getCell(r,6).font = {bold:true}; ws.getCell(r,6).alignment={horizontal:'right'};
+    const workSum = sectionWorkRefs.length ? `SUM(${sectionWorkRefs.join(',')})` : '0';
+    const deductSum = sectionDeductRefs.length ? `SUM(${sectionDeductRefs.join(',')})` : '0';
+    ws.getCell(r,7).value = { formula: `${workSum}-${deductSum}` };
+    ws.getCell(r,7).font = {bold:true};
+    r++;
+
+    const rateRow = r;
+    ws.getCell(r,6).value = 'Rate'; ws.getCell(r,6).font = {bold:true}; ws.getCell(r,6).alignment={horizontal:'right'};
+    ws.getCell(r,7).value = Number(section.rate) || 0;
+    r++;
+
+    const amtRow = r;
+    ws.getCell(r,6).value = 'Amt.'; ws.getCell(r,6).font = {bold:true}; ws.getCell(r,6).alignment={horizontal:'right'};
+    ws.getCell(r,7).value = { formula: `G${totalRow}*G${rateRow}` };
+    ws.getCell(r,7).font = {bold:true};
+    sectionAmtRefs.push(`G${amtRow}`);
+    r++;
+  });
+
+  r++;
+  ws.getCell(r,4).value = 'Total Work'; ws.getCell(r,4).font = {bold:true};
+  ws.getCell(r,7).value = sectionAmtRefs.length ? {formula:`SUM(${sectionAmtRefs.join(',')})`} : 0;
+  const workRow = r;
+  r++;
+  ws.getCell(r,4).value = 'Total Deduction'; ws.getCell(r,4).font = {bold:true};
+  ws.getCell(r,7).value = allDeductRowRefs.length ? {formula:`SUM(${allDeductRowRefs.join(',')})`} : 0;
+  const deductRow = r;
+  r++;
+  ws.getCell(r,4).value = 'Net Total'; ws.getCell(r,4).font = {bold:true, size:12};
+  ws.getCell(r,7).value = {formula:`G${workRow}-G${deductRow}`};
+  ws.getCell(r,7).font = {bold:true, size:12};
+  r += 2; // extra blank spacer before the next tower's header in the combined list
+
+  return r;
+}
+
 function triggerDownload(buffer, filename){
   const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url = URL.createObjectURL(blob);
@@ -829,6 +1273,27 @@ function sheetNameForFlat(flat, usedNames){
 }
 
 document.getElementById('download-new-btn').addEventListener('click', async ()=>{
+  if(currentMode === 'tower'){
+    if(!hasTowerData()){ showStatus('Add at least one tower with data before downloading.', false); return; }
+    try{
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Tower-wise');
+      worksheet.columns = [{width:7.5},{width:26},{width:10.5},{width:10},{width:6.5},{width:7},{width:12},{width:14}];
+      worksheet.pageSetup = {paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0};
+      let r = 1;
+      towers.forEach(t=>{
+        r = writeTowerHeader(worksheet, r, t);
+        r = writeTowerTable(worksheet, r, t);
+      });
+      const buffer = await workbook.xlsx.writeBuffer();
+      triggerDownload(buffer, 'Tower_Wise_Measurements.xlsx');
+      showStatus('Downloaded Tower_Wise_Measurements.xlsx - ' + towers.length + ' tower(s), all in one list.', true);
+    }catch(err){
+      console.error(err);
+      showStatus('Could not build the file: ' + err.message, false);
+    }
+    return;
+  }
   if(!hasData()){ showStatus('Add at least one flat with data before downloading.', false); return; }
   try{
     const workbook = new ExcelJS.Workbook();
@@ -995,7 +1460,7 @@ function fileToBase64(file){
   });
 }
 
-const EXTRACTION_PROMPT = "You are reading a photo of a handwritten 'MEASUREMENT FORM' for tile/flooring work (sometimes bilingual English/Gujarati). Near the top it has a Tower name (e.g. 'A-1 TOWER'), a Flat No. (e.g. 'FLAT NO. 101'), a Series (e.g. '3BHK'), and a 'Name of Work' line (e.g. 'BATHROOM WALL TILES AND TILING') - apply this SAME Tower/Flat No./Series/Name of Work to every row on this page. It may also have a Bill No. and Date field, often left blank on the form itself - leave these as empty strings if not filled in.\n\nBelow that is a table of measurement rows, grouped into numbered sections (e.g. '(1) WASH AREA WALL TILES', '(2) BEDROOM FLOORING', '(3) SKIRTING'), each section usually ending with its own boxed 'Amount' or subtotal line - IGNORE those subtotal/amount lines entirely, they are not measurement rows, and the tool computes its own totals.\n\nEach measurement row has: a Particulars description (e.g. 'WASH AREA WALL TILES', 'KOMAN BATHROOM WALLS', 'MASTER BATHROOM(1) WALLS', 'SKIRTING'), a No./Nos count, a Length and Breadth written in feet-inches (e.g. 23'1\" means 23 feet 1 inch), and a Depth/unit column that reads 'SF' (square feet - Length x Breadth) or 'RF' (running feet - Length only, no Breadth - used for skirting, borders, window/door frames, granite sills). Rows marked 'LESS' or with a '(-)' or a minus sign are deductions (window/door openings subtracted from that section's total) - everything else is a normal addition.\n\nReturn ONLY a valid JSON array (no markdown fences, no explanation), one object per row, in this exact shape:\n[{\"tower\":\"\",\"flatNo\":\"\",\"series\":\"\",\"nameOfWork\":\"\",\"billNo\":\"\",\"section\":\"\",\"particulars\":\"\",\"nos\":1,\"length\":\"23'1\\\"\",\"breadth\":\"3'11\\\"\",\"unitType\":\"SF\",\"deduction\":false}]\n\nRules:\n- Write length and breadth EXACTLY as feet'inches\\\" text, e.g. \\\"23'1\\\\\\\"\\\" - keep them as this exact text format, do not convert to decimal. For an RF row with no breadth written, leave breadth as an empty string.\n- 'section' is the section heading text that row belongs to (e.g. 'WASH AREA WALL TILES', 'BEDROOM FLOORING'), without the leading number - every row under the same heading should repeat the exact same 'section' text so the tool can group them together.\n- unitType must be exactly \\\"SF\\\" or \\\"RF\\\" based on the Depth column for that row.\n- If nos is blank or unclear, use 1.\n- Double check handwritten digits carefully - they can be cramped or ambiguous, and this form is sometimes bilingual (English/Gujarati) - only extract the English/numeric content.\n- Output nothing except the JSON array.";
+const EXTRACTION_PROMPT = "You are reading a photo of a handwritten 'MEASUREMENT FORM' for tile/flooring work (sometimes bilingual English/Gujarati). There are TWO possible page formats - decide which ONE this page is first:\n\nFORMAT \"flat\" - the page is about a SINGLE FLAT. Near the top it has a Tower name (e.g. 'A-1 TOWER'), a Flat No. (e.g. 'FLAT NO. 101'), and usually a Series (e.g. '3BHK'). The 'Name of Work' is specific to that flat (e.g. 'BATHROOM WALL TILES AND TILING').\n\nFORMAT \"tower\" - the page is a whole TOWER's combined work list (e.g. 'Name of Work: L-TOWER LADDER TOPPA & TILES', 'Item: WORK'). There is NO Flat No. and NO Series field at all - it's one running numbered list (1, 2, 3, 4...) of tower-wide items like terrace flooring, staircase/ladder tapper granite, riser, lift wall tiles, basement flooring, tanki, etc.\n\nBoth formats share the same table columns: No./Nos, Length, Breadth, Depth, Quantity, Remarks. Length and Breadth are feet-inches (e.g. 23'1\" means 23 feet 1 inch). The Depth/unit area reads 'SF'/'SFT' (square feet - Length x Breadth), 'RF'/'RFT' (running feet - Length only), or for format \"tower\" only, sometimes 'NOS' (plain count with no Length/Breadth at all, e.g. 'Tanki - 1 Nos'). Rows marked 'LESS', '(-)', or with a minus sign are deductions - everything else is a normal addition. IGNORE any boxed subtotal/Amount lines - the tool computes its own totals.\n\nReturn ONLY valid JSON (no markdown fences, no explanation) in this exact shape:\n{\"format\":\"flat\",\"header\":{\"tower\":\"\",\"flatNo\":\"\",\"series\":\"\",\"nameOfWork\":\"\",\"billNo\":\"\"},\"rows\":[{\"section\":\"\",\"particulars\":\"\",\"nos\":1,\"length\":\"23'1\\\"\",\"breadth\":\"3'11\\\"\",\"unitType\":\"SF\",\"deduction\":false}]}\n\n...OR, if this page is tower format instead:\n{\"format\":\"tower\",\"header\":{\"tower\":\"\",\"nameOfWork\":\"\",\"item\":\"\",\"billNo\":\"\"},\"rows\":[{\"section\":\"\",\"particulars\":\"\",\"nos\":1,\"length\":\"5'0\\\"\",\"breadth\":\"\",\"unitType\":\"SFT\",\"deduction\":false}]}\n\nRules:\n- Write length and breadth EXACTLY as feet'inches\\\" text, e.g. \\\"23'1\\\\\\\"\\\" - keep this exact text format, do not convert to decimal. Leave breadth as an empty string when the row has no breadth (RF/RFT rows, or NOS rows).\n- 'section' is the numbered group heading that row belongs to (e.g. 'WASH AREA WALL TILES' for flat format, 'TOP TERRACE LANDING FLOOR TILES' or 'TAPPER GRANITE TOP' for tower format), without the leading number - every row under the same heading should repeat the exact same 'section' text so the tool can group them together.\n- For format \"flat\": unitType must be exactly \\\"SF\\\" or \\\"RF\\\".\n- For format \"tower\": unitType must be exactly \\\"SFT\\\", \\\"RFT\\\", or \\\"NOS\\\".\n- If nos is blank or unclear, use 1.\n- Leave any header field empty string if it's blank/not present on the page - never invent a value.\n- Double check handwritten digits carefully - they can be cramped or ambiguous, and this form is sometimes bilingual (English/Gujarati) - only extract the English/numeric content.\n- Output nothing except the single JSON object described above.";
 
 async function callGemini(base64Image, mimeType, apiKey){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
@@ -1025,9 +1490,9 @@ async function callGemini(base64Image, mimeType, apiKey){
 function parseGeminiJson(text){
   let cleaned = text.trim();
   cleaned = cleaned.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-  const start = cleaned.indexOf('[');
-  const end = cleaned.lastIndexOf(']');
-  if(start === -1 || end === -1) throw new Error('No JSON array found in AI response.');
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if(start === -1 || end === -1) throw new Error('No JSON object found in AI response.');
   cleaned = cleaned.slice(start, end+1);
   return JSON.parse(cleaned);
 }
@@ -1060,26 +1525,22 @@ function correctSpelling(text){
   });
 }
 
-function mergeExtractedItems(items, counts){
-  // Group extracted rows by Tower+Flat No.+Series into flats, then by
-  // section name into sections within each flat - usually every row in
-  // one photo belongs to the same flat, but this also handles a photo
-  // that happens to cover more than one flat.
-  items.forEach(it=>{
-    const tower = (it.tower||'').trim();
-    const flatNo = (it.flatNo||'').trim();
-    const series = (it.series||'').trim();
-    let flat = flats.find(f=>f.tower.trim()===tower && f.flatNo.trim()===flatNo && (tower||flatNo));
-    if(!flat){
-      flat = newFlat();
-      flat.tower = tower;
-      flat.flatNo = flatNo;
-      flat.series = series;
-      flat.nameOfWork = correctSpelling((it.nameOfWork||'').trim());
-      flat.billNo = (it.billNo||'').trim();
-      flats.push(flat);
-      counts.addedFlats++;
-    }
+function mergeExtractedFlatPage(header, rows, counts){
+  const tower = (header.tower||'').trim();
+  const flatNo = (header.flatNo||'').trim();
+  const series = (header.series||'').trim();
+  let flat = flats.find(f=>f.tower.trim()===tower && f.flatNo.trim()===flatNo && (tower||flatNo));
+  if(!flat){
+    flat = newFlat();
+    flat.tower = tower;
+    flat.flatNo = flatNo;
+    flat.series = series;
+    flat.nameOfWork = correctSpelling((header.nameOfWork||'').trim());
+    flat.billNo = (header.billNo||'').trim();
+    flats.push(flat);
+    counts.addedFlats++;
+  }
+  rows.forEach(it=>{
     const sectionName = correctSpelling((it.section||'').trim());
     let section = flat.sections.find(s=>s.name.trim()===sectionName && sectionName);
     if(!section){
@@ -1102,6 +1563,43 @@ function mergeExtractedItems(items, counts){
   });
 }
 
+function mergeExtractedTowerPage(header, rows, counts){
+  const towerName = (header.tower||'').trim();
+  const nameOfWork = correctSpelling((header.nameOfWork||'').trim());
+  let tower = towers.find(t=>t.tower.trim()===towerName && towerName && t.nameOfWork.trim()===nameOfWork);
+  if(!tower){
+    tower = newTower();
+    tower.tower = towerName;
+    tower.nameOfWork = nameOfWork;
+    tower.item = (header.item||'').trim();
+    tower.billNo = (header.billNo||'').trim();
+    towers.push(tower);
+    counts.addedTowers++;
+  }
+  rows.forEach(it=>{
+    const sectionName = correctSpelling((it.section||'').trim());
+    let section = tower.sections.find(s=>s.name.trim()===sectionName && sectionName);
+    if(!section){
+      section = newTowerSection();
+      section.name = sectionName;
+      tower.sections.push(section);
+      counts.addedSections++;
+    }
+    const unitType = ['SFT','RFT','NOS'].includes(it.unitType) ? it.unitType : (it.unitType==='RF' ? 'RFT' : 'SFT');
+    section.rows.push({
+      id: 'trow_'+(idCounter++),
+      particulars: correctSpelling(it.particulars || ''),
+      nos: Number(it.nos)||1,
+      length: unitType==='NOS' ? '' : (it.length || ''),
+      breadth: unitType==='NOS' ? '' : (it.breadth || ''),
+      unitType: unitType,
+      deduction: !!it.deduction,
+      remark: ''
+    });
+    counts.addedRows++;
+  });
+}
+
 document.getElementById('extract-photo-btn').addEventListener('click', async () => {
   const fileInput = document.getElementById('ai-photo-input');
   const rawFiles = Array.from(fileInput.files || []);
@@ -1113,8 +1611,9 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
   btn.disabled = true;
   showAiStatus('Preparing photo(s)...', true);
 
-  const counts = { addedFlats: 0, addedSections: 0, addedRows: 0 };
+  const counts = { addedFlats: 0, addedTowers: 0, addedSections: 0, addedRows: 0 };
   const failures = [];
+  let sawFlat = false, sawTower = false;
 
   const expanded = await expandFilesWithZips(rawFiles);
   const files = expanded.filter(f => !f.__zipError);
@@ -1132,9 +1631,16 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
     try{
       const base64 = await fileToBase64(file);
       const text = await callGemini(base64, file.type || 'image/jpeg', apiKey);
-      const items = parseGeminiJson(text);
-      if(!Array.isArray(items) || !items.length) throw new Error('no measurement rows found');
-      mergeExtractedItems(items, counts);
+      const result = parseGeminiJson(text);
+      const rows = Array.isArray(result.rows) ? result.rows : [];
+      if(!rows.length) throw new Error('no measurement rows found');
+      if(result.format === 'tower'){
+        mergeExtractedTowerPage(result.header || {}, rows, counts);
+        sawTower = true;
+      } else {
+        mergeExtractedFlatPage(result.header || {}, rows, counts);
+        sawFlat = true;
+      }
     }catch(err){
       console.error(err);
       failures.push(`${file.name}: ${err.message}`);
@@ -1142,16 +1648,29 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
   }
 
   saveFlats();
+  saveTowers();
   render();
+  renderTowers();
   fileInput.value = '';
   btn.disabled = false;
 
+  // Switch to whichever mode has the newly-added data, so the user
+  // immediately sees the result without hunting for the right tab.
+  if(sawTower && !sawFlat) setMode('tower');
+  else if(sawFlat && !sawTower) setMode('flat');
+
   if(counts.addedRows === 0){
     showAiStatus('Could not read any of the photo(s): ' + failures.join('; '), false);
-  } else if(failures.length){
-    showAiStatus(`Added ${counts.addedRows} row(s) across ${counts.addedSections} section(s) in ${counts.addedFlats} new flat(s) below. ${failures.length} photo(s) failed: ${failures.join('; ')}`, false);
   } else {
-    showAiStatus(`Added ${counts.addedRows} row(s) across ${counts.addedSections} section(s) in ${counts.addedFlats} new flat(s) from ${files.length} photo(s) below. Please review and correct.`, true);
+    const parts = [];
+    if(counts.addedFlats) parts.push(`${counts.addedFlats} new flat(s)`);
+    if(counts.addedTowers) parts.push(`${counts.addedTowers} new tower(s)`);
+    const where = parts.length ? ' in ' + parts.join(' and ') : '';
+    if(failures.length){
+      showAiStatus(`Added ${counts.addedRows} row(s) across ${counts.addedSections} section(s)${where} below. ${failures.length} photo(s) failed: ${failures.join('; ')}`, false);
+    } else {
+      showAiStatus(`Added ${counts.addedRows} row(s) across ${counts.addedSections} section(s)${where} from ${files.length} photo(s) below. Please review and correct.`, true);
+    }
   }
 });
 
@@ -1159,6 +1678,11 @@ document.getElementById('extract-photo-btn').addEventListener('click', async () 
 const restored = loadFlats();
 if(restored && restored.length){ flats = restored; }
 render();
+
+const restoredTowers = loadTowers();
+if(restoredTowers && restoredTowers.length){ towers = restoredTowers; }
+renderTowers();
+setMode('flat');
 </script>
 </body>
 </html>
