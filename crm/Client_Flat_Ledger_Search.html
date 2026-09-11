@@ -38,6 +38,9 @@
   .txn-table th{background:#f1efe8;}
   .txn-table td.num,.txn-table th.num{text-align:right;font-variant-numeric:tabular-nums;}
   .txn-table tfoot td{font-weight:600;background:#fbf7ec;border-top:2px solid var(--gold);}
+  .fix-btn{font-size:.78rem;background:none;border:1px solid var(--line);border-radius:5px;padding:3px 8px;cursor:pointer;color:var(--ink-soft,#6b6357);white-space:nowrap;}
+  .fix-btn:hover{background:#f1efe8;}
+  .fixed-badge{font-size:.76rem;color:#8a6d1f;font-style:italic;}
   .manifest-title{font-weight:600;color:var(--navy);margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline;}
   .manifest-table{width:100%;border-collapse:collapse;font-size:.85rem;}
   .manifest-table th,.manifest-table td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:middle;}
@@ -203,7 +206,26 @@ const COLLECTION = "ledgerSearchData";
 const SEED_DATA = JSON.parse(document.getElementById('seedDataScript').textContent);
 const SEED_VERSION = 'v5-2026-07-11-12files-5775rows';
 
-const state = { manifest: [], allRows: [], lastQuery: '' };
+const state = { manifest: [], allRows: [], lastQuery: '', corrections: [], correctionsMap: new Map() };
+
+function correctionKey(r){
+  return [normalize(r.account), normalize(r.instNo), normalizeDateForDedup(r.date), r.deposit || '', r.withdrawal || ''].join('|');
+}
+function rebuildCorrectionsMap(){
+  state.correctionsMap = new Map(state.corrections.map(c => [c.key, c.correctedParticulars]));
+}
+function displayParticulars(r){
+  return state.correctionsMap.get(correctionKey(r)) || r.particulars;
+}
+async function saveCorrection(r, newText){
+  const key = correctionKey(r);
+  state.corrections = state.corrections.filter(c => c.key !== key);
+  if (newText && newText.trim() && newText.trim() !== r.particulars) {
+    state.corrections.push({ key, account: r.account, instNo: r.instNo, date: r.date, originalParticulars: r.particulars, correctedParticulars: newText.trim() });
+  }
+  rebuildCorrectionsMap();
+  await storageSet('corrections', state.corrections);
+}
 
 function showLoading(v){ document.getElementById('loadingOverlay').style.display = v ? 'flex' : 'none'; }
 function showToast(msg){
@@ -303,6 +325,8 @@ async function init(){
     await storageSet('manifest', manifest);
     showToast('Recovered some ledger data that failed to save earlier.');
   }
+  state.corrections = (await storageGet('corrections')) || [];
+  rebuildCorrectionsMap();
   renderManifest();
   showLoading(false);
 }
@@ -455,7 +479,7 @@ function runSearch(query){
   const resultsEl = document.getElementById('results');
   const needle = normalize(query);
   if (needle.length < 2) { resultsEl.innerHTML = ''; return; }
-  const matches = state.allRows.filter(r => normalize(r.particulars).includes(needle) || normalize(r.account).includes(needle));
+  const matches = state.allRows.filter(r => normalize(displayParticulars(r)).includes(needle) || normalize(r.account).includes(needle));
   if (matches.length === 0) {
     resultsEl.innerHTML = `<div class="empty">No transactions found for "${escapeHtml(query)}".</div>`;
     return;
@@ -472,12 +496,42 @@ function runSearch(query){
   }
   const rows = deduped.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   resultsEl.innerHTML = `<table class="txn-table">
-    <thead><tr><th>Date</th><th>Account</th><th>Particulars</th><th>Inst No.</th><th class="num">Deposit</th><th class="num">Withdrawal</th></tr></thead>
+    <thead><tr><th>Date</th><th>Account</th><th>Particulars</th><th>Inst No.</th><th class="num">Deposit</th><th class="num">Withdrawal</th><th></th></tr></thead>
     <tbody>
-      ${rows.map(r => `<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.account)}</td><td>${escapeHtml(r.particulars)}</td><td>${escapeHtml(r.instNo)}</td><td class="num">${r.deposit != null ? fmtNum(r.deposit) : ''}</td><td class="num">${r.withdrawal != null ? fmtNum(r.withdrawal) : ''}</td></tr>`).join('')}
+      ${rows.map((r, i) => {
+        const shown = displayParticulars(r);
+        const wasFixed = shown !== r.particulars;
+        return `<tr>
+          <td>${escapeHtml(r.date)}</td>
+          <td>${escapeHtml(r.account)}</td>
+          <td>${escapeHtml(shown)}${wasFixed ? ` <span class="fixed-badge" title="Original bank text: ${escapeHtml(r.particulars)}">(corrected)</span>` : ''}</td>
+          <td>${escapeHtml(r.instNo)}</td>
+          <td class="num">${r.deposit != null ? fmtNum(r.deposit) : ''}</td>
+          <td class="num">${r.withdrawal != null ? fmtNum(r.withdrawal) : ''}</td>
+          <td><button type="button" class="fix-btn" data-row-index="${i}">${wasFixed ? '↺ Undo' : '✎ Fix'}</button></td>
+        </tr>`;
+      }).join('')}
     </tbody>
   </table>`;
+  resultsEl._rows = rows;
 }
+
+document.getElementById('results').addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('fix-btn')) return;
+  const idx = Number(e.target.dataset.rowIndex);
+  const r = document.getElementById('results')._rows[idx];
+  const shown = displayParticulars(r);
+  const wasFixed = shown !== r.particulars;
+  if (wasFixed) {
+    if (!confirm(`Remove the correction and go back to the original bank text?\n\n"${r.particulars}"`)) return;
+    await saveCorrection(r, r.particulars);
+  } else {
+    const newText = prompt(`Correct the particulars for this one transaction only (does not change the uploaded file):\n\nAccount: ${r.account}\nInst No.: ${r.instNo}\nDate: ${r.date}\n\nOriginal text:\n${r.particulars}`, r.particulars);
+    if (newText === null) return;
+    await saveCorrection(r, newText);
+  }
+  runSearch(state.lastQuery);
+});
 
 let searchDebounce;
 document.getElementById('searchInput').addEventListener('input', e => {
