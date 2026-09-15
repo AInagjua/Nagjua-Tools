@@ -601,52 +601,79 @@ function parseLedger(text){
     return nameTokens.join(" ");
   }
 
+  // Find the "Co-Allotees" label position FIRST, in both the token stream
+  // and the raw-lines view - the primary buyer's name must be searched for
+  // only BEFORE this point. Otherwise, on ledgers where the primary buyer's
+  // name has no Mr./Mrs./Ms. prefix (common - some ERPs only prefix the
+  // co-applicant), the generic "first prefixed name anywhere" scan below
+  // would wrongly grab the CO-APPLICANT'S name from the Co-Allotees line
+  // itself and misassign it as the primary buyer.
+  let coTokenIdx = -1;
   for(let i=0;i<allTokens.length;i++){
+    if(/^co-?allotees?$/i.test(allTokens[i].replace(/[:.]/g,""))){ coTokenIdx = i; break; }
+  }
+  const primarySearchEnd = coTokenIdx === -1 ? allTokens.length : coTokenIdx;
+
+  for(let i=0;i<primarySearchEnd;i++){
     const name = captureName(i);
     if(name){ r.buyerName = name; break; }
   }
 
-  // Fallback: some ledgers show the buyer's name bare, with no Mr./Mrs./Ms.
-  // prefix at all (e.g. just "AMIT KUMAR SINGH"). In the real pdf.js
-  // Y-coordinate extraction, that bare name sits on its own line, and the
-  // NEXT line merges "Name of party" together with "Application no" (same
-  // row) - so token-adjacency to "Application" doesn't work, but the name
-  // reliably being the line right before "Name of party" does.
-  if(!r.buyerName){
-    const rawLines = text.split(/\n/).map(l=>l.trim());
-    for(let i=0;i<rawLines.length;i++){
-      if(/^Name of party\b/i.test(rawLines[i]) && i>0){
-        const candidate = rawLines[i-1];
-        if(candidate && candidate.length>1 && !/[a-z]/.test(candidate) && /^[A-Z0-9 .&-]+$/.test(candidate)){
-          r.buyerName = candidate;
-        }
-        break;
-      }
+  const rawLines = text.split(/\n/).map(l=>l.trim());
+  const nameOfPartyIdx = rawLines.findIndex(l=>/^Name of party\b/i.test(l));
+  const coAllotLineIdx = rawLines.findIndex(l=>/^co-?allotees?\s*:/i.test(l));
+
+  // Fallback A: some ledgers show the buyer's name bare, with no Mr./Mrs./Ms.
+  // prefix at all (e.g. just "AMIT KUMAR SINGH"). In one real pdf.js
+  // Y-coordinate extraction layout, that bare name sits on its own line
+  // right BEFORE "Name of party" (the label and the next row's field merge).
+  if(!r.buyerName && nameOfPartyIdx > 0){
+    const candidate = rawLines[nameOfPartyIdx-1];
+    if(candidate && candidate.length>1 && !/[a-z]/.test(candidate) && /^[A-Z0-9 .&-]+$/.test(candidate)){
+      r.buyerName = candidate;
+    }
+  }
+
+  // Fallback B: a second real ledger layout (Micromega/Nagjua Ananta) instead
+  // places the bare, unprefixed primary-buyer name a couple of lines AFTER
+  // "Name of party" (interleaved with a "Payment plan" column header), and
+  // right BEFORE the "Application no" / "Co-Allotees" line - e.g.:
+  //   Name of party
+  //   Payment plan
+  //   KAVITA SACHIN PATIL   <- primary buyer, no title prefix here
+  //   Application no : ...
+  //   Co-Allotees : Mr. SACHIN K PATIL
+  if(!r.buyerName && nameOfPartyIdx !== -1){
+    const searchEnd = coAllotLineIdx !== -1 ? coAllotLineIdx : rawLines.length;
+    for(let i=nameOfPartyIdx+1;i<searchEnd;i++){
+      const candidate = rawLines[i];
+      if(!candidate || candidate.length<2) continue;
+      if(/^payment plan\b/i.test(candidate)) continue;
+      if(/^application no\b/i.test(candidate)) continue;
+      if(/[a-z]/.test(candidate)) continue;
+      if(!/^[A-Z0-9 .&-]+$/.test(candidate)) continue;
+      r.buyerName = candidate;
+      break;
     }
   }
 
   // Co-Allottee: scan a SHORT window of tokens after the "Co-Allotees" label
   // for a second Mr./Mrs./Ms. name. Bounded to avoid scanning past a blank
   // field into later receipt lines that re-mention the primary buyer's name.
-  // A co-applicant can never be the SAME person as the primary buyer, so a
-  // match identical to r.buyerName (ignoring the Mr./Mrs./Ms. prefix) is
-  // rejected as a false positive - PDF table copy-paste can repeat the
-  // primary buyer's name in a nearby cell when the co-applicant field is
-  // actually blank.
+  // A co-applicant match identical to the primary buyer (ignoring title
+  // prefix) is rejected as a false positive - kept as a safety net even
+  // though the primary search above no longer looks past this label.
   function normalizeForCompare(name){
     return name.replace(/^(Mr\.|Mrs\.|Ms\.|Miss|M\/s\.?|Smt\.?|Shri|Dr\.|Kum\.?|Er\.?|Adv\.?|Prof\.?|Capt\.?|Col\.?|Major)\s*/i,"")
                 .replace(/[.\s]+/g," ").trim().toUpperCase();
   }
-  for(let i=0;i<allTokens.length;i++){
-    if(/^co-?allotees?$/i.test(allTokens[i].replace(/[:.]/g,""))) {
-      const windowEnd = Math.min(allTokens.length, i+8);
-      for(let k=i+1;k<windowEnd;k++){
-        if(/^booking$/i.test(allTokens[k].replace(/[:.]/g,""))) break;
-        const coName = captureName(k);
-        if(coName && normalizeForCompare(coName) === normalizeForCompare(r.buyerName)) continue;
-        if(coName){ r.buyerName += " & " + coName; break; }
-      }
-      break;
+  if(coTokenIdx !== -1){
+    const windowEnd = Math.min(allTokens.length, coTokenIdx+8);
+    for(let k=coTokenIdx+1;k<windowEnd;k++){
+      if(/^booking$/i.test(allTokens[k].replace(/[:.]/g,""))) break;
+      const coName = captureName(k);
+      if(coName && normalizeForCompare(coName) === normalizeForCompare(r.buyerName)) continue;
+      if(coName){ r.buyerName += " & " + coName; break; }
     }
   }
 
