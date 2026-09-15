@@ -628,12 +628,22 @@ function parseLedger(text){
   // Co-Allottee: scan a SHORT window of tokens after the "Co-Allotees" label
   // for a second Mr./Mrs./Ms. name. Bounded to avoid scanning past a blank
   // field into later receipt lines that re-mention the primary buyer's name.
+  // A co-applicant can never be the SAME person as the primary buyer, so a
+  // match identical to r.buyerName (ignoring the Mr./Mrs./Ms. prefix) is
+  // rejected as a false positive - PDF table copy-paste can repeat the
+  // primary buyer's name in a nearby cell when the co-applicant field is
+  // actually blank.
+  function normalizeForCompare(name){
+    return name.replace(/^(Mr\.|Mrs\.|Ms\.|Miss|M\/s\.?|Smt\.?|Shri|Dr\.|Kum\.?|Er\.?|Adv\.?|Prof\.?|Capt\.?|Col\.?|Major)\s*/i,"")
+                .replace(/[.\s]+/g," ").trim().toUpperCase();
+  }
   for(let i=0;i<allTokens.length;i++){
     if(/^co-?allotees?$/i.test(allTokens[i].replace(/[:.]/g,""))) {
       const windowEnd = Math.min(allTokens.length, i+8);
       for(let k=i+1;k<windowEnd;k++){
         if(/^booking$/i.test(allTokens[k].replace(/[:.]/g,""))) break;
         const coName = captureName(k);
+        if(coName && normalizeForCompare(coName) === normalizeForCompare(r.buyerName)) continue;
         if(coName){ r.buyerName += " & " + coName; break; }
       }
       break;
