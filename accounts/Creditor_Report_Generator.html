@@ -2,162 +2,189 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Creditor Report Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creditor Report Generator — Nagjua Group</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
-  :root{
-    --blue:#00B0F0;
-    --blue-dark:#0072a3;
-    --ink:#1c2733;
-    --paper:#f6f8fa;
-    --line:#d7dee4;
-    --ok:#1a7f4e;
-    --warn:#a15c00;
-    --err:#b3261e;
+  :root {
+    --navy:   #0F172A;
+    --navy2:  #1E293B;
+    --gold:   #B8860B;
+    --gold2:  #F0B429;
+    --white:  #FFFFFF;
+    --off:    #F8F7F4;
+    --border: #E2E0D9;
+    --text:   #1E293B;
+    --muted:  #64748B;
+    --green:  #166534;
+    --greenb: #DCFCE7;
+    --red:    #991B1B;
+    --redb:   #FEE2E2;
+    --blue:   #1D4ED8;
+    --blueb:  #DBEAFE;
+    --radius: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
   }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    min-height:100vh;
-    font-family:Calibri,"Segoe UI",Arial,sans-serif;
-    background:
-      radial-gradient(circle at 1px 1px, rgba(0,114,163,0.09) 1.4px, transparent 0) 0 0/26px 26px,
-      radial-gradient(1100px 500px at 50% -10%, rgba(0,176,240,0.10), transparent 60%),
-      var(--paper);
-    color:var(--ink);
-    display:flex;
-    justify-content:center;
-    padding:40px 16px;
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Source Sans 3', sans-serif; background: var(--off); color: var(--text); min-height: 100vh; }
+
+  /* HEADER */
+  .header {
+    background: var(--navy); color: var(--white);
+    padding: 0 40px; display: flex; align-items: center;
+    justify-content: space-between; height: 64px;
+    border-bottom: 3px solid var(--gold);
   }
-  .card{
-    width:100%;
-    max-width:640px;
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:6px;
-    overflow:hidden;
-    box-shadow:0 12px 32px rgba(15,40,58,0.08);
+  .header-logo { font-family: 'Playfair Display', serif; font-size: 20px; letter-spacing: .5px; }
+  .header-logo span { color: var(--gold2); }
+  .header-sub { font-size: 12px; color: #94A3B8; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* LAYOUT */
+  .page { max-width: 700px; margin: 0 auto; padding: 32px 24px 100px; }
+
+  /* STEP CARD */
+  .step { background: var(--white); border-radius: 10px; box-shadow: var(--shadow); margin-bottom: 24px; overflow: hidden; }
+  .step-head {
+    background: var(--navy); color: var(--white);
+    padding: 16px 24px; display: flex; align-items: center; gap: 14px;
   }
-  .head{
-    background:var(--blue);
-    color:#fff;
-    padding:20px 28px;
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--gold); color: var(--navy);
+    font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .head h1{
-    margin:0;
-    font-size:20px;
-    font-weight:700;
-    letter-spacing:.2px;
+  .step-title { font-family: 'Playfair Display', serif; font-size: 18px; }
+  .step-desc  { font-size: 13px; color: #94A3B8; margin-top: 2px; }
+  .step-body  { padding: 28px 24px; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .field select {
+    border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 9px 12px; font-size: 14px; font-family: inherit;
+    color: var(--text); background: var(--white); transition: border .2s;
   }
-  .head p{
-    margin:4px 0 0;
-    font-size:13px;
-    opacity:.92;
+  .field select:focus { outline: none; border-color: var(--gold); }
+
+  .section-label {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px;
+    padding: 18px 0 12px; border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
   }
-  .body{padding:28px;}
-  label{
-    display:block;
-    font-size:13px;
-    font-weight:700;
-    color:var(--ink);
-    margin-bottom:6px;
+  .section-label:first-child { padding-top: 0; }
+
+  .company-hint { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+  .company-hint.ok   { color: var(--green); font-weight: 600; }
+  .company-hint.warn { color: #A15C00;    font-weight: 600; }
+
+  /* FILE UPLOAD (matches the cheque-upload pattern used elsewhere in the suite) */
+  .upload-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .upload-btn {
+    background: var(--navy); color: var(--white); border: none;
+    padding: 10px 20px; border-radius: var(--radius);
+    font-weight: 600; font-size: 13px; cursor: pointer; font-family: inherit;
   }
-  select, input[type=file]{
-    width:100%;
-    padding:9px 10px;
-    border:1px solid var(--line);
-    border-radius:4px;
-    font-size:14px;
-    font-family:inherit;
-    background:#fff;
+  .upload-btn:hover { background: var(--navy2); }
+  .filename { font-size: 12.5px; color: var(--muted); }
+
+  .gen-btn {
+    background: var(--gold); color: var(--white); border: none;
+    padding: 12px 32px; border-radius: var(--radius);
+    font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 10px;
+    width: 100%; justify-content: center; margin-top: 24px;
   }
-  .field{margin-bottom:20px;}
-  .drop{
-    border:1.5px dashed var(--line);
-    border-radius:6px;
-    padding:16px;
-    background:#fafcfd;
+  .gen-btn:hover:not(:disabled) { background: var(--gold2); transform: translateY(-1px); }
+  .gen-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+  /* RESULTS */
+  #log { margin-top: 22px; display: none; }
+  #log.show { display: block; }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
   }
-  .filename{
-    margin-top:8px;
-    font-size:12.5px;
-    color:#4a5761;
+  .row:last-of-type { border-bottom: none; }
+  .row span:first-child { color: var(--muted); }
+  .row span:last-child { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .warn { color: #A15C00; font-weight: 700; }
+  .err  { color: var(--red); font-weight: 700; }
+  .ok   { color: var(--green); font-weight: 700; }
+  .unmapped-list { margin: 6px 0 0; padding-left: 18px; }
+
+  .dl {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 18px; text-align: center; padding: 13px;
+    background: var(--gold); color: var(--white); text-decoration: none;
+    border-radius: var(--radius); font-weight: 700; font-size: 14px;
+    font-family: 'Playfair Display', serif;
   }
-  button{
-    width:100%;
-    padding:12px;
-    border:none;
-    border-radius:4px;
-    background:var(--blue-dark);
-    color:#fff;
-    font-size:15px;
-    font-weight:700;
-    cursor:pointer;
-    letter-spacing:.2px;
-  }
-  button:disabled{
-    background:#9fb4bf;
-    cursor:not-allowed;
-  }
-  #log{
-    margin-top:20px;
-    font-size:13px;
-    line-height:1.55;
-    border-top:1px solid var(--line);
-    padding-top:16px;
-    display:none;
-  }
-  #log.show{display:block;}
-  .row{display:flex;justify-content:space-between;padding:3px 0;}
-  .row span:first-child{color:#4a5761;}
-  .row span:last-child{font-weight:700;}
-  .warn{color:var(--warn);font-weight:700;}
-  .err{color:var(--err);font-weight:700;}
-  .ok{color:var(--ok);font-weight:700;}
-  .dl{
-    display:block;
-    margin-top:16px;
-    text-align:center;
-    padding:12px;
-    background:var(--ok);
-    color:#fff;
-    text-decoration:none;
-    border-radius:4px;
-    font-weight:700;
-    font-size:14px;
-  }
-  .unmapped-list{
-    margin:6px 0 0;
-    padding-left:18px;
+  .dl:hover { background: var(--gold2); }
+
+  @media (max-width: 700px) {
+    .header { padding: 0 16px; }
   }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="head">
-    <h1>Creditor Report Generator</h1>
-    <p>Raw Creditor Outstanding ledger &rarr; structured, vendor-grouped Excel report</p>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="header-logo">Nagjua <span>Group</span></div>
+    <div class="header-sub">Creditor Report Generator</div>
   </div>
-  <div class="body">
-    <div class="field">
-      <label for="company">Company</label>
-      <select id="company">
-        <option value="MMP">MMP — Micromega Projects</option>
-        <option value="NLS">NLS — Nagjua Lifespaces</option>
-      </select>
-      <div class="filename" id="companyHint"></div>
-    </div>
-    <div class="field">
-      <label for="file">Raw ledger file (.xlsx)</label>
-      <div class="drop">
-        <input type="file" id="file" accept=".xlsx">
-        <div class="filename" id="filename">No file selected</div>
+</div>
+
+<div class="page">
+
+  <!-- STEP 1: COMPANY -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Company</div>
+        <div class="step-desc">Which entity does this Creditor Outstanding ledger belong to?</div>
       </div>
     </div>
-    <button id="go" disabled>Generate structured report</button>
-    <div id="log"></div>
+    <div class="step-body">
+      <div class="field">
+        <label>Company</label>
+        <select id="company">
+          <option value="MMP">MMP — Micromega Projects</option>
+          <option value="NLS">NLS — Nagjua Lifespaces</option>
+        </select>
+      </div>
+      <div class="company-hint" id="companyHint"></div>
+    </div>
   </div>
+
+  <!-- STEP 2: LEDGER FILE -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Ledger File</div>
+        <div class="step-desc">Upload the raw Creditor Outstanding export, unedited.</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="upload-row">
+        <input type="file" id="file" accept=".xlsx" style="display:none;" onchange="handleFileSelect(this.files)">
+        <button type="button" class="upload-btn" onclick="document.getElementById('file').click()">📄 Choose .xlsx File</button>
+        <div class="filename" id="filename">No file selected</div>
+      </div>
+
+      <button class="gen-btn" id="go" disabled>Generate structured report</button>
+      <div id="log"></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -186,7 +213,6 @@ const COMPANY_CONFIG = {
   }
 };
 
-const fileInput = document.getElementById('file');
 const filenameEl = document.getElementById('filename');
 const companyHint = document.getElementById('companyHint');
 const companySelect = document.getElementById('company');
@@ -213,14 +239,14 @@ function detectCompanyFromLines(lines) {
   return null;
 }
 
-fileInput.addEventListener('change', async () => {
-  selectedFile = fileInput.files[0] || null;
+async function handleFileSelect(files) {
+  selectedFile = files[0] || null;
   filenameEl.textContent = selectedFile ? selectedFile.name : 'No file selected';
   goBtn.disabled = !selectedFile;
   logEl.classList.remove('show');
   logEl.innerHTML = '';
   companyHint.textContent = '';
-  companyHint.className = 'filename';
+  companyHint.className = 'company-hint';
   if (!selectedFile) return;
   try {
     const buf = await selectedFile.arrayBuffer();
@@ -232,15 +258,15 @@ fileInput.addEventListener('change', async () => {
     if (detected && detected.key) {
       companySelect.value = detected.key;
       companyHint.textContent = `Detected: ${detected.raw} → ${detected.key}`;
-      companyHint.className = 'filename ok';
+      companyHint.className = 'company-hint ok';
     } else if (detected) {
       companyHint.textContent = `Company line found ("${detected.raw}") but didn't match MMP or NLS — check dropdown.`;
-      companyHint.className = 'filename warn';
+      companyHint.className = 'company-hint warn';
     }
   } catch (e) {
     // detection is best-effort only; ignore failures here, Generate will surface real errors
   }
-});
+}
 
 goBtn.addEventListener('click', async () => {
   goBtn.disabled = true;
@@ -551,7 +577,7 @@ async function buildAndOffer(result, companyKey, sourceFileName) {
   a.href = url;
   a.download = outName;
   a.className = 'dl';
-  a.textContent = 'Download ' + outName;
+  a.textContent = '⬇ Download ' + outName;
   logEl.appendChild(a);
 }
 
