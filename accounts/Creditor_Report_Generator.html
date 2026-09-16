@@ -158,6 +158,7 @@
         <select id="company">
           <option value="MMP">MMP — Micromega Projects</option>
           <option value="NLS">NLS — Nagjua Lifespaces</option>
+          <option value="SPCT">SPCT — Spring City Developers</option>
         </select>
       </div>
       <div class="company-hint" id="companyHint"></div>
@@ -210,6 +211,12 @@ const COMPANY_CONFIG = {
       { label: 'EP- 4', unit: 'THE ETERNITY PARK PHASE 4' },
       { label: 'SP- 1', unit: 'THE SERENITY PARK PHASE 1' }
     ]
+  },
+  SPCT: {
+    prefix: 'SPCT',
+    columns: [
+      { label: 'SP- 2', unit: 'SPRING CITY PHASE 2' }
+    ]
   }
 };
 
@@ -222,7 +229,8 @@ let selectedFile = null;
 
 const COMPANY_NAME_MATCH = [
   { pattern: 'MICROMEGA PROJECTS', key: 'MMP' },
-  { pattern: 'NAGJUA LIFESPACES', key: 'NLS' }
+  { pattern: 'NAGJUA LIFESPACES', key: 'NLS' },
+  { pattern: 'SPRING CITY DEVELOPERS', key: 'SPCT' }
 ];
 
 function detectCompanyFromLines(lines) {
@@ -436,7 +444,8 @@ async function buildAndOffer(result, companyKey, sourceFileName) {
   const gold = 'FFFFD966';
 
   const companyLine = headerLines.find(l => String(l[0] || '').trim().startsWith('Company:'));
-  const companyFullName = companyLine ? String(companyLine[0]).replace('Company:', '').trim() : (companyKey === 'MMP' ? 'MICROMEGA PROJECTS' : 'NAGJUA LIFESPACES');
+  const companyFullNames = { MMP: 'MICROMEGA PROJECTS', NLS: 'NAGJUA LIFESPACES', SPCT: 'SPRING CITY DEVELOPERS' };
+  const companyFullName = companyLine ? String(companyLine[0]).replace('Company:', '').trim() : (companyFullNames[companyKey] || companyKey);
   const dateDisplay = asOnSerial ? excelSerialToDisplay(asOnSerial) : 'not detected';
 
   const splitStartCol = 10;
