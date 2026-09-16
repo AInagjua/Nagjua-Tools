@@ -398,32 +398,41 @@ async function generate(workbook, companyKey) {
     });
   }
 
-  records.sort((a, b) => {
-    const an = a.account.toLowerCase(), bn = b.account.toLowerCase();
-    if (an < bn) return -1;
-    if (an > bn) return 1;
-    return (a.invoiceDate || 0) - (b.invoiceDate || 0);
-  });
-
-  const groups = [];
-  let i = 0;
-  while (i < records.length) {
-    let j = i;
-    while (j < records.length && records[j].account === records[i].account) j++;
-    groups.push(records.slice(i, j));
-    i = j;
+  function groupByVendor(recs) {
+    const sorted = recs.slice().sort((a, b) => {
+      const an = a.account.toLowerCase(), bn = b.account.toLowerCase();
+      if (an < bn) return -1;
+      if (an > bn) return 1;
+      return (a.invoiceDate || 0) - (b.invoiceDate || 0);
+    });
+    const out = [];
+    let i = 0;
+    while (i < sorted.length) {
+      let j = i;
+      while (j < sorted.length && sorted[j].account === sorted[i].account) j++;
+      out.push(sorted.slice(i, j));
+      i = j;
+    }
+    return out;
   }
 
-  return { sourceSheet: name, headerLines, asOnSerial, config, groups, unmapped: Array.from(unmapped), negativeExcluded };
+  const THRESHOLD = 5000;
+  const aboveRecords = records.filter(r => r.netOutstanding > THRESHOLD);
+  const belowRecords = records.filter(r => r.netOutstanding <= THRESHOLD);
+  const groupsAbove = groupByVendor(aboveRecords);
+  const groupsBelow = groupByVendor(belowRecords);
+
+  return { sourceSheet: name, headerLines, asOnSerial, config, groupsAbove, groupsBelow, threshold: THRESHOLD, unmapped: Array.from(unmapped), negativeExcluded };
 }
 
 async function buildAndOffer(result, companyKey, sourceFileName) {
-  const { headerLines, asOnSerial, config, groups, unmapped, negativeExcluded, sourceSheet } = result;
+  const { headerLines, asOnSerial, config, groupsAbove, groupsBelow, threshold, unmapped, negativeExcluded, sourceSheet } = result;
 
+  const countInvoices = g => g.reduce((a, grp) => a + grp.length, 0);
   logRow('Source sheet detected', sourceSheet);
   logRow('As On date detected', asOnSerial ? excelSerialToDisplay(asOnSerial) : 'Not found — check header text', asOnSerial ? 'ok' : 'warn');
-  logRow('Vendors', groups.length);
-  logRow('Invoices included', groups.reduce((a, g) => a + g.length, 0));
+  logRow(`Bills above ₹${threshold.toLocaleString('en-IN')}`, `${countInvoices(groupsAbove)} invoices, ${groupsAbove.length} vendors`);
+  logRow(`Bills ₹${threshold.toLocaleString('en-IN')} and below`, `${countInvoices(groupsBelow)} invoices, ${groupsBelow.length} vendors`);
   logRow('Negative-value rows excluded', negativeExcluded);
   if (unmapped.length) {
     const div = document.createElement('div');
@@ -442,6 +451,7 @@ async function buildAndOffer(result, companyKey, sourceFileName) {
   const navy = 'FF1F3B57';
   const bandTint = 'FFDCE6F1';
   const gold = 'FFFFD966';
+  const categoryTint = 'FF2E4A6B';
 
   const companyLine = headerLines.find(l => String(l[0] || '').trim().startsWith('Company:'));
   const companyFullNames = { MMP: 'MICROMEGA PROJECTS', NLS: 'NAGJUA LIFESPACES', SPCT: 'SPRING CITY DEVELOPERS' };
@@ -450,7 +460,6 @@ async function buildAndOffer(result, companyKey, sourceFileName) {
 
   const splitStartCol = 10;
   const totalCol = 10 + config.columns.length;
-  const lastColLetter = colLetter(totalCol);
 
   ws.mergeCells(1, 1, 1, totalCol);
   const titleCell = ws.getCell(1, 1);
@@ -468,98 +477,134 @@ async function buildAndOffer(result, companyKey, sourceFileName) {
   subCell.alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getRow(2).height = 18;
 
-  const headerRowNum = 4;
-  const headers = ['Account Head', 'Invoice No', 'Invoice Date', 'Due Date', 'CREDIT OVERDUE', 'CREDIT PERIOD',
-    'Net Outstanding', 'Business Unit', 'Provisional', ...config.columns.map(c => c.label), 'TOTAL'];
-  headers.forEach((h, idx) => {
-    const c = ws.getCell(headerRowNum, idx + 1);
-    c.value = h;
-    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: navy } };
-    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    c.border = border;
-  });
-  ws.getRow(headerRowNum).height = 30;
-
   const accountingFmt = '_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * "-"??_ ;_ @_ ';
   const dateFmt = 'dd-mmm-yy';
-  let rowIdx = headerRowNum + 1;
-  const firstDataRow = rowIdx;
   const dateParts = asOnSerial ? (() => { const d = new Date(Date.UTC(1899, 11, 30) + asOnSerial * 86400000); return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()]; })() : null;
+  const headers = ['Account Head', 'Invoice No', 'Invoice Date', 'Due Date', 'CREDIT OVERDUE', 'CREDIT PERIOD',
+    'Net Outstanding', 'Business Unit', 'Provisional', ...config.columns.map(c => c.label), 'TOTAL'];
 
-  for (const group of groups) {
-    const isMulti = group.length > 1;
-    if (isMulti) rowIdx++;
-    const groupStartRow = rowIdx;
-    for (const rec of group) {
-      const r = rowIdx;
-      const cells = [];
-      const setCell = (col, value, opts) => {
-        const cell = ws.getCell(r, col);
-        cell.value = value;
-        cell.font = { name: 'Calibri', size: 11 };
-        cell.border = border;
-        if (opts && opts.numFmt) cell.numFmt = opts.numFmt;
-        if (opts && opts.align) cell.alignment = opts.align;
-        cells.push(cell);
-      };
-      setCell(1, rec.account);
-      setCell(2, rec.invoiceNo);
-      setCell(3, rec.invoiceDate ? new Date(Date.UTC(1899, 11, 30) + rec.invoiceDate * 86400000) : null, { numFmt: dateFmt });
-      setCell(4, rec.dueDate ? new Date(Date.UTC(1899, 11, 30) + rec.dueDate * 86400000) : null, { numFmt: dateFmt });
-      setCell(5, dateParts ? { formula: `DATE(${dateParts[0]},${dateParts[1]},${dateParts[2]})-D${r}` } : null, { align: { horizontal: 'center' } });
-      setCell(6, { formula: `D${r}-C${r}` }, { align: { horizontal: 'center' } });
-      setCell(7, rec.netOutstanding, { numFmt: '#,##0.00' });
-      setCell(8, rec.businessUnit);
-      setCell(9, rec.provisional || '', { align: { horizontal: 'center' } });
-      config.columns.forEach((col, ci) => {
-        setCell(splitStartCol + ci, { formula: `IF(H${r}="${col.unit}",G${r},0)` }, { numFmt: accountingFmt });
-      });
-      const colLetters = config.columns.map((c, ci) => colLetter(splitStartCol + ci));
-      setCell(totalCol, { formula: colLetters.map(cl => `${cl}${r}`).join('+') }, { numFmt: accountingFmt });
+  // Writes one category (banner + column headers + vendor groups/subtotals +
+  // a grand total for just this category) starting at startRow, and returns
+  // the row number right after it (with a blank spacer row already included).
+  function writeCategory(startRow, label, groups) {
+    let rowIdx = startRow;
+
+    ws.mergeCells(rowIdx, 1, rowIdx, totalCol);
+    const bannerCell = ws.getCell(rowIdx, 1);
+    bannerCell.value = label;
+    bannerCell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+    bannerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: categoryTint } };
+    bannerCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    ws.getRow(rowIdx).height = 22;
+    rowIdx++;
+
+    const headerRowNum = rowIdx;
+    headers.forEach((h, idx) => {
+      const c = ws.getCell(headerRowNum, idx + 1);
+      c.value = h;
+      c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: navy } };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.border = border;
+    });
+    ws.getRow(headerRowNum).height = 30;
+    rowIdx++;
+
+    const firstDataRow = rowIdx;
+    if (!groups.length) {
+      ws.mergeCells(rowIdx, 1, rowIdx, totalCol);
+      const emptyCell = ws.getCell(rowIdx, 1);
+      emptyCell.value = 'No bills in this category.';
+      emptyCell.font = { name: 'Calibri', size: 11, italic: true, color: { argb: 'FF667080' } };
+      emptyCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      for (let col = 1; col <= totalCol; col++) ws.getCell(rowIdx, col).border = border;
       rowIdx++;
     }
-    if (isMulti) {
-      const groupEndRow = rowIdx - 1;
+
+    for (const group of groups) {
+      const isMulti = group.length > 1;
+      if (isMulti) rowIdx++;
+      const groupStartRow = rowIdx;
+      for (const rec of group) {
+        const r = rowIdx;
+        const setCell = (col, value, opts) => {
+          const cell = ws.getCell(r, col);
+          cell.value = value;
+          cell.font = { name: 'Calibri', size: 11 };
+          cell.border = border;
+          if (opts && opts.numFmt) cell.numFmt = opts.numFmt;
+          if (opts && opts.align) cell.alignment = opts.align;
+        };
+        setCell(1, rec.account);
+        setCell(2, rec.invoiceNo);
+        setCell(3, rec.invoiceDate ? new Date(Date.UTC(1899, 11, 30) + rec.invoiceDate * 86400000) : null, { numFmt: dateFmt });
+        setCell(4, rec.dueDate ? new Date(Date.UTC(1899, 11, 30) + rec.dueDate * 86400000) : null, { numFmt: dateFmt });
+        setCell(5, dateParts ? { formula: `DATE(${dateParts[0]},${dateParts[1]},${dateParts[2]})-D${r}` } : null, { align: { horizontal: 'center' } });
+        setCell(6, { formula: `D${r}-C${r}` }, { align: { horizontal: 'center' } });
+        setCell(7, rec.netOutstanding, { numFmt: '#,##0.00' });
+        setCell(8, rec.businessUnit);
+        setCell(9, rec.provisional || '', { align: { horizontal: 'center' } });
+        config.columns.forEach((col, ci) => {
+          setCell(splitStartCol + ci, { formula: `IF(H${r}="${col.unit}",G${r},0)` }, { numFmt: accountingFmt });
+        });
+        const colLetters = config.columns.map((c, ci) => colLetter(splitStartCol + ci));
+        setCell(totalCol, { formula: colLetters.map(cl => `${cl}${r}`).join('+') }, { numFmt: accountingFmt });
+        rowIdx++;
+      }
+      if (isMulti) {
+        const groupEndRow = rowIdx - 1;
+        for (let col = 1; col <= totalCol; col++) {
+          const cell = ws.getCell(rowIdx, col);
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bandTint } };
+          cell.border = border;
+          cell.font = { name: 'Calibri', size: 11, bold: true };
+        }
+        ws.getCell(rowIdx, 8).value = 'TOTAL';
+        const gCell = ws.getCell(rowIdx, 7);
+        gCell.value = { formula: `SUBTOTAL(9,G${groupStartRow}:G${groupEndRow})` };
+        gCell.numFmt = '#,##0.00';
+        for (let ci = 0; ci < config.columns.length; ci++) {
+          const cl = colLetter(splitStartCol + ci);
+          const cell = ws.getCell(rowIdx, splitStartCol + ci);
+          cell.value = { formula: `SUBTOTAL(9,${cl}${groupStartRow}:${cl}${groupEndRow})` };
+          cell.numFmt = accountingFmt;
+        }
+        const tcl = colLetter(totalCol);
+        const tCell = ws.getCell(rowIdx, totalCol);
+        tCell.value = { formula: `SUBTOTAL(9,${tcl}${groupStartRow}:${tcl}${groupEndRow})` };
+        tCell.numFmt = accountingFmt;
+        rowIdx++;
+      }
+    }
+
+    const lastDataRow = rowIdx - 1;
+    if (groups.length) {
+      const grandRow = rowIdx;
       for (let col = 1; col <= totalCol; col++) {
-        const cell = ws.getCell(rowIdx, col);
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bandTint } };
+        const cell = ws.getCell(grandRow, col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: gold } };
         cell.border = border;
-        cell.font = { name: 'Calibri', size: 11, bold: true };
+        cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: navy } };
       }
-      ws.getCell(rowIdx, 8).value = 'TOTAL';
-      const gCell = ws.getCell(rowIdx, 7);
-      gCell.value = { formula: `SUBTOTAL(9,G${groupStartRow}:G${groupEndRow})` };
-      gCell.numFmt = '#,##0.00';
-      for (let ci = 0; ci < config.columns.length; ci++) {
-        const cl = colLetter(splitStartCol + ci);
-        const cell = ws.getCell(rowIdx, splitStartCol + ci);
-        cell.value = { formula: `SUBTOTAL(9,${cl}${groupStartRow}:${cl}${groupEndRow})` };
-        cell.numFmt = accountingFmt;
-      }
+      ws.getCell(grandRow, 1).value = 'GRAND TOTAL';
+      ws.getCell(grandRow, 7).value = { formula: `SUBTOTAL(9,G${firstDataRow}:G${lastDataRow})` };
+      ws.getCell(grandRow, 7).numFmt = '#,##0.00';
       const tcl = colLetter(totalCol);
-      const tCell = ws.getCell(rowIdx, totalCol);
-      tCell.value = { formula: `SUBTOTAL(9,${tcl}${groupStartRow}:${tcl}${groupEndRow})` };
-      tCell.numFmt = accountingFmt;
+      ws.getCell(grandRow, totalCol).value = { formula: `SUBTOTAL(9,${tcl}${firstDataRow}:${tcl}${lastDataRow})` };
+      ws.getCell(grandRow, totalCol).numFmt = accountingFmt;
+      ws.getRow(grandRow).height = 20;
       rowIdx++;
     }
+
+    rowIdx += 2; // blank spacer rows before the next category
+    return { nextRow: rowIdx, headerRowNum };
   }
-  const lastDataRow = rowIdx - 1;
-  rowIdx++;
-  const grandRow = rowIdx;
-  for (let col = 1; col <= totalCol; col++) {
-    const cell = ws.getCell(grandRow, col);
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: gold } };
-    cell.border = border;
-    cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: navy } };
-  }
-  ws.getCell(grandRow, 1).value = 'GRAND TOTAL';
-  ws.getCell(grandRow, 7).value = { formula: `SUBTOTAL(9,G${firstDataRow}:G${lastDataRow})` };
-  ws.getCell(grandRow, 7).numFmt = '#,##0.00';
-  const tcl = colLetter(totalCol);
-  ws.getCell(grandRow, totalCol).value = { formula: `SUBTOTAL(9,${tcl}${firstDataRow}:${tcl}${lastDataRow})` };
-  ws.getCell(grandRow, totalCol).numFmt = accountingFmt;
-  ws.getRow(grandRow).height = 20;
+
+  let cursor = 4;
+  const aboveResult = writeCategory(cursor, `BILLS ABOVE ₹${threshold.toLocaleString('en-IN')}`, groupsAbove);
+  cursor = aboveResult.nextRow;
+  const belowResult = writeCategory(cursor, `BILLS ₹${threshold.toLocaleString('en-IN')} AND BELOW`, groupsBelow);
+  cursor = belowResult.nextRow;
 
   ws.getColumn(1).width = 32;
   ws.getColumn(2).width = 18;
@@ -574,8 +619,7 @@ async function buildAndOffer(result, companyKey, sourceFileName) {
   ws.getColumn(totalCol).width = 14;
   ws.eachRow(row => { row.eachCell({ includeEmpty: false }, cell => { if (!cell.font) cell.font = { name: 'Calibri', size: 11 }; }); });
 
-  ws.views = [{ state: 'frozen', ySplit: headerRowNum }];
-  ws.autoFilter = { from: { row: headerRowNum, column: 1 }, to: { row: headerRowNum, column: totalCol } };
+  ws.views = [{ state: 'frozen', ySplit: aboveResult.headerRowNum }];
 
   const arrBuf = await outWb.xlsx.writeBuffer();
   const blob = new Blob([arrBuf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
