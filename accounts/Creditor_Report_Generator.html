@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Creditor Report Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  :root{
+    --blue:#00B0F0;
+    --blue-dark:#0072a3;
+    --ink:#1c2733;
+    --paper:#f6f8fa;
+    --line:#d7dee4;
+    --ok:#1a7f4e;
+    --warn:#a15c00;
+    --err:#b3261e;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:Calibri,"Segoe UI",Arial,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+  }
+  .card{
+    width:100%;
+    max-width:640px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .head{
+    background:var(--blue);
+    color:#fff;
+    padding:20px 28px;
+  }
+  .head h1{
+    margin:0;
+    font-size:20px;
+    font-weight:700;
+    letter-spacing:.2px;
+  }
+  .head p{
+    margin:4px 0 0;
+    font-size:13px;
+    opacity:.92;
+  }
+  .body{padding:28px;}
+  label{
+    display:block;
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:6px;
+  }
+  select, input[type=file]{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    font-size:14px;
+    font-family:inherit;
+    background:#fff;
+  }
+  .field{margin-bottom:20px;}
+  .drop{
+    border:1.5px dashed var(--line);
+    border-radius:6px;
+    padding:16px;
+    background:#fafcfd;
+  }
+  .filename{
+    margin-top:8px;
+    font-size:12.5px;
+    color:#4a5761;
+  }
+  button{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:4px;
+    background:var(--blue-dark);
+    color:#fff;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    letter-spacing:.2px;
+  }
+  button:disabled{
+    background:#9fb4bf;
+    cursor:not-allowed;
+  }
+  #log{
+    margin-top:20px;
+    font-size:13px;
+    line-height:1.55;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+    display:none;
+  }
+  #log.show{display:block;}
+  .row{display:flex;justify-content:space-between;padding:3px 0;}
+  .row span:first-child{color:#4a5761;}
+  .row span:last-child{font-weight:700;}
+  .warn{color:var(--warn);font-weight:700;}
+  .err{color:var(--err);font-weight:700;}
+  .ok{color:var(--ok);font-weight:700;}
+  .dl{
+    display:block;
+    margin-top:16px;
+    text-align:center;
+    padding:12px;
+    background:var(--ok);
+    color:#fff;
+    text-decoration:none;
+    border-radius:4px;
+    font-weight:700;
+    font-size:14px;
+  }
+  .unmapped-list{
+    margin:6px 0 0;
+    padding-left:18px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <h1>Creditor Report Generator</h1>
+    <p>Raw Creditor Outstanding ledger &rarr; structured, vendor-grouped Excel report</p>
+  </div>
+  <div class="body">
+    <div class="field">
+      <label for="company">Company</label>
+      <select id="company">
+        <option value="MMP">MMP — Micromega Projects</option>
+        <option value="NLS">NLS — Nagjua Lifespaces</option>
+      </select>
+      <div class="filename" id="companyHint"></div>
+    </div>
+    <div class="field">
+      <label for="file">Raw ledger file (.xlsx)</label>
+      <div class="drop">
+        <input type="file" id="file" accept=".xlsx">
+        <div class="filename" id="filename">No file selected</div>
+      </div>
+    </div>
+    <button id="go" disabled>Generate structured report</button>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const COMPANY_CONFIG = {
+  MMP: {
+    prefix: 'MMP',
+    columns: [
+      { label: 'MMP- HO', unit: 'MICROMEGA PROJECTS-HO' },
+      { label: 'TG- 1A', unit: 'TROPICAL GREENS PHASE - 1A' },
+      { label: 'TG- 1B', unit: 'TROPICAL GREENS PHASE-1B' },
+      { label: 'TG- 2A', unit: 'TROPICAL GREENS PHASE - 2A' },
+      { label: 'TG- 2B', unit: 'TROPICAL GREENS PHASE - 2B' },
+      { label: 'ANANTA', unit: 'NAGJUA ANANTA' }
+    ]
+  },
+  NLS: {
+    prefix: 'NLS',
+    columns: [
+      { label: 'NLS- HO', unit: 'NAGJUA LIFESPACES-HO' },
+      { label: 'EP- 1', unit: 'THE ETERNITY PARK PHASE 1' },
+      { label: 'EP- 2', unit: 'THE ETERNITY PARK PHASE 2' },
+      { label: 'EP- 3', unit: 'THE ETERNITY PARK PHASE 3' },
+      { label: 'EP- 4', unit: 'THE ETERNITY PARK PHASE 4' },
+      { label: 'SP- 1', unit: 'THE SERENITY PARK PHASE 1' }
+    ]
+  }
+};
+
+const fileInput = document.getElementById('file');
+const filenameEl = document.getElementById('filename');
+const companyHint = document.getElementById('companyHint');
+const companySelect = document.getElementById('company');
+const goBtn = document.getElementById('go');
+const logEl = document.getElementById('log');
+let selectedFile = null;
+
+const COMPANY_NAME_MATCH = [
+  { pattern: 'MICROMEGA PROJECTS', key: 'MMP' },
+  { pattern: 'NAGJUA LIFESPACES', key: 'NLS' }
+];
+
+function detectCompanyFromLines(lines) {
+  for (const line of lines) {
+    const text = String(line[0] || '');
+    if (text.trim().startsWith('Company:')) {
+      const upper = text.toUpperCase();
+      for (const m of COMPANY_NAME_MATCH) {
+        if (upper.includes(m.pattern)) return { key: m.key, raw: text.replace('Company:', '').trim() };
+      }
+      return { key: null, raw: text.replace('Company:', '').trim() };
+    }
+  }
+  return null;
+}
+
+fileInput.addEventListener('change', async () => {
+  selectedFile = fileInput.files[0] || null;
+  filenameEl.textContent = selectedFile ? selectedFile.name : 'No file selected';
+  goBtn.disabled = !selectedFile;
+  logEl.classList.remove('show');
+  logEl.innerHTML = '';
+  companyHint.textContent = '';
+  companyHint.className = 'filename';
+  if (!selectedFile) return;
+  try {
+    const buf = await selectedFile.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const found = findRawSheet(wb);
+    if (!found) return;
+    const headerLines = trimTrailingBlanks(found.arr.slice(0, found.headerRow));
+    const detected = detectCompanyFromLines(headerLines);
+    if (detected && detected.key) {
+      companySelect.value = detected.key;
+      companyHint.textContent = `Detected: ${detected.raw} → ${detected.key}`;
+      companyHint.className = 'filename ok';
+    } else if (detected) {
+      companyHint.textContent = `Company line found ("${detected.raw}") but didn't match MMP or NLS — check dropdown.`;
+      companyHint.className = 'filename warn';
+    }
+  } catch (e) {
+    // detection is best-effort only; ignore failures here, Generate will surface real errors
+  }
+});
+
+goBtn.addEventListener('click', async () => {
+  goBtn.disabled = true;
+  goBtn.textContent = 'Generating…';
+  logEl.classList.add('show');
+  logEl.innerHTML = '';
+  try {
+    const companyKey = document.getElementById('company').value;
+    const buf = await selectedFile.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const result = await generate(wb, companyKey);
+    await buildAndOffer(result, companyKey, selectedFile.name);
+  } catch (e) {
+    logRow('Error', e.message, 'err');
+    console.error(e);
+  } finally {
+    goBtn.disabled = false;
+    goBtn.textContent = 'Generate structured report';
+  }
+});
+
+function logRow(label, value, cls) {
+  const div = document.createElement('div');
+  div.className = 'row';
+  div.innerHTML = `<span>${label}</span><span class="${cls||''}">${value}</span>`;
+  logEl.appendChild(div);
+}
+
+function excelSerialFromDMY(day, month, year) {
+  if (year < 100) year += 2000;
+  const utcMs = Date.UTC(year, month - 1, day);
+  const epochMs = Date.UTC(1899, 11, 30);
+  return Math.round((utcMs - epochMs) / 86400000);
+}
+
+function findHeaderRow(sheetArr) {
+  for (let r = 0; r < sheetArr.length; r++) {
+    const cellA = sheetArr[r][0];
+    if (cellA && String(cellA).trim() === 'Account Head') return r;
+  }
+  return -1;
+}
+
+function findRawSheet(workbook) {
+  for (const name of workbook.SheetNames) {
+    const ws = workbook.Sheets[name];
+    const arr = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+    const hr = findHeaderRow(arr);
+    if (hr !== -1) return { name, arr, headerRow: hr };
+  }
+  return null;
+}
+
+function extractAsOnDate(headerLines) {
+  for (const line of headerLines) {
+    const text = String(line[0] || '');
+    if (text.includes('As On Date')) {
+      const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*$/);
+      if (m) return excelSerialFromDMY(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+    }
+  }
+  return null;
+}
+
+function trimTrailingBlanks(lines) {
+  const out = lines.slice();
+  while (out.length && (!out[out.length - 1][0] || String(out[out.length - 1][0]).trim() === '')) {
+    out.pop();
+  }
+  return out;
+}
+
+function colLetter(n) {
+  let s = '';
+  while (n > 0) {
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+async function generate(workbook, companyKey) {
+  const config = COMPANY_CONFIG[companyKey];
+  const found = findRawSheet(workbook);
+  if (!found) throw new Error('Could not find a raw ledger sheet (no row with "Account Head" in column A).');
+  const { arr, headerRow, name } = found;
+
+  const headerLines = trimTrailingBlanks(arr.slice(0, headerRow));
+  const asOnSerial = extractAsOnDate(arr.slice(0, headerRow));
+
+  const colMap = {};
+  arr[headerRow].forEach((h, idx) => { if (h) colMap[String(h).trim()] = idx; });
+
+  const required = ['Account Head', 'Invoice No', 'Invoice Date', 'Due Date', 'Net Outstanding', 'Business Unit'];
+  for (const req of required) {
+    if (!(req in colMap)) throw new Error('Missing expected column in raw sheet: ' + req);
+  }
+  const provIdx = colMap['Provisional'];
+
+  const records = [];
+  const unmapped = new Set();
+  let negativeExcluded = 0;
+  for (let r = headerRow + 1; r < arr.length; r++) {
+    const row = arr[r];
+    const account = String(row[colMap['Account Head']] || '').trim();
+    if (!account) continue;
+    const net = Number(row[colMap['Net Outstanding']]);
+    if (isNaN(net)) continue;
+    if (net < 0) { negativeExcluded++; continue; }
+    const businessUnit = String(row[colMap['Business Unit']] || '').trim();
+    if (!config.columns.some(c => c.unit === businessUnit)) unmapped.add(businessUnit);
+    records.push({
+      account,
+      invoiceNo: row[colMap['Invoice No']],
+      invoiceDate: row[colMap['Invoice Date']],
+      dueDate: row[colMap['Due Date']],
+      netOutstanding: net,
+      businessUnit,
+      provisional: provIdx !== undefined ? row[provIdx] : ''
+    });
+  }
+
+  records.sort((a, b) => {
+    const an = a.account.toLowerCase(), bn = b.account.toLowerCase();
+    if (an < bn) return -1;
+    if (an > bn) return 1;
+    return (a.invoiceDate || 0) - (b.invoiceDate || 0);
+  });
+
+  const groups = [];
+  let i = 0;
+  while (i < records.length) {
+    let j = i;
+    while (j < records.length && records[j].account === records[i].account) j++;
+    groups.push(records.slice(i, j));
+    i = j;
+  }
+
+  return { sourceSheet: name, headerLines, asOnSerial, config, groups, unmapped: Array.from(unmapped), negativeExcluded };
+}
+
+async function buildAndOffer(result, companyKey, sourceFileName) {
+  const { headerLines, asOnSerial, config, groups, unmapped, negativeExcluded, sourceSheet } = result;
+
+  logRow('Source sheet detected', sourceSheet);
+  logRow('As On date detected', asOnSerial ? excelSerialToDisplay(asOnSerial) : 'Not found — check header text', asOnSerial ? 'ok' : 'warn');
+  logRow('Vendors', groups.length);
+  logRow('Invoices included', groups.reduce((a, g) => a + g.length, 0));
+  logRow('Negative-value rows excluded', negativeExcluded);
+  if (unmapped.length) {
+    const div = document.createElement('div');
+    div.className = 'warn';
+    div.style.marginTop = '6px';
+    div.innerHTML = 'Business units not in the fixed project list (check mapping):<ul class="unmapped-list">' +
+      unmapped.map(u => `<li>${u || '(blank)'}</li>`).join('') + '</ul>';
+    logEl.appendChild(div);
+  }
+
+  const outWb = new ExcelJS.Workbook();
+  const ws = outWb.addWorksheet('Structured');
+
+  const thin = { style: 'thin', color: { argb: 'FFB7C0C8' } };
+  const border = { top: thin, left: thin, bottom: thin, right: thin };
+  const navy = 'FF1F3B57';
+  const bandTint = 'FFDCE6F1';
+  const gold = 'FFFFD966';
+
+  const companyLine = headerLines.find(l => String(l[0] || '').trim().startsWith('Company:'));
+  const companyFullName = companyLine ? String(companyLine[0]).replace('Company:', '').trim() : (companyKey === 'MMP' ? 'MICROMEGA PROJECTS' : 'NAGJUA LIFESPACES');
+  const dateDisplay = asOnSerial ? excelSerialToDisplay(asOnSerial) : 'not detected';
+
+  const splitStartCol = 10;
+  const totalCol = 10 + config.columns.length;
+  const lastColLetter = colLetter(totalCol);
+
+  ws.mergeCells(1, 1, 1, totalCol);
+  const titleCell = ws.getCell(1, 1);
+  titleCell.value = `${companyFullName} — CREDITOR OUTSTANDING REPORT`;
+  titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: navy } };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getRow(1).height = 24;
+
+  ws.mergeCells(2, 1, 2, totalCol);
+  const subCell = ws.getCell(2, 1);
+  subCell.value = `As on ${dateDisplay}`;
+  subCell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: navy } };
+  subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bandTint } };
+  subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getRow(2).height = 18;
+
+  const headerRowNum = 4;
+  const headers = ['Account Head', 'Invoice No', 'Invoice Date', 'Due Date', 'CREDIT OVERDUE', 'CREDIT PERIOD',
+    'Net Outstanding', 'Business Unit', 'Provisional', ...config.columns.map(c => c.label), 'TOTAL'];
+  headers.forEach((h, idx) => {
+    const c = ws.getCell(headerRowNum, idx + 1);
+    c.value = h;
+    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: navy } };
+    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    c.border = border;
+  });
+  ws.getRow(headerRowNum).height = 30;
+
+  const accountingFmt = '_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * "-"??_ ;_ @_ ';
+  const dateFmt = 'dd-mmm-yy';
+  let rowIdx = headerRowNum + 1;
+  const firstDataRow = rowIdx;
+  const dateParts = asOnSerial ? (() => { const d = new Date(Date.UTC(1899, 11, 30) + asOnSerial * 86400000); return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()]; })() : null;
+
+  for (const group of groups) {
+    const isMulti = group.length > 1;
+    if (isMulti) rowIdx++;
+    const groupStartRow = rowIdx;
+    for (const rec of group) {
+      const r = rowIdx;
+      const cells = [];
+      const setCell = (col, value, opts) => {
+        const cell = ws.getCell(r, col);
+        cell.value = value;
+        cell.font = { name: 'Calibri', size: 11 };
+        cell.border = border;
+        if (opts && opts.numFmt) cell.numFmt = opts.numFmt;
+        if (opts && opts.align) cell.alignment = opts.align;
+        cells.push(cell);
+      };
+      setCell(1, rec.account);
+      setCell(2, rec.invoiceNo);
+      setCell(3, rec.invoiceDate ? new Date(Date.UTC(1899, 11, 30) + rec.invoiceDate * 86400000) : null, { numFmt: dateFmt });
+      setCell(4, rec.dueDate ? new Date(Date.UTC(1899, 11, 30) + rec.dueDate * 86400000) : null, { numFmt: dateFmt });
+      setCell(5, dateParts ? { formula: `DATE(${dateParts[0]},${dateParts[1]},${dateParts[2]})-D${r}` } : null, { align: { horizontal: 'center' } });
+      setCell(6, { formula: `D${r}-C${r}` }, { align: { horizontal: 'center' } });
+      setCell(7, rec.netOutstanding, { numFmt: '#,##0.00' });
+      setCell(8, rec.businessUnit);
+      setCell(9, rec.provisional || '', { align: { horizontal: 'center' } });
+      config.columns.forEach((col, ci) => {
+        setCell(splitStartCol + ci, { formula: `IF(H${r}="${col.unit}",G${r},0)` }, { numFmt: accountingFmt });
+      });
+      const colLetters = config.columns.map((c, ci) => colLetter(splitStartCol + ci));
+      setCell(totalCol, { formula: colLetters.map(cl => `${cl}${r}`).join('+') }, { numFmt: accountingFmt });
+      rowIdx++;
+    }
+    if (isMulti) {
+      const groupEndRow = rowIdx - 1;
+      for (let col = 1; col <= totalCol; col++) {
+        const cell = ws.getCell(rowIdx, col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bandTint } };
+        cell.border = border;
+        cell.font = { name: 'Calibri', size: 11, bold: true };
+      }
+      ws.getCell(rowIdx, 8).value = 'TOTAL';
+      const gCell = ws.getCell(rowIdx, 7);
+      gCell.value = { formula: `SUBTOTAL(9,G${groupStartRow}:G${groupEndRow})` };
+      gCell.numFmt = '#,##0.00';
+      for (let ci = 0; ci < config.columns.length; ci++) {
+        const cl = colLetter(splitStartCol + ci);
+        const cell = ws.getCell(rowIdx, splitStartCol + ci);
+        cell.value = { formula: `SUBTOTAL(9,${cl}${groupStartRow}:${cl}${groupEndRow})` };
+        cell.numFmt = accountingFmt;
+      }
+      const tcl = colLetter(totalCol);
+      const tCell = ws.getCell(rowIdx, totalCol);
+      tCell.value = { formula: `SUBTOTAL(9,${tcl}${groupStartRow}:${tcl}${groupEndRow})` };
+      tCell.numFmt = accountingFmt;
+      rowIdx++;
+    }
+  }
+  const lastDataRow = rowIdx - 1;
+  rowIdx++;
+  const grandRow = rowIdx;
+  for (let col = 1; col <= totalCol; col++) {
+    const cell = ws.getCell(grandRow, col);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: gold } };
+    cell.border = border;
+    cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: navy } };
+  }
+  ws.getCell(grandRow, 1).value = 'GRAND TOTAL';
+  ws.getCell(grandRow, 7).value = { formula: `SUBTOTAL(9,G${firstDataRow}:G${lastDataRow})` };
+  ws.getCell(grandRow, 7).numFmt = '#,##0.00';
+  const tcl = colLetter(totalCol);
+  ws.getCell(grandRow, totalCol).value = { formula: `SUBTOTAL(9,${tcl}${firstDataRow}:${tcl}${lastDataRow})` };
+  ws.getCell(grandRow, totalCol).numFmt = accountingFmt;
+  ws.getRow(grandRow).height = 20;
+
+  ws.getColumn(1).width = 32;
+  ws.getColumn(2).width = 18;
+  ws.getColumn(3).width = 12;
+  ws.getColumn(4).width = 12;
+  ws.getColumn(5).width = 14;
+  ws.getColumn(6).width = 12;
+  ws.getColumn(7).width = 14;
+  ws.getColumn(8).width = 26;
+  ws.getColumn(9).width = 10;
+  for (let ci = 0; ci < config.columns.length; ci++) ws.getColumn(splitStartCol + ci).width = 12;
+  ws.getColumn(totalCol).width = 14;
+  ws.eachRow(row => { row.eachCell({ includeEmpty: false }, cell => { if (!cell.font) cell.font = { name: 'Calibri', size: 11 }; }); });
+
+  ws.views = [{ state: 'frozen', ySplit: headerRowNum }];
+  ws.autoFilter = { from: { row: headerRowNum, column: 1 }, to: { row: headerRowNum, column: totalCol } };
+
+  const arrBuf = await outWb.xlsx.writeBuffer();
+  const blob = new Blob([arrBuf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const baseName = sourceFileName.replace(/\.xlsx$/i, '');
+  const outName = `${companyKey}_Creditor_Structured_${baseName}.xlsx`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = outName;
+  a.className = 'dl';
+  a.textContent = 'Download ' + outName;
+  logEl.appendChild(a);
+}
+
+function excelSerialToDisplay(serial) {
+  const d = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${dd}-${months[d.getUTCMonth()]}-${d.getUTCFullYear()}`;
+}
+</script>
+</body>
+</html>
