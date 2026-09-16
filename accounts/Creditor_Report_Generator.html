@@ -2,16 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Creditor Report Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
   :root{
-    --blue:#00B0F0;
-    --blue-dark:#0072a3;
-    --ink:#1c2733;
-    --paper:#f6f8fa;
-    --line:#d7dee4;
+    --navy:#0F1B2D;
+    --navy-2:#16273F;
+    --gold:#C9A227;
+    --gold-soft:#E4C864;
+    --paper:#F4F5F7;
+    --ink:#1A2233;
+    --muted:#66707F;
+    --line:#E1E4E9;
     --ok:#1a7f4e;
     --warn:#a15c00;
     --err:#b3261e;
@@ -19,109 +26,204 @@
   *{box-sizing:border-box;}
   body{
     margin:0;
-    font-family:Calibri,"Segoe UI",Arial,sans-serif;
+    font-family:"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
     background:var(--paper);
     color:var(--ink);
     display:flex;
     justify-content:center;
-    padding:40px 16px;
+    padding:48px 16px 64px;
   }
   .card{
     width:100%;
-    max-width:640px;
+    max-width:660px;
     background:#fff;
     border:1px solid var(--line);
-    border-radius:6px;
+    border-radius:10px;
     overflow:hidden;
+    box-shadow:0 10px 30px rgba(15,27,45,0.06);
   }
   .head{
-    background:var(--blue);
+    background:linear-gradient(180deg, var(--navy) 0%, var(--navy-2) 100%);
     color:#fff;
-    padding:20px 28px;
+    padding:28px 32px 24px;
+    border-bottom:3px solid var(--gold);
+  }
+  .eyebrow{
+    color:var(--gold-soft);
+    letter-spacing:2.5px;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    margin-bottom:10px;
   }
   .head h1{
     margin:0;
-    font-size:20px;
-    font-weight:700;
+    font-family:"Fraunces", Georgia, serif;
+    font-size:26px;
+    font-weight:600;
     letter-spacing:.2px;
+    line-height:1.2;
   }
   .head p{
-    margin:4px 0 0;
-    font-size:13px;
-    opacity:.92;
+    margin:8px 0 0;
+    font-size:13.5px;
+    color:#B7C0CE;
+    line-height:1.5;
+    max-width:46ch;
   }
-  .body{padding:28px;}
-  label{
-    display:block;
-    font-size:13px;
+  .body{padding:30px 32px 28px;}
+  .step-label{
+    font-size:11px;
     font-weight:700;
-    color:var(--ink);
-    margin-bottom:6px;
+    color:var(--muted);
+    letter-spacing:1.4px;
+    text-transform:uppercase;
+    margin-bottom:10px;
   }
-  select, input[type=file]{
-    width:100%;
-    padding:9px 10px;
-    border:1px solid var(--line);
-    border-radius:4px;
-    font-size:14px;
-    font-family:inherit;
+  .field{margin-bottom:26px;}
+
+  .segmented{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .seg-btn{
+    flex:1 1 auto;
+    min-width:150px;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    border-radius:7px;
     background:#fff;
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:600;
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .12s ease, background .12s ease;
   }
-  .field{margin-bottom:20px;}
+  .seg-btn .full{
+    display:block;
+    font-weight:400;
+    color:var(--muted);
+    font-size:12px;
+    margin-top:2px;
+  }
+  .seg-btn:hover{border-color:#9fb0c0;}
+  .seg-btn.active{
+    border-color:var(--navy);
+    background:var(--navy);
+    color:#fff;
+  }
+  .seg-btn.active .full{color:#B7C0CE;}
+
+  .company-hint{
+    margin-top:10px;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .company-hint.ok{color:var(--ok);font-weight:600;}
+  .company-hint.warn{color:var(--warn);font-weight:600;}
+
   .drop{
     border:1.5px dashed var(--line);
-    border-radius:6px;
-    padding:16px;
+    border-radius:8px;
+    padding:26px 20px;
     background:#fafcfd;
+    text-align:center;
+    position:relative;
+    cursor:pointer;
+    transition:border-color .12s ease, background .12s ease;
+  }
+  .drop:hover, .drop.drag{
+    border-color:var(--gold);
+    background:#fdfaf0;
+  }
+  .drop input[type=file]{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    cursor:pointer;
+  }
+  .drop-icon{
+    font-size:22px;
+    line-height:1;
+    margin-bottom:8px;
+  }
+  .drop-text{
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .drop-sub{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:4px;
   }
   .filename{
-    margin-top:8px;
+    margin-top:10px;
     font-size:12.5px;
     color:#4a5761;
   }
-  button{
+
+  button.primary{
     width:100%;
-    padding:12px;
+    padding:14px;
     border:none;
-    border-radius:4px;
-    background:var(--blue-dark);
+    border-radius:7px;
+    background:var(--navy);
     color:#fff;
+    font-family:inherit;
     font-size:15px;
     font-weight:700;
     cursor:pointer;
     letter-spacing:.2px;
+    transition:background .12s ease;
   }
-  button:disabled{
-    background:#9fb4bf;
+  button.primary:hover:not(:disabled){background:var(--navy-2);}
+  button.primary:disabled{
+    background:#c3cbd2;
     cursor:not-allowed;
   }
+
   #log{
-    margin-top:20px;
+    margin-top:24px;
     font-size:13px;
-    line-height:1.55;
+    line-height:1.6;
     border-top:1px solid var(--line);
-    padding-top:16px;
+    padding-top:18px;
     display:none;
   }
   #log.show{display:block;}
-  .row{display:flex;justify-content:space-between;padding:3px 0;}
-  .row span:first-child{color:#4a5761;}
-  .row span:last-child{font-weight:700;}
+  .row{
+    display:flex;
+    justify-content:space-between;
+    padding:5px 0;
+    border-bottom:1px solid #F0F2F4;
+  }
+  .row:last-of-type{border-bottom:none;}
+  .row span:first-child{color:var(--muted);}
+  .row span:last-child{
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
   .warn{color:var(--warn);font-weight:700;}
   .err{color:var(--err);font-weight:700;}
   .ok{color:var(--ok);font-weight:700;}
   .dl{
     display:block;
-    margin-top:16px;
+    margin-top:18px;
     text-align:center;
-    padding:12px;
-    background:var(--ok);
-    color:#fff;
+    padding:13px;
+    background:var(--gold);
+    color:var(--navy);
     text-decoration:none;
-    border-radius:4px;
+    border-radius:7px;
     font-weight:700;
     font-size:14px;
+    letter-spacing:.2px;
   }
+  .dl:hover{background:var(--gold-soft);}
   .unmapped-list{
     margin:6px 0 0;
     padding-left:18px;
@@ -131,26 +233,30 @@
 <body>
 <div class="card">
   <div class="head">
+    <div class="eyebrow">Nagjua Group · Accounts</div>
     <h1>Creditor Report Generator</h1>
-    <p>Raw Creditor Outstanding ledger &rarr; structured, vendor-grouped Excel report</p>
+    <p>Turn a raw Creditor Outstanding ledger into a structured, vendor-grouped Excel report — split by project, with running totals.</p>
   </div>
   <div class="body">
     <div class="field">
-      <label for="company">Company</label>
-      <select id="company">
-        <option value="MMP">MMP — Micromega Projects</option>
-        <option value="NLS">NLS — Nagjua Lifespaces</option>
-      </select>
-      <div class="filename" id="companyHint"></div>
+      <div class="step-label">Step 1 — Company</div>
+      <div class="segmented" id="companySeg">
+        <button type="button" class="seg-btn active" data-company="MMP">MMP<span class="full">Micromega Projects</span></button>
+        <button type="button" class="seg-btn" data-company="NLS">NLS<span class="full">Nagjua Lifespaces</span></button>
+      </div>
+      <div class="company-hint" id="companyHint"></div>
     </div>
     <div class="field">
-      <label for="file">Raw ledger file (.xlsx)</label>
-      <div class="drop">
+      <div class="step-label">Step 2 — Ledger file</div>
+      <label class="drop" id="dropZone">
         <input type="file" id="file" accept=".xlsx">
-        <div class="filename" id="filename">No file selected</div>
-      </div>
+        <div class="drop-icon">⬆</div>
+        <div class="drop-text">Drop your .xlsx here, or click to browse</div>
+        <div class="drop-sub">Raw Creditor Outstanding export, unedited</div>
+      </label>
+      <div class="filename" id="filename">No file selected</div>
     </div>
-    <button id="go" disabled>Generate structured report</button>
+    <button class="primary" id="go" disabled>Generate structured report</button>
     <div id="log"></div>
   </div>
 </div>
@@ -184,10 +290,26 @@ const COMPANY_CONFIG = {
 const fileInput = document.getElementById('file');
 const filenameEl = document.getElementById('filename');
 const companyHint = document.getElementById('companyHint');
-const companySelect = document.getElementById('company');
+const companySeg = document.getElementById('companySeg');
+const dropZone = document.getElementById('dropZone');
 const goBtn = document.getElementById('go');
 const logEl = document.getElementById('log');
 let selectedFile = null;
+let selectedCompany = 'MMP';
+
+function setCompany(key) {
+  selectedCompany = key;
+  companySeg.querySelectorAll('.seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.company === key);
+  });
+}
+companySeg.querySelectorAll('.seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => setCompany(btn.dataset.company));
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', () => dropZone.classList.remove('drag'));
 
 const COMPANY_NAME_MATCH = [
   { pattern: 'MICROMEGA PROJECTS', key: 'MMP' },
@@ -215,7 +337,7 @@ fileInput.addEventListener('change', async () => {
   logEl.classList.remove('show');
   logEl.innerHTML = '';
   companyHint.textContent = '';
-  companyHint.className = 'filename';
+  companyHint.className = 'company-hint';
   if (!selectedFile) return;
   try {
     const buf = await selectedFile.arrayBuffer();
@@ -225,12 +347,12 @@ fileInput.addEventListener('change', async () => {
     const headerLines = trimTrailingBlanks(found.arr.slice(0, found.headerRow));
     const detected = detectCompanyFromLines(headerLines);
     if (detected && detected.key) {
-      companySelect.value = detected.key;
+      setCompany(detected.key);
       companyHint.textContent = `Detected: ${detected.raw} → ${detected.key}`;
-      companyHint.className = 'filename ok';
+      companyHint.className = 'company-hint ok';
     } else if (detected) {
-      companyHint.textContent = `Company line found ("${detected.raw}") but didn't match MMP or NLS — check dropdown.`;
-      companyHint.className = 'filename warn';
+      companyHint.textContent = `Company line found ("${detected.raw}") but didn't match a known company — check selection above.`;
+      companyHint.className = 'company-hint warn';
     }
   } catch (e) {
     // detection is best-effort only; ignore failures here, Generate will surface real errors
@@ -243,7 +365,7 @@ goBtn.addEventListener('click', async () => {
   logEl.classList.add('show');
   logEl.innerHTML = '';
   try {
-    const companyKey = document.getElementById('company').value;
+    const companyKey = selectedCompany;
     const buf = await selectedFile.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
     const result = await generate(wb, companyKey);
