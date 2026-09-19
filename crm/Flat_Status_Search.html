@@ -201,14 +201,11 @@
     color:#9a9284;
     font-style:italic;
   }
-  .sync-status{
-    font-size:11.5px;
-    font-weight:600;
+  .upload-date{
+    font-size:12px;
+    color:var(--ink-soft);
     white-space:nowrap;
   }
-  .sync-saving{color:var(--amber);}
-  .sync-saved{color:var(--good);}
-  .sync-error{color:var(--bad);}
 
   .results-grid{
     display:grid;
@@ -418,7 +415,8 @@ window.cloudLoadAllFiles = async function () {
     }
     results.push({
       fileId, name: meta.name, category: meta.category,
-      sheetCount: meta.sheetCount, chunkCount: meta.chunkCount, base64: parts.join('')
+      sheetCount: meta.sheetCount, chunkCount: meta.chunkCount, base64: parts.join(''),
+      uploadedAt: meta.uploadedAt
     });
   }
   return results;
@@ -661,7 +659,8 @@ function handleFiles(fileList){
           category: category,
           sheetCount: wb.SheetNames.length,
           chunkCount: 1,
-          syncStatus: 'saving'
+          syncStatus: 'saving',
+          uploadedAt: Date.now()
         };
         state.files.push(entry);
         renderSavedFiles();
@@ -708,14 +707,19 @@ dropZone.addEventListener('drop', e=>{
    ============================================================ */
 const CATEGORY_LABELS = { loan:'Loan', doc:'Documentation', payment:'Payment', possession:'Possession', extra:'Extra Work', unknown:'Unknown' };
 
+function formatUploadDate(ts){
+  if(!ts) return '-';
+  const d = new Date(ts);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+}
 function renderSavedFiles(){
   const wrap = document.getElementById('savedFilesWrap');
   if(state.files.length === 0){
     wrap.innerHTML = '<div class="no-files">No files loaded yet.</div>';
     return;
   }
-  const statusLabel = { saving:'Saving…', saved:'Saved', error:'Not saved (offline?)' };
-  let html = '<table class="saved"><thead><tr><th>File</th><th>Sheets</th><th>Type</th><th>Shared status</th><th></th></tr></thead><tbody>';
+  let html = '<table class="saved"><thead><tr><th>File</th><th>Sheets</th><th>Type</th><th>Date</th><th></th></tr></thead><tbody>';
   for(const f of state.files){
     html += '<tr data-id="'+esc(f.id)+'">';
     html += '<td class="fname">'+esc(f.name)+'</td>';
@@ -726,7 +730,7 @@ function renderSavedFiles(){
       ).join('') +
       (f.category==='unknown' ? '<option value="unknown" selected>Unknown</option>' : '') +
       '</select></td>';
-    html += '<td class="sync-status sync-'+(f.syncStatus||'saved')+'">'+(statusLabel[f.syncStatus]||'Saved')+'</td>';
+    html += '<td class="upload-date">'+esc(formatUploadDate(f.uploadedAt))+'</td>';
     html += '<td><button class="remove">Remove</button></td>';
     html += '</tr>';
   }
@@ -775,7 +779,8 @@ window.restoreFromCloud = async function(){
           category: cf.category,
           sheetCount: cf.sheetCount,
           chunkCount: cf.chunkCount,
-          syncStatus: 'saved'
+          syncStatus: 'saved',
+          uploadedAt: cf.uploadedAt
         });
       }catch(err){
         console.error('Could not read shared file', cf.name, err);
