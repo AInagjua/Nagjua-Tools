@@ -201,6 +201,14 @@
     color:#9a9284;
     font-style:italic;
   }
+  .sync-status{
+    font-size:11.5px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .sync-saving{color:var(--amber);}
+  .sync-saved{color:var(--good);}
+  .sync-error{color:var(--bad);}
 
   .results-grid{
     display:grid;
@@ -348,6 +356,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
@@ -359,7 +368,61 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
 setPersistence(auth, browserSessionPersistence);
+
+// ---- Shared file storage (Firestore) ----
+// Files are shared between BOTH allowed accounts: one person uploads once,
+// everyone using this tool sees it. Each uploaded .xlsx is base64-encoded
+// and split into chunks (Firestore caps a single document at ~1 MiB), with
+// one small "meta" document per file recording its name/category/chunk count.
+const META_COL = 'flatStatusFiles';
+const CHUNK_COL = 'flatStatusFileChunks';
+const CHUNK_SIZE = 700000; // base64 chars per chunk document, safely under the 1 MiB doc limit
+
+window.cloudSaveFile = async function (fileId, name, category, sheetCount, base64) {
+  const chunkCount = Math.max(1, Math.ceil(base64.length / CHUNK_SIZE));
+  const writes = [];
+  for (let i = 0; i < chunkCount; i++) {
+    const chunkId = fileId + '_' + i;
+    writes.push(setDoc(doc(db, CHUNK_COL, chunkId), {
+      fileId, index: i, data: base64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+    }));
+  }
+  await Promise.all(writes);
+  await setDoc(doc(db, META_COL, fileId), { name, category, sheetCount, chunkCount, uploadedAt: Date.now() });
+  return chunkCount;
+};
+
+window.cloudUpdateCategory = async function (fileId, category) {
+  await setDoc(doc(db, META_COL, fileId), { category }, { merge: true });
+};
+
+window.cloudDeleteFile = async function (fileId, chunkCount) {
+  const deletes = [];
+  for (let i = 0; i < chunkCount; i++) deletes.push(deleteDoc(doc(db, CHUNK_COL, fileId + '_' + i)));
+  deletes.push(deleteDoc(doc(db, META_COL, fileId)));
+  await Promise.all(deletes);
+};
+
+window.cloudLoadAllFiles = async function () {
+  const metaSnap = await getDocs(collection(db, META_COL));
+  const results = [];
+  for (const metaDoc of metaSnap.docs) {
+    const meta = metaDoc.data();
+    const fileId = metaDoc.id;
+    const parts = [];
+    for (let i = 0; i < meta.chunkCount; i++) {
+      const chunkSnap = await getDoc(doc(db, CHUNK_COL, fileId + '_' + i));
+      parts.push(chunkSnap.exists() ? chunkSnap.data().data : '');
+    }
+    results.push({
+      fileId, name: meta.name, category: meta.category,
+      sheetCount: meta.sheetCount, chunkCount: meta.chunkCount, base64: parts.join('')
+    });
+  }
+  return results;
+};
 
 // Only these two accounts are allowed into this tool, even if someone else
 // has (or later gets) a valid login for the shared Nagjua Tools project.
@@ -389,6 +452,7 @@ onAuthStateChanged(auth, (user) => {
     loginOverlay.style.display = 'none';
     mainWrap.style.display = '';
     logoutBtn.style.display = '';
+    if (typeof window.restoreFromCloud === 'function') window.restoreFromCloud();
   } else {
     if (user) {
       // Signed in, but not one of the two allowed accounts - kick back out.
@@ -406,13 +470,32 @@ onAuthStateChanged(auth, (user) => {
 <script>
 /* ============================================================
    STATE
-   state.files: [{ id, name, wb, category, sheetCount }]
+   state.files: [{ id, name, wb, category, sheetCount, chunkCount }]
    category: 'loan' | 'doc' | 'payment' | 'possession' | 'extra' | 'unknown'
+   id is a stable string (not just a session counter) so it matches the
+   Firestore document id used for shared cloud storage.
    ============================================================ */
 const state = {
-  files: [],
-  nextId: 1
+  files: []
 };
+function newFileId(){
+  return 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+function arrayBufferToBase64(buffer){
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for(let i=0; i<bytes.length; i+=chunkSize){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
+  }
+  return btoa(binary);
+}
+function base64ToArrayBuffer(base64){
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for(let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
 
 /* ============================================================
    WING PREFIX MAP — used to resolve which wing/building sheet a
@@ -565,18 +648,38 @@ function handleFiles(fileList){
     const reader = new FileReader();
     reader.onload = function(e){
       try{
-        const data = new Uint8Array(e.target.result);
+        const arrayBuffer = e.target.result;
+        const data = new Uint8Array(arrayBuffer);
         const wb = XLSX.read(data, {type:'array', cellDates:false});
         const sig = collectSignatureText(wb);
         const category = detectCategory(sig);
-        state.files.push({
-          id: state.nextId++,
+        const id = newFileId();
+        const entry = {
+          id: id,
           name: f.name,
           wb: wb,
           category: category,
-          sheetCount: wb.SheetNames.length
-        });
+          sheetCount: wb.SheetNames.length,
+          chunkCount: 1,
+          syncStatus: 'saving'
+        };
+        state.files.push(entry);
         renderSavedFiles();
+
+        const base64 = arrayBufferToBase64(arrayBuffer);
+        if(typeof window.cloudSaveFile === 'function'){
+          window.cloudSaveFile(id, f.name, category, wb.SheetNames.length, base64)
+            .then(chunkCount => {
+              entry.chunkCount = chunkCount;
+              entry.syncStatus = 'saved';
+              renderSavedFiles();
+            })
+            .catch(err => {
+              console.error('Could not save to shared storage', err);
+              entry.syncStatus = 'error';
+              renderSavedFiles();
+            });
+        }
       }catch(err){
         console.error('Failed to parse', f.name, err);
         alert('Could not read "' + f.name + '" — is it a valid .xlsx file?');
@@ -611,9 +714,10 @@ function renderSavedFiles(){
     wrap.innerHTML = '<div class="no-files">No files loaded yet.</div>';
     return;
   }
-  let html = '<table class="saved"><thead><tr><th>File</th><th>Sheets</th><th>Type</th><th></th></tr></thead><tbody>';
+  const statusLabel = { saving:'Saving…', saved:'Saved', error:'Not saved (offline?)' };
+  let html = '<table class="saved"><thead><tr><th>File</th><th>Sheets</th><th>Type</th><th>Shared status</th><th></th></tr></thead><tbody>';
   for(const f of state.files){
-    html += '<tr data-id="'+f.id+'">';
+    html += '<tr data-id="'+esc(f.id)+'">';
     html += '<td class="fname">'+esc(f.name)+'</td>';
     html += '<td>'+f.sheetCount+'</td>';
     html += '<td><select class="cat-select">'+
@@ -622,6 +726,7 @@ function renderSavedFiles(){
       ).join('') +
       (f.category==='unknown' ? '<option value="unknown" selected>Unknown</option>' : '') +
       '</select></td>';
+    html += '<td class="sync-status sync-'+(f.syncStatus||'saved')+'">'+(statusLabel[f.syncStatus]||'Saved')+'</td>';
     html += '<td><button class="remove">Remove</button></td>';
     html += '</tr>';
   }
@@ -629,18 +734,59 @@ function renderSavedFiles(){
   wrap.innerHTML = html;
 
   wrap.querySelectorAll('tr[data-id]').forEach(tr=>{
-    const id = parseInt(tr.dataset.id, 10);
+    const id = tr.dataset.id;
     tr.querySelector('.cat-select').addEventListener('change', function(){
       const f = state.files.find(x=>x.id===id);
       f.category = this.value;
       renderSavedFiles();
+      if(typeof window.cloudUpdateCategory === 'function'){
+        window.cloudUpdateCategory(id, this.value).catch(err => console.error('Could not update shared category', err));
+      }
     });
     tr.querySelector('.remove').addEventListener('click', function(){
+      const f = state.files.find(x=>x.id===id);
       state.files = state.files.filter(x=>x.id!==id);
       renderSavedFiles();
+      if(f && typeof window.cloudDeleteFile === 'function'){
+        window.cloudDeleteFile(id, f.chunkCount || 1).catch(err => console.error('Could not remove from shared storage', err));
+      }
     });
   });
 }
+
+/* ============================================================
+   RESTORE FROM SHARED CLOUD STORAGE (called once after login)
+   ============================================================ */
+window.restoreFromCloud = async function(){
+  if(typeof window.cloudLoadAllFiles !== 'function') return;
+  const wrap = document.getElementById('savedFilesWrap');
+  if(state.files.length === 0) wrap.innerHTML = '<div class="no-files">Loading shared files…</div>';
+  try{
+    const files = await window.cloudLoadAllFiles();
+    for(const cf of files){
+      if(state.files.some(x=>x.id===cf.fileId)) continue; // already loaded locally this session
+      try{
+        const arrayBuffer = base64ToArrayBuffer(cf.base64);
+        const wb = XLSX.read(new Uint8Array(arrayBuffer), {type:'array', cellDates:false});
+        state.files.push({
+          id: cf.fileId,
+          name: cf.name,
+          wb: wb,
+          category: cf.category,
+          sheetCount: cf.sheetCount,
+          chunkCount: cf.chunkCount,
+          syncStatus: 'saved'
+        });
+      }catch(err){
+        console.error('Could not read shared file', cf.name, err);
+      }
+    }
+    renderSavedFiles();
+  }catch(err){
+    console.error('Could not load shared files', err);
+    if(state.files.length === 0) wrap.innerHTML = '<div class="no-files">Could not load shared files (check your connection).</div>';
+  }
+};
 
 /* ============================================================
    FILE LOOKUPS
