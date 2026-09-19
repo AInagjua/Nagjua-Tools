@@ -206,6 +206,15 @@
     color:var(--ink-soft);
     white-space:nowrap;
   }
+  .sync-warning{
+    margin-top:10px;
+    padding:9px 12px;
+    background:#fdf0ee;
+    border:1px solid var(--bad);
+    color:var(--bad);
+    font-size:12px;
+    border-radius:6px;
+  }
 
   .results-grid{
     display:grid;
@@ -536,6 +545,24 @@ function parseFlatCode(raw, wingMap){
   }
   return { prefix:null, wing:null, num: clean };
 }
+// Matches a flat code from a sheet cell against the search term. Tries an
+// exact match first (handles sheets that store the full code, e.g. "JD502").
+// If that fails AND the cell has no letters at all (a bare room number like
+// "502", common when a sheet/file is already dedicated to one building),
+// falls back to comparing digits only, so searching "JD502" still finds a
+// row that only says "502".
+function flatCodeMatches(flatVal, targetFlat){
+  if(flatVal === undefined || flatVal === null || flatVal === '') return false;
+  const normVal = normFlat(flatVal);
+  if(!normVal) return false;
+  if(normVal === targetFlat) return true;
+  if(!/[A-Z]/.test(normVal)){
+    const digitsVal = normVal.replace(/\D/g,'');
+    const digitsTarget = targetFlat.replace(/\D/g,'');
+    if(digitsVal && digitsVal === digitsTarget) return true;
+  }
+  return false;
+}
 function fmtMoney(v){
   if(v===undefined||v===null||v==='') return '-';
   const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''));
@@ -664,6 +691,7 @@ function handleFiles(fileList){
         };
         state.files.push(entry);
         renderSavedFiles();
+        expandSavedPanel();
 
         const base64 = arrayBufferToBase64(arrayBuffer);
         if(typeof window.cloudSaveFile === 'function'){
@@ -676,6 +704,7 @@ function handleFiles(fileList){
             .catch(err => {
               console.error('Could not save to shared storage', err);
               entry.syncStatus = 'error';
+              entry.syncError = (err && err.message) ? err.message : String(err);
               renderSavedFiles();
             });
         }
@@ -735,6 +764,12 @@ function renderSavedFiles(){
     html += '</tr>';
   }
   html += '</tbody></table>';
+  const failed = state.files.filter(f=>f.syncStatus==='error');
+  if(failed.length){
+    html += '<div class="sync-warning">Could not save to shared storage for: ' +
+      failed.map(f=>esc(f.name) + (f.syncError ? ' (' + esc(f.syncError) + ')' : '')).join(', ') +
+      '. It still works on this device for now, but won\'t appear for the other account or survive closing this tab.</div>';
+  }
   wrap.innerHTML = html;
 
   wrap.querySelectorAll('tr[data-id]').forEach(tr=>{
@@ -767,6 +802,7 @@ window.restoreFromCloud = async function(){
   if(state.files.length === 0) wrap.innerHTML = '<div class="no-files">Loading shared files…</div>';
   try{
     const files = await window.cloudLoadAllFiles();
+    let addedAny = false;
     for(const cf of files){
       if(state.files.some(x=>x.id===cf.fileId)) continue; // already loaded locally this session
       try{
@@ -782,14 +818,18 @@ window.restoreFromCloud = async function(){
           syncStatus: 'saved',
           uploadedAt: cf.uploadedAt
         });
+        addedAny = true;
       }catch(err){
         console.error('Could not read shared file', cf.name, err);
       }
     }
     renderSavedFiles();
+    if(addedAny) expandSavedPanel();
   }catch(err){
     console.error('Could not load shared files', err);
-    if(state.files.length === 0) wrap.innerHTML = '<div class="no-files">Could not load shared files (check your connection).</div>';
+    const msg = (err && err.message) ? err.message : String(err);
+    wrap.innerHTML = '<div class="no-files">Could not load shared files: ' + esc(msg) + '</div>';
+    expandSavedPanel();
   }
 };
 
@@ -838,7 +878,7 @@ function searchLoan(term){
         const flatVal = cFlat!==-1 ? row[cFlat] : '';
         const nameVal = cName!==-1 ? row[cName] : '';
         let match = false;
-        if(isCode && cFlat!==-1 && normFlat(flatVal) === targetFlat) match = true;
+        if(isCode && cFlat!==-1 && flatCodeMatches(flatVal, targetFlat)) match = true;
         if(!match && !isCode && cName!==-1 && String(nameVal).toLowerCase().includes(targetName)) match = true;
         if(!match) continue;
 
@@ -913,7 +953,7 @@ function searchDocumentation(term){
         const flatVal = cFlat!==-1 ? row[cFlat] : '';
         const nameVal = cName!==-1 ? row[cName] : '';
         let match = false;
-        if(isCode && cFlat!==-1 && flatVal && normFlat(flatVal) === targetFlat) match = true;
+        if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat)) match = true;
         if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
         if(!match) continue;
 
@@ -973,7 +1013,7 @@ function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName){
     const flatVal = cFlat!==-1 ? row[cFlat] : '';
     const nameVal = cName!==-1 ? row[cName] : '';
     let match = false;
-    if(isCode && cFlat!==-1 && flatVal && normFlat(flatVal) === targetFlat) match = true;
+    if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat)) match = true;
     if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
     if(!match) continue;
 
@@ -1128,7 +1168,7 @@ function searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName){
     const flatVal = cFlat!==-1 ? row[cFlat] : '';
     const nameVal = cName!==-1 ? row[cName] : '';
     let match = false;
-    if(isCode && cFlat!==-1 && flatVal && normFlat(flatVal) === targetFlat) match = true;
+    if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat)) match = true;
     if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
     if(!match) continue;
 
@@ -1209,6 +1249,15 @@ document.getElementById('savedToggle').addEventListener('click', () => {
   panel.style.display = willShow ? 'block' : 'none';
   btn.textContent = willShow ? 'Hide' : 'Show';
 });
+
+function expandSavedPanel(){
+  const panel = document.getElementById('savedPanel');
+  const btn = document.getElementById('savedToggle');
+  if(panel && panel.style.display === 'none'){
+    panel.style.display = 'block';
+    if(btn) btn.textContent = 'Hide';
+  }
+}
 </script>
 </body>
 </html>
