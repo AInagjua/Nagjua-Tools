@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nagjua Flat Status Search</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#1c2b39;
+    --ink-soft:#41566a;
+    --paper:#f7f5f0;
+    --card:#ffffff;
+    --line:#dcd7cb;
+    --accent:#3d6b7d;
+    --accent-dark:#2a4d5b;
+    --amber:#b8863f;
+    --good:#3c7a5d;
+    --bad:#b3492f;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  .login-overlay{
+    position:fixed;inset:0;background:var(--ink);
+    display:flex;align-items:center;justify-content:center;z-index:9999;
+  }
+  .login-box{
+    background:#fff;border-radius:10px;padding:32px 28px;width:100%;max-width:340px;
+    box-shadow:0 12px 30px rgba(0,0,0,.35);
+  }
+  .login-box h2{margin:0 0 6px;color:var(--ink);font-size:1.2rem;}
+  .login-box p{margin:0 0 18px;color:var(--ink-soft);font-size:.85rem;}
+  .login-box input{
+    width:100%;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);
+    border-radius:6px;font-size:.9rem;font-family:var(--sans);
+  }
+  .login-box button{
+    width:100%;padding:10px;background:var(--accent);color:#fff;border:none;
+    border-radius:6px;font-weight:600;cursor:pointer;font-size:.9rem;font-family:var(--sans);
+  }
+  .login-box button:hover{background:var(--accent-dark);}
+  .login-error{color:var(--bad);font-size:.8rem;margin:-6px 0 12px;display:none;}
+  .logout-btn{
+    position:fixed;top:14px;right:16px;background:#fff;border:1px solid var(--line);
+    border-radius:6px;padding:6px 12px;font-size:.78rem;cursor:pointer;color:var(--ink);
+    z-index:100;font-family:var(--sans);
+  }
+  body{
+    margin:0;
+    font-family:var(--sans);
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.45;
+  }
+  header{
+    background:var(--ink);
+    color:#f2ede1;
+    padding:22px 28px;
+  }
+  header h1{
+    font-size:19px;
+    margin:0;
+    font-weight:600;
+    letter-spacing:.2px;
+  }
+  header .sub{
+    font-size:12.5px;
+    color:#b9c3ca;
+    margin-top:3px;
+  }
+  main{
+    max-width:1180px;
+    margin:0 auto;
+    padding:26px 24px 60px;
+  }
+  section.block{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px 22px;
+    margin-bottom:22px;
+  }
+  section.block h2{
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+    color:var(--ink-soft);
+    margin:0 0 14px;
+    font-weight:700;
+  }
+  .search-row{
+    display:flex;
+    gap:10px;
+  }
+  .search-row input[type=text]{
+    flex:1;
+    padding:11px 14px;
+    border:1px solid var(--line);
+    border-radius:7px;
+    font-size:15px;
+    font-family:var(--mono);
+  }
+  .search-row button{
+    padding:11px 22px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:7px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .search-row button:hover{background:var(--accent-dark);}
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:8px;}
+
+  .drop-zone{
+    border:2px dashed var(--line);
+    border-radius:9px;
+    padding:30px 20px;
+    text-align:center;
+    background:#fbfaf7;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .drop-zone.drag{
+    border-color:var(--accent);
+    background:#eef4f5;
+  }
+  .drop-zone .big{
+    font-size:14.5px;
+    font-weight:600;
+    color:var(--ink);
+    margin-bottom:4px;
+  }
+  .drop-zone .small{
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+  .drop-zone input[type=file]{display:none;}
+
+  table.saved{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  table.saved th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    color:var(--ink-soft);
+    padding:6px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  table.saved td{
+    padding:8px;
+    border-bottom:1px solid #ece8dd;
+    vertical-align:middle;
+  }
+  table.saved select{
+    font-size:12.5px;
+    padding:4px 6px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    font-family:var(--sans);
+    background:#fff;
+  }
+  table.saved .fname{
+    font-family:var(--mono);
+    font-size:12px;
+  }
+  table.saved button.remove{
+    border:none;
+    background:none;
+    color:var(--bad);
+    cursor:pointer;
+    font-size:12.5px;
+    font-weight:600;
+  }
+  .no-files{
+    font-size:13px;
+    color:#9a9284;
+    font-style:italic;
+  }
+
+  .results-grid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:14px;
+    margin-top:18px;
+  }
+  @media (max-width:1000px){
+    .results-grid{grid-template-columns:repeat(2,1fr);}
+  }
+  @media (max-width:620px){
+    .results-grid{grid-template-columns:1fr;}
+    .search-row{flex-direction:column;}
+  }
+  .panel{
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    min-height:180px;
+  }
+  .panel h3{
+    margin:0;
+    background:#eef1ea;
+    color:var(--accent-dark);
+    font-size:12.5px;
+    letter-spacing:.4px;
+    text-transform:uppercase;
+    font-weight:700;
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  .panel-body{
+    padding:12px;
+    font-size:12.8px;
+    white-space:pre-wrap;
+    word-break:break-word;
+    max-height:420px;
+    overflow-y:auto;
+    flex:1;
+  }
+  .panel-body .field{margin-bottom:6px;}
+  .panel-body .field b{color:var(--ink);}
+  .panel-body .none{color:#9a9284;font-style:italic;}
+  .panel-body .stage-done{color:var(--good);}
+  .panel-body ul{margin:6px 0 0;padding-left:16px;}
+  .panel-body li{margin-bottom:4px;}
+
+  footer{
+    text-align:center;
+    font-size:11.5px;
+    color:#9a9284;
+    padding:20px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <h2>Flat Status Search</h2>
+    <p>Sign in to access this tool.</p>
+    <div id="loginError" class="login-error">Incorrect email or password.</div>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+    <button id="loginBtn">Sign In</button>
+  </div>
+</div>
+<button id="logoutBtn" class="logout-btn" style="display:none;">Sign out</button>
+
+<div id="mainWrap" style="display:none;">
+
+<header>
+  <h1>Flat Status Search</h1>
+  <div class="sub">Mirrors the Power Apps search &mdash; Loan / Documentation / Payment / Possession / Extra Work</div>
+</header>
+
+<main>
+
+  <section class="block">
+    <h2>1. Search</h2>
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="Flat no. (e.g. JD502) or client name">
+      <button id="searchBtn">Search</button>
+    </div>
+    <div class="hint">Upload the source files below first. The right sheet is found automatically from the flat number's prefix.</div>
+
+    <div class="results-grid">
+      <div class="panel">
+        <h3>Loan</h3>
+        <div class="panel-body none" id="panel-loan">Search to see results.</div>
+      </div>
+      <div class="panel">
+        <h3>Documentation</h3>
+        <div class="panel-body none" id="panel-doc">Search to see results.</div>
+      </div>
+      <div class="panel">
+        <h3>Payment</h3>
+        <div class="panel-body none" id="panel-payment">Search to see results.</div>
+      </div>
+      <div class="panel">
+        <h3>Possession</h3>
+        <div class="panel-body none" id="panel-possession">Search to see results.</div>
+      </div>
+      <div class="panel">
+        <h3>Extra Work</h3>
+        <div class="panel-body none" id="panel-extra">Search to see results.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>2. Upload files</h2>
+    <div class="drop-zone" id="dropZone">
+      <div class="big">Drop Excel files here, or click to browse</div>
+      <div class="small">Loan, Documentation, Payment, Possession, Extra Work &mdash; from any project, drop as many at once as you like. The file type is detected automatically from its sheets.</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" multiple>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>3. Saved files</h2>
+    <div id="savedFilesWrap">
+      <div class="no-files">No files loaded yet.</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>Runs entirely in your browser &mdash; nothing is uploaded to a server.</footer>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
+  authDomain: "transaction-search-ng.firebaseapp.com",
+  projectId: "transaction-search-ng",
+  storageBucket: "transaction-search-ng.firebasestorage.app",
+  messagingSenderId: "913327997399",
+  appId: "1:913327997399:web:e1f777f9aae176d94e8b92"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+setPersistence(auth, browserSessionPersistence);
+
+// Only these two accounts are allowed into this tool, even if someone else
+// has (or later gets) a valid login for the shared Nagjua Tools project.
+const ALLOWED_EMAILS = ["ai@nagjua.com", "nagjua@yahoo.com"];
+
+const loginOverlay = document.getElementById('loginOverlay');
+const mainWrap = document.getElementById('mainWrap');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+loginBtn.addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  loginError.style.display = 'none';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    loginError.style.display = 'block';
+  }
+});
+
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, (user) => {
+  if (user && ALLOWED_EMAILS.includes((user.email || '').toLowerCase())) {
+    loginOverlay.style.display = 'none';
+    mainWrap.style.display = '';
+    logoutBtn.style.display = '';
+  } else {
+    if (user) {
+      // Signed in, but not one of the two allowed accounts - kick back out.
+      signOut(auth);
+      loginError.textContent = 'This account is not authorized for this tool.';
+      loginError.style.display = 'block';
+    }
+    loginOverlay.style.display = 'flex';
+    mainWrap.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  }
+});
+</script>
+
+<script>
+/* ============================================================
+   STATE
+   state.files: [{ id, name, wb, category, sheetCount }]
+   category: 'loan' | 'doc' | 'payment' | 'possession' | 'extra' | 'unknown'
+   ============================================================ */
+const state = {
+  files: [],
+  nextId: 1
+};
+
+/* ============================================================
+   WING PREFIX MAP — used to resolve which wing/building sheet a
+   flat code belongs to, for files where sheets are split per
+   building (Payment/Possession/Extra Work). Covers all three
+   projects at once; the prefixes don't collide across them.
+   ============================================================ */
+const WING_MAP = {
+  // Ananta
+  AM:'amber', BL:'beryl', CG:'cygnus', DV:'divine',
+  // Tropical Green
+  AR:'arabica', BR:'bergenia', CY:'cypress', DF:'daffodil', ER:'erica',
+  FR:'freesia', GR:'gardenia', HT:'hosta', IL:'ilex', JD:'jade',
+  KT:'kestral', LA:'lilac', MF:'mayflower', NG:'nigella',
+  // The Park
+  A1:'aster 1', A2:'aster 2', E1:'elda 1', E2:'elda 2', J:'jacinta',
+  BB:'bluebell', K:'bluebell', M:'magnolia', N:'nerine',
+  H1:'heliconia 1', H2:'heliconia 2', F1:'florence 1', F2:'florence 2'
+};
+
+/* ============================================================
+   GENERIC HELPERS
+   ============================================================ */
+function normHeader(s){
+  return (s===undefined||s===null) ? '' : String(s).toLowerCase().replace(/\s+/g,' ').trim();
+}
+function normFlat(s){
+  return (s===undefined||s===null) ? '' : String(s).toUpperCase().replace(/[\s\-.]/g,'');
+}
+function looksLikeFlatCode(term){
+  return /^[A-Za-z]{0,3}[\s\-]?\d+/.test(term.trim());
+}
+function parseFlatCode(raw, wingMap){
+  const clean = normFlat(raw);
+  const keys = Object.keys(wingMap).sort((a,b)=>b.length-a.length);
+  for(const k of keys){
+    if(clean.startsWith(k.toUpperCase())){
+      return { prefix:k, wing:wingMap[k], num: clean.slice(k.length) };
+    }
+  }
+  return { prefix:null, wing:null, num: clean };
+}
+function fmtMoney(v){
+  if(v===undefined||v===null||v==='') return '-';
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+  if(isNaN(n)) return String(v);
+  return '\u20b9' + n.toLocaleString('en-IN');
+}
+function esc(s){
+  return (s===undefined||s===null) ? '' : String(s);
+}
+function findHeaderRowIndex(aoa, maxScan){
+  maxScan = maxScan || 10;
+  let best = 0, bestScore = -1;
+  for(let r=0; r<Math.min(maxScan, aoa.length); r++){
+    const row = aoa[r] || [];
+    let score = 0;
+    for(const cell of row){
+      if(typeof cell === 'string' && cell.trim().length>0 && isNaN(cell)) score++;
+    }
+    if(score > bestScore){ bestScore = score; best = r; }
+  }
+  return best;
+}
+function findCol(headers, patterns, exact){
+  for(let i=0;i<headers.length;i++){
+    const h = normHeader(headers[i]);
+    if(!h) continue;
+    for(const p of patterns){
+      const np = normHeader(p);
+      if(exact ? h===np : h.includes(np)) return i;
+    }
+  }
+  return -1;
+}
+function sheetToAOA(workbook, sheetName){
+  const ws = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+}
+function splitRemarks(text, limit){
+  if(!text) return [];
+  const re = /(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/g;
+  let m;
+  const matches = [];
+  while((m = re.exec(text)) !== null){ matches.push({idx:m.index, date:m[1]}); }
+  if(matches.length === 0) return [text.trim()].filter(Boolean);
+  const parts = [];
+  for(let i=0;i<matches.length;i++){
+    const start = matches[i].idx;
+    const end = (i+1<matches.length) ? matches[i+1].idx : text.length;
+    const chunk = text.slice(start, end).trim();
+    if(chunk) parts.push(chunk);
+  }
+  return parts.slice(0, limit || 8);
+}
+
+/* ============================================================
+   AUTO-DETECTION (file type only — no project distinction needed)
+   ============================================================ */
+function collectSignatureText(wb){
+  let text = wb.SheetNames.join(' ').toLowerCase() + ' ';
+  for(const name of wb.SheetNames){
+    try{
+      const aoa = sheetToAOA(wb, name);
+      const hIdx = findHeaderRowIndex(aoa, 8);
+      const headerRow = aoa[hIdx] || [];
+      text += headerRow.join(' ').toLowerCase() + ' ';
+    }catch(e){ /* ignore unreadable sheet */ }
+  }
+  return text;
+}
+function detectCategory(sig){
+  const scores = { loan:0, doc:0, payment:0, possession:0, extra:0 };
+  const bump = (cat, kw, weight)=>{ if(sig.includes(kw)) scores[cat]+=weight; };
+
+  bump('loan','running sheet',5); bump('loan','completed files',5);
+  bump('loan','loan amount',3); bump('loan','inhouse loan',3); bump('loan','banker meet',3);
+  bump('loan','dd generation',3); bump('loan','disbursement',2); bump('loan','asonstagedt',3);
+  bump('loan','followups remark',3); bump('loan','ru loans',3);
+
+  bump('doc','afsvapi',5); bump('doc','afssilvassa',5); bump('doc','sdvapi',5); bump('doc','sdsilvassa',5);
+  bump('doc','task+done',5); bump('doc','taskassignment',4); bump('doc','assigned by',3); bump('doc','assigned to',3);
+  bump('doc','afs draft',3); bump('doc','registration date',2); bump('doc','collection',1);
+
+  bump('payment','sum of total cost',4); bump('payment','sum of total payment',4);
+  bump('payment','outstanding',2); bump('payment','booking date',2); bump('payment','margin amount',3);
+  bump('payment','agreement value',3); bump('payment','afs value',3); bump('payment','stamp duty',1);
+  bump('payment','dd details',2); bump('payment','payment sheet',3);
+
+  bump('possession','possession',5); bump('possession','ready for possession',4);
+  bump('possession','final possession',3); bump('possession','sanda filling',3);
+  bump('possession','cp sani',3); bump('possession','intimation date',2); bump('possession','commitment date',2);
+
+  bump('extra','extra work',5); bump('extra','description of work',4); bump('extra','work status',3);
+  bump('extra','category details',3); bump('extra','catagory details',3); bump('extra','settlement done',3);
+  bump('extra','work done by agency',3); bump('extra','deduction',2);
+
+  let best = 'unknown', bestScore = 2; // require a minimum score to avoid false positives
+  for(const cat in scores){
+    if(scores[cat] > bestScore){ best = cat; bestScore = scores[cat]; }
+  }
+  return best;
+}
+
+/* ============================================================
+   FILE LOADING
+   ============================================================ */
+function handleFiles(fileList){
+  Array.from(fileList).forEach(f=>{
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array', cellDates:false});
+        const sig = collectSignatureText(wb);
+        const category = detectCategory(sig);
+        state.files.push({
+          id: state.nextId++,
+          name: f.name,
+          wb: wb,
+          category: category,
+          sheetCount: wb.SheetNames.length
+        });
+        renderSavedFiles();
+      }catch(err){
+        console.error('Failed to parse', f.name, err);
+        alert('Could not read "' + f.name + '" — is it a valid .xlsx file?');
+      }
+    };
+    reader.readAsArrayBuffer(f);
+  });
+}
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', function(){ handleFiles(this.files); this.value=''; });
+['dragenter','dragover'].forEach(evt=>{
+  dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.add('drag'); });
+});
+['dragleave','drop'].forEach(evt=>{
+  dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.remove('drag'); });
+});
+dropZone.addEventListener('drop', e=>{
+  if(e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+});
+
+/* ============================================================
+   SAVED FILES LIST
+   ============================================================ */
+const CATEGORY_LABELS = { loan:'Loan', doc:'Documentation', payment:'Payment', possession:'Possession', extra:'Extra Work', unknown:'Unknown' };
+
+function renderSavedFiles(){
+  const wrap = document.getElementById('savedFilesWrap');
+  if(state.files.length === 0){
+    wrap.innerHTML = '<div class="no-files">No files loaded yet.</div>';
+    return;
+  }
+  let html = '<table class="saved"><thead><tr><th>File</th><th>Sheets</th><th>Type</th><th></th></tr></thead><tbody>';
+  for(const f of state.files){
+    html += '<tr data-id="'+f.id+'">';
+    html += '<td class="fname">'+esc(f.name)+'</td>';
+    html += '<td>'+f.sheetCount+'</td>';
+    html += '<td><select class="cat-select">'+
+      Object.keys(CATEGORY_LABELS).filter(k=>k!=='unknown').map(k=>
+        '<option value="'+k+'"'+(k===f.category?' selected':'')+'>'+CATEGORY_LABELS[k]+'</option>'
+      ).join('') +
+      (f.category==='unknown' ? '<option value="unknown" selected>Unknown</option>' : '') +
+      '</select></td>';
+    html += '<td><button class="remove">Remove</button></td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('tr[data-id]').forEach(tr=>{
+    const id = parseInt(tr.dataset.id, 10);
+    tr.querySelector('.cat-select').addEventListener('change', function(){
+      const f = state.files.find(x=>x.id===id);
+      f.category = this.value;
+      renderSavedFiles();
+    });
+    tr.querySelector('.remove').addEventListener('click', function(){
+      state.files = state.files.filter(x=>x.id!==id);
+      renderSavedFiles();
+    });
+  });
+}
+
+/* ============================================================
+   FILE LOOKUPS
+   ============================================================ */
+function filesOf(category){
+  return state.files.filter(f=>f.category===category);
+}
+
+/* ============================================================
+   CATEGORY PARSERS
+   ============================================================ */
+
+// ---- LOAN (shared, sheets not wing-based) ----
+function searchLoan(term){
+  const entries = filesOf('loan');
+  if(entries.length===0) return null;
+  const isCode = looksLikeFlatCode(term);
+  const targetFlat = normFlat(term);
+  const targetName = term.trim().toLowerCase();
+
+  for(const entry of entries){
+    const wb = entry.wb;
+    for(const sheetName of wb.SheetNames){
+      const aoa = sheetToAOA(wb, sheetName);
+      if(aoa.length < 2) continue;
+      const hIdx = findHeaderRowIndex(aoa);
+      const headers = aoa[hIdx];
+      const cFlat = findCol(headers, ['flat no','flat number']);
+      const cName = findCol(headers, ['customer name']);
+      if(cFlat === -1 && cName === -1) continue;
+      const cBank = findCol(headers, ['bank/banks','banks','bank']);
+      const cLoanAmt = findCol(headers, ['loan amount']);
+      const cInhouse = findCol(headers, ['inhouse loan','in house loan']);
+      const cDSA = findCol(headers, ['dsa']);
+      const cAgent = findCol(headers, ['banker']);
+      const cRemark = findCol(headers, ['folloups remark','followups remark','follow up remark']);
+      const cAsOn = findCol(headers, ['asonstagedt','as on stage dt']);
+      const stageNames = ['Lead','PhoneCall','Document Collect','Banker Meet','In Principle Sanction','Login','Sanction','DD generation','Disbursement'];
+      const stageCols = stageNames.map(s => findCol(headers, [s]));
+
+      for(let r=hIdx+1; r<aoa.length; r++){
+        const row = aoa[r];
+        if(!row || row.length===0) continue;
+        const flatVal = cFlat!==-1 ? row[cFlat] : '';
+        const nameVal = cName!==-1 ? row[cName] : '';
+        let match = false;
+        if(isCode && cFlat!==-1 && normFlat(flatVal) === targetFlat) match = true;
+        if(!match && !isCode && cName!==-1 && String(nameVal).toLowerCase().includes(targetName)) match = true;
+        if(!match) continue;
+
+        let out = '';
+        out += `<div class="field"><b>Flat No.:</b> ${esc(flatVal)}</div>`;
+        out += `<div class="field"><b>Customer:</b> ${esc(nameVal)}</div>`;
+        if(cBank!==-1) out += `<div class="field"><b>Bank:</b> ${esc(row[cBank]) || '-'}</div>`;
+        if(cLoanAmt!==-1) out += `<div class="field"><b>Loan Amount:</b> ${fmtMoney(row[cLoanAmt])}</div>`;
+        if(cInhouse!==-1) out += `<div class="field"><b>In House Loan:</b> ${esc(row[cInhouse])||'-'}</div>`;
+        if(cAgent!==-1) out += `<div class="field"><b>Banker:</b> ${esc(row[cAgent])||'-'}</div>`;
+        if(cDSA!==-1) out += `<div class="field"><b>DSA:</b> ${esc(row[cDSA])||'-'}</div>`;
+
+        let furthest = null;
+        for(let s=stageCols.length-1;s>=0;s--){
+          const ci = stageCols[s];
+          if(ci!==-1 && row[ci] && String(row[ci]).trim()!=='' && String(row[ci]).trim().toUpperCase()!=='N/A'){
+            furthest = stageNames[s];
+            break;
+          }
+        }
+        if(furthest){
+          out += `<div class="field stage-done"><b>Current Stage:</b> ${furthest}</div>`;
+        } else if(cAsOn!==-1 && row[cAsOn]){
+          out += `<div class="field"><b>As On:</b> ${esc(row[cAsOn])}</div>`;
+        }
+
+        const remarkText = cRemark!==-1 ? row[cRemark] : '';
+        const remarks = splitRemarks(remarkText, 8);
+        if(remarks.length){
+          out += `<div class="field"><b>Recent remarks:</b></div><ul>${remarks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+        }
+        return out;
+      }
+    }
+  }
+  return null;
+}
+
+// ---- DOCUMENTATION (shared, 5 fixed sheets) ----
+function searchDocumentation(term){
+  const entries = filesOf('doc');
+  if(entries.length===0) return null;
+  const isCode = looksLikeFlatCode(term);
+  const targetFlat = normFlat(term);
+  const targetName = term.trim().toLowerCase();
+
+  for(const entry of entries){
+    const wb = entry.wb;
+    const candidateSheets = wb.SheetNames.filter(n=>{
+      const nl = n.toLowerCase();
+      return nl.includes('task') || nl.includes('afsvapi') || nl.includes('afssilvassa') ||
+             nl.includes('sdvapi') || nl.includes('sdsilvassa');
+    });
+    const sheets = candidateSheets.length ? candidateSheets : wb.SheetNames;
+
+    let foundName = null, foundFlat = null;
+    const stageEntries = [];
+
+    for(const sheetName of sheets){
+      const aoa = sheetToAOA(wb, sheetName);
+      if(aoa.length < 2) continue;
+      const hIdx = findHeaderRowIndex(aoa);
+      const headers = aoa[hIdx];
+      const cFlat = findCol(headers, ['flat no','flat number','flat no.']);
+      const cName = findCol(headers, ['customer name','name of client','name']);
+      if(cFlat === -1 && cName === -1) continue;
+      const skip = ['sr no','sr.','assigned by','assigned to','assigned date','flat no','name','remarks'];
+
+      for(let r=hIdx+1; r<aoa.length; r++){
+        const row = aoa[r];
+        if(!row || row.length===0) continue;
+        const flatVal = cFlat!==-1 ? row[cFlat] : '';
+        const nameVal = cName!==-1 ? row[cName] : '';
+        let match = false;
+        if(isCode && cFlat!==-1 && flatVal && normFlat(flatVal) === targetFlat) match = true;
+        if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
+        if(!match) continue;
+
+        foundFlat = flatVal || foundFlat;
+        foundName = nameVal || foundName;
+
+        for(let c=0;c<headers.length;c++){
+          const hn = normHeader(headers[c]);
+          if(!hn) continue;
+          if(skip.some(s=>hn.includes(s))) continue;
+          const val = row[c];
+          if(val && String(val).trim()!==''){
+            stageEntries.push({label: String(headers[c]).trim(), date: String(val).trim()});
+          }
+        }
+      }
+    }
+
+    if(!foundFlat && !foundName) continue;
+
+    let out = '';
+    out += `<div class="field"><b>Flat No.:</b> ${esc(foundFlat)}</div>`;
+    out += `<div class="field"><b>Name:</b> ${esc(foundName)}</div>`;
+    if(stageEntries.length){
+      out += `<div class="field stage-done"><b>Completed (${stageEntries.length}):</b></div><ul>`;
+      out += stageEntries.map(e=>`<li>${esc(e.label)}: ${esc(e.date)}</li>`).join('');
+      out += `</ul>`;
+    } else {
+      out += `<div class="field none">No stage dates recorded.</div>`;
+    }
+    return out;
+  }
+  return null;
+}
+
+// ---- PAYMENT (may be spread across multiple uploaded files) ----
+function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName){
+  const aoa = sheetToAOA(wb, sheetName);
+  if(aoa.length < 2) return null;
+  const hIdx = findHeaderRowIndex(aoa);
+  const headers = aoa[hIdx];
+  const cFlat = findCol(headers, ['unit code','flat no','unit','unit no']);
+  const cName = findCol(headers, ['customer name','name of customer','name']);
+  if(cFlat === -1 && cName === -1) return null;
+  const cBooking = findCol(headers, ['booking date','booking confirmed date']);
+  const cCost = findCol(headers, ['sum of total cost','agreement value','afs value']);
+  const cPaid = findCol(headers, ['sum of total payment','margin amount']);
+  const cOutstanding = findCol(headers, ['outstanding','pending amount']);
+  const cBank = findCol(headers, ['bank']);
+  const cInhouse = findCol(headers, ['inhouse loan','in house loan']);
+  const cAgent = findCol(headers, ['agent']);
+  const cRemark = findCol(headers, ['re-marks','remarks','remark']);
+
+  for(let r=hIdx+1; r<aoa.length; r++){
+    const row = aoa[r];
+    if(!row || row.length===0) continue;
+    const flatVal = cFlat!==-1 ? row[cFlat] : '';
+    const nameVal = cName!==-1 ? row[cName] : '';
+    let match = false;
+    if(isCode && cFlat!==-1 && flatVal && normFlat(flatVal) === targetFlat) match = true;
+    if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
+    if(!match) continue;
+
+    let out = '';
+    out += `<div class="field"><b>Flat No.:</b> ${esc(flatVal)}</div>`;
+    out += `<div class="field"><b>Name:</b> ${esc(nameVal)}</div>`;
+    if(cBooking!==-1) out += `<div class="field"><b>Booking Date:</b> ${esc(row[cBooking])||'-'}</div>`;
+    if(cCost!==-1) out += `<div class="field"><b>Total Cost:</b> ${fmtMoney(row[cCost])}</div>`;
+    if(cPaid!==-1) out += `<div class="field"><b>Paid:</b> ${fmtMoney(row[cPaid])}</div>`;
+    if(cOutstanding!==-1) out += `<div class="field"><b>Outstanding:</b> ${fmtMoney(row[cOutstanding])}</div>`;
+    out += `<div class="field"><b>Loan Info:</b></div><ul>`;
+    out += `<li>Bank: ${cBank!==-1 ? (esc(row[cBank])||'-') : '-'}</li>`;
+    out += `<li>In House Loan: ${cInhouse!==-1 ? (esc(row[cInhouse])||'-') : '-'}</li>`;
+    out += `<li>Agent: ${cAgent!==-1 ? (esc(row[cAgent])||'-') : '-'}</li>`;
+    out += `</ul>`;
+    const remarks = cRemark!==-1 ? splitRemarks(row[cRemark], 6) : [];
+    if(remarks.length){
+      out += `<div class="field"><b>Recent updates:</b></div><ul>${remarks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+    }
+    return out;
+  }
+  return null;
+}
+
+function searchPayment(term){
+  const entries = filesOf('payment');
+  if(entries.length===0) return null;
+  const isCode = looksLikeFlatCode(term);
+  const targetFlat = normFlat(term);
+  const targetName = term.trim().toLowerCase();
+  const parsed = isCode ? parseFlatCode(term, WING_MAP) : null;
+
+  for(const entry of entries){
+    const wb = entry.wb;
+    let orderedSheets = wb.SheetNames.slice();
+    if(parsed && parsed.wing){
+      orderedSheets.sort((a,b)=>{
+        const aMatch = a.toLowerCase().includes(parsed.wing) ? 0 : 1;
+        const bMatch = b.toLowerCase().includes(parsed.wing) ? 0 : 1;
+        return aMatch - bMatch;
+      });
+    }
+    for(const sheetName of orderedSheets){
+      const result = searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName);
+      if(result) return result;
+    }
+  }
+  return null;
+}
+
+// ---- POSSESSION (sheets usually split per wing/building) ----
+function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode){
+  const aoa = sheetToAOA(wb, sheetName);
+  if(aoa.length < 2) return null;
+  const hIdx = findHeaderRowIndex(aoa);
+  const headers = aoa[hIdx];
+  const cFlat = findCol(headers, ['flat no','flat number']);
+  const cBldg = findCol(headers, ['bldg','name of bldg','name of building']);
+  const cName = findCol(headers, ['name of customer','customer name','name']);
+  if(cFlat === -1 && cName === -1) return null;
+  const cIntim = findCol(headers, ['intimation date','possession intimation date']);
+  const cCommit = findCol(headers, ['possession commitment date']);
+  const cFinal = findCol(headers, ['final possession']);
+  const cReady = findCol(headers, ['ready for possession']);
+  const cRemark = findCol(headers, ['remark']);
+  const tradeNames = ['Civil','Elec','Plum','Tile','Alu','Carp','POP','CP Sani','Cleaning','Sanda Filling'];
+  const tradeCols = tradeNames.map(t=>findCol(headers,[t]));
+
+  for(let r=hIdx+1; r<aoa.length; r++){
+    const row = aoa[r];
+    if(!row || row.length===0) continue;
+    const flatVal = cFlat!==-1 ? String(row[cFlat]).trim() : '';
+    const nameVal = cName!==-1 ? row[cName] : '';
+    let match = false;
+    if(isCode && cFlat!==-1 && flatVal){
+      const rn = flatVal.replace(/[^0-9]/g,'');
+      if(rn && (rn === roomNum || normFlat(flatVal) === fullFlat)) match = true;
+    }
+    if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(nameLower)) match = true;
+    if(!match) continue;
+
+    let out = '';
+    out += `<div class="field"><b>Flat No.:</b> ${esc(flatVal)}</div>`;
+    if(cBldg!==-1) out += `<div class="field"><b>Bldg:</b> ${esc(row[cBldg])}</div>`;
+    out += `<div class="field"><b>Name:</b> ${esc(nameVal)}</div>`;
+    if(cIntim!==-1 && row[cIntim]) out += `<div class="field"><b>Intimation Date:</b> ${esc(row[cIntim])}</div>`;
+    if(cCommit!==-1 && row[cCommit]) out += `<div class="field"><b>Commitment Date:</b> ${esc(row[cCommit])}</div>`;
+    const trades = tradeNames.map((t,i)=>{
+      const ci = tradeCols[i];
+      if(ci===-1) return null;
+      const v = String(row[ci]||'').trim();
+      return `${t}: ${v || '-'}`;
+    }).filter(Boolean);
+    if(trades.length){
+      out += `<div class="field"><b>Trade status:</b></div><ul>${trades.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+    }
+    if(cReady!==-1 && row[cReady]) out += `<div class="field stage-done"><b>Status:</b> ${esc(row[cReady])}</div>`;
+    if(cFinal!==-1 && row[cFinal]) out += `<div class="field stage-done"><b>Final Possession:</b> ${esc(row[cFinal])}</div>`;
+    if(cRemark!==-1 && row[cRemark]) out += `<div class="field"><b>Remark:</b> ${esc(row[cRemark])}</div>`;
+    return out;
+  }
+  return null;
+}
+
+function searchPossession(term){
+  const entries = filesOf('possession');
+  if(entries.length===0) return null;
+  const isCode = looksLikeFlatCode(term);
+  const nameLower = term.trim().toLowerCase();
+  const parsed = isCode ? parseFlatCode(term, WING_MAP) : null;
+  const fullFlat = normFlat(term);
+  const roomNum = parsed ? parsed.num : fullFlat.replace(/[^0-9]/g,'');
+
+  for(const entry of entries){
+    const wb = entry.wb;
+    let orderedSheets = wb.SheetNames.slice();
+    if(parsed && parsed.wing){
+      orderedSheets.sort((a,b)=>{
+        const aMatch = a.toLowerCase().includes(parsed.wing) ? 0 : 1;
+        const bMatch = b.toLowerCase().includes(parsed.wing) ? 0 : 1;
+        return aMatch - bMatch;
+      });
+    }
+    for(const sheetName of orderedSheets){
+      const result = searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode);
+      if(result) return result;
+    }
+  }
+  return null;
+}
+
+// ---- EXTRA WORK (header-matched where possible) ----
+function searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName){
+  const aoa = sheetToAOA(wb, sheetName);
+  if(aoa.length < 2) return null;
+  const hIdx = findHeaderRowIndex(aoa);
+  const headers = aoa[hIdx];
+  const cFlat = findCol(headers, ['flat no','flat number']);
+  const cName = findCol(headers, ['name of client','customer name','name']);
+  if(cFlat === -1 && cName === -1) return null;
+  const cCategory = findCol(headers, ['catagory details','category details','catagery details']);
+  const cDesc = findCol(headers, ['description of work']);
+  const cStatus = findCol(headers, ['work status']);
+  const cType = findCol(headers, ['extra work','ext work']);
+  const cDate = findCol(headers, ['date & estimation','date of estimation']);
+  const cPayment = findCol(headers, ['payment status','paym status','paym. status','full & final','settlement done']);
+  const cAgency = findCol(headers, ['work done by agency']);
+
+  for(let r=hIdx+1; r<aoa.length; r++){
+    const row = aoa[r];
+    if(!row || row.length===0) continue;
+    const flatVal = cFlat!==-1 ? row[cFlat] : '';
+    const nameVal = cName!==-1 ? row[cName] : '';
+    let match = false;
+    if(isCode && cFlat!==-1 && flatVal && normFlat(flatVal) === targetFlat) match = true;
+    if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
+    if(!match) continue;
+
+    let out = '';
+    out += `<div class="field"><b>Flat No.:</b> ${esc(flatVal)}</div>`;
+    out += `<div class="field"><b>Name:</b> ${esc(nameVal)}</div>`;
+    if(cCategory!==-1 && row[cCategory]) out += `<div class="field"><b>Category:</b> ${esc(row[cCategory])}</div>`;
+    if(cDesc!==-1 && row[cDesc]) out += `<div class="field"><b>Description:</b> ${esc(row[cDesc])}</div>`;
+    if(cType!==-1 && row[cType]) out += `<div class="field"><b>Type:</b> ${esc(row[cType])}</div>`;
+    if(cDate!==-1 && row[cDate]) out += `<div class="field"><b>Date:</b> ${esc(row[cDate])}</div>`;
+    if(cStatus!==-1) out += `<div class="field stage-done"><b>Status:</b> ${esc(row[cStatus])||'-'}</div>`;
+    if(cPayment!==-1 && row[cPayment]) out += `<div class="field"><b>Payment:</b> ${esc(row[cPayment])}</div>`;
+    if(cAgency!==-1 && row[cAgency]) out += `<div class="field"><b>Agency:</b> ${esc(row[cAgency])}</div>`;
+    return out;
+  }
+  return null;
+}
+
+function searchExtraWork(term){
+  const entries = filesOf('extra');
+  if(entries.length===0) return null;
+  const isCode = looksLikeFlatCode(term);
+  const targetFlat = normFlat(term);
+  const targetName = term.trim().toLowerCase();
+  for(const entry of entries){
+    const wb = entry.wb;
+    for(const sheetName of wb.SheetNames){
+      const result = searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName);
+      if(result) return result;
+    }
+  }
+  return null;
+}
+
+/* ============================================================
+   RENDER + SEARCH
+   ============================================================ */
+function renderPanel(id, html){
+  const el = document.getElementById(id);
+  if(html){
+    el.className = 'panel-body';
+    el.innerHTML = html;
+  } else {
+    el.className = 'panel-body none';
+    el.textContent = 'No match found.';
+  }
+}
+function safeRun(fn, term){
+  try{ return fn(term); }
+  catch(err){ console.error(err); return null; }
+}
+function runSearch(){
+  const term = document.getElementById('searchInput').value.trim();
+  if(!term) return;
+  renderPanel('panel-loan', safeRun(searchLoan, term));
+  renderPanel('panel-doc', safeRun(searchDocumentation, term));
+  renderPanel('panel-payment', safeRun(searchPayment, term));
+  renderPanel('panel-possession', safeRun(searchPossession, term));
+  renderPanel('panel-extra', safeRun(searchExtraWork, term));
+}
+document.getElementById('searchBtn').addEventListener('click', runSearch);
+document.getElementById('searchInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') runSearch();
+});
+</script>
+</body>
+</html>
