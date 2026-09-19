@@ -88,6 +88,25 @@
     margin:0 0 14px;
     font-weight:700;
   }
+  .section-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .section-header h2{margin:0;}
+  .toggle-btn{
+    background:none;
+    border:1px solid var(--accent);
+    color:var(--accent);
+    padding:5px 14px;
+    border-radius:5px;
+    font-size:12px;
+    cursor:pointer;
+    font-weight:600;
+    font-family:var(--sans);
+  }
+  .toggle-btn:hover{background:var(--accent);color:#fff;}
   .search-row{
     display:flex;
     gap:10px;
@@ -295,18 +314,28 @@
   </section>
 
   <section class="block">
-    <h2>2. Upload files</h2>
-    <div class="drop-zone" id="dropZone">
-      <div class="big">Drop Excel files here, or click to browse</div>
-      <div class="small">Loan, Documentation, Payment, Possession, Extra Work &mdash; from any project, drop as many at once as you like. The file type is detected automatically from its sheets.</div>
-      <input type="file" id="fileInput" accept=".xlsx,.xls" multiple>
+    <div class="section-header">
+      <h2>2. Upload files</h2>
+      <button id="uploadToggle" class="toggle-btn" type="button">Show</button>
+    </div>
+    <div id="uploadPanel" style="display:none;">
+      <div class="drop-zone" id="dropZone">
+        <div class="big">Drop Excel files here, or click to browse</div>
+        <div class="small">Loan, Documentation, Payment, Possession, Extra Work &mdash; from any project, drop as many at once as you like. The file type is detected automatically from its sheets.</div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" multiple>
+      </div>
     </div>
   </section>
 
   <section class="block">
-    <h2>3. Saved files</h2>
-    <div id="savedFilesWrap">
-      <div class="no-files">No files loaded yet.</div>
+    <div class="section-header">
+      <h2>3. Saved files</h2>
+      <button id="savedToggle" class="toggle-btn" type="button">Show</button>
+    </div>
+    <div id="savedPanel" style="display:none;">
+      <div id="savedFilesWrap">
+        <div class="no-files">No files loaded yet.</div>
+      </div>
     </div>
   </section>
 
@@ -1012,6 +1041,22 @@ function runSearch(){
 document.getElementById('searchBtn').addEventListener('click', runSearch);
 document.getElementById('searchInput').addEventListener('keydown', function(e){
   if(e.key === 'Enter') runSearch();
+});
+
+document.getElementById('uploadToggle').addEventListener('click', () => {
+  const panel = document.getElementById('uploadPanel');
+  const btn = document.getElementById('uploadToggle');
+  const willShow = panel.style.display === 'none';
+  panel.style.display = willShow ? 'block' : 'none';
+  btn.textContent = willShow ? 'Hide' : 'Show';
+});
+
+document.getElementById('savedToggle').addEventListener('click', () => {
+  const panel = document.getElementById('savedPanel');
+  const btn = document.getElementById('savedToggle');
+  const willShow = panel.style.display === 'none';
+  panel.style.display = willShow ? 'block' : 'none';
+  btn.textContent = willShow ? 'Hide' : 'Show';
 });
 </script>
 </body>
