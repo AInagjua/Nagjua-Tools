@@ -590,11 +590,18 @@ function esc(s){
 function findHeaderRowIndex(aoa, maxScan){
   maxScan = maxScan || 10;
   let best = 0, bestScore = -1;
+  // Cells are read with raw:false, so a date becomes a formatted text
+  // string like "9/1/2026" rather than a number - which would otherwise
+  // count as "header-like text" here. A data row with many date columns
+  // (common in these sheets) can then out-score the real header row, which
+  // is often sparser. Excluding date-shaped strings keeps the score
+  // reflecting actual label text.
+  const dateLike = /^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}/;
   for(let r=0; r<Math.min(maxScan, aoa.length); r++){
     const row = aoa[r] || [];
     let score = 0;
     for(const cell of row){
-      if(typeof cell === 'string' && cell.trim().length>0 && isNaN(cell)) score++;
+      if(typeof cell === 'string' && cell.trim().length>0 && isNaN(cell) && !dateLike.test(cell.trim())) score++;
     }
     if(score > bestScore){ bestScore = score; best = r; }
   }
