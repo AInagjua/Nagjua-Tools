@@ -599,11 +599,18 @@ function findHeaderRowIndex(aoa, maxScan){
   return best;
 }
 function findCol(headers, patterns, exact){
-  for(let i=0;i<headers.length;i++){
-    const h = normHeader(headers[i]);
-    if(!h) continue;
-    for(const p of patterns){
-      const np = normHeader(p);
+  // Try each pattern in the given priority order across the WHOLE header
+  // row before moving to the next, broader pattern. This matters because a
+  // caller lists specific patterns first and a generic fallback last (e.g.
+  // ['customer name','name']) - scanning column-by-column instead would let
+  // that generic fallback accidentally match an unrelated column (like
+  // "Name of Bldg") just because it happens to sit earlier in the sheet
+  // than the real "Customer Name" column.
+  for(const p of patterns){
+    const np = normHeader(p);
+    for(let i=0;i<headers.length;i++){
+      const h = normHeader(headers[i]);
+      if(!h) continue;
       if(exact ? h===np : h.includes(np)) return i;
     }
   }
@@ -883,7 +890,11 @@ function searchLoan(term){
       const cRemark = findCol(headers, ['folloups remark','followups remark','follow up remark']);
       const cAsOn = findCol(headers, ['asonstagedt','as on stage dt']);
       const stageNames = ['Lead','PhoneCall','Document Collect','Banker Meet','In Principle Sanction','Login','Sanction','DD generation','Disbursement'];
-      const stageCols = stageNames.map(s => findCol(headers, [s]));
+      // exact=true is essential here: 'Sanction' is a SUBSTRING of 'In
+      // Principle Sanction', so substring matching would silently point the
+      // 'Sanction' stage at the 'In Principle Sanction' column instead (it
+      // comes first in the sheet) and misreport a loan's current stage.
+      const stageCols = stageNames.map(s => findCol(headers, [s], true));
 
       for(let r=hIdx+1; r<aoa.length; r++){
         const row = aoa[r];
@@ -1008,7 +1019,7 @@ function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName){
   if(aoa.length < 2) return null;
   const hIdx = findHeaderRowIndex(aoa);
   const headers = aoa[hIdx];
-  const cFlat = findCol(headers, ['unit code','flat no','unit','unit no']);
+  const cFlat = findCol(headers, ['unit code','flat no','unit no','unit']);
   const cName = findCol(headers, ['customer name','name of customer','name']);
   if(cFlat === -1 && cName === -1) return null;
   const cBooking = findCol(headers, ['booking date','booking confirmed date']);
