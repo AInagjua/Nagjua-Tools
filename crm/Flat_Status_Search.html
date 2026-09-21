@@ -861,7 +861,12 @@ window.restoreFromCloud = async function(){
    FILE LOOKUPS
    ============================================================ */
 function filesOf(category){
-  return state.files.filter(f=>f.category===category);
+  // Newest upload first, so if two files of the same category both match a
+  // search (e.g. an old copy of the Loan sheet left in Saved Files plus the
+  // current one), the current one wins instead of whichever happens to be
+  // first in the list.
+  return state.files.filter(f=>f.category===category)
+    .sort((a,b)=>(b.uploadedAt||0)-(a.uploadedAt||0));
 }
 
 /* ============================================================
