@@ -419,21 +419,23 @@ window.cloudDeleteFile = async function (fileId, chunkCount) {
 window.cloudLoadAllFiles = async function () {
   const metaQuery = query(collection(db, SHARED_COL), where('type', '==', 'fsMeta'));
   const metaSnap = await getDocs(metaQuery);
-  const results = [];
-  for (const metaDoc of metaSnap.docs) {
+  // Load every file's chunks in parallel, and every chunk within a file in
+  // parallel too, instead of one chunk at a time across all files.
+  const results = await Promise.all(metaSnap.docs.map(async (metaDoc) => {
     const meta = metaDoc.data();
     const fileId = metaDoc.id.replace(/^fsMeta_/, '');
-    const parts = [];
-    for (let i = 0; i < meta.chunkCount; i++) {
-      const chunkSnap = await getDoc(doc(db, SHARED_COL, 'fsChunk_' + fileId + '_' + i));
-      parts.push(chunkSnap.exists() ? chunkSnap.data().data : '');
-    }
-    results.push({
+    const chunkSnaps = await Promise.all(
+      Array.from({ length: meta.chunkCount }, (_, i) =>
+        getDoc(doc(db, SHARED_COL, 'fsChunk_' + fileId + '_' + i))
+      )
+    );
+    const parts = chunkSnaps.map(chunkSnap => chunkSnap.exists() ? chunkSnap.data().data : '');
+    return {
       fileId, name: meta.name, category: meta.category,
       sheetCount: meta.sheetCount, chunkCount: meta.chunkCount, base64: parts.join(''),
       uploadedAt: meta.uploadedAt
-    });
-  }
+    };
+  }));
   return results;
 };
 
