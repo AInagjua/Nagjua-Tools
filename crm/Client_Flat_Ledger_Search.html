@@ -275,10 +275,10 @@ function sanitizeId(s){
 
 async function seedAll(existingManifest){
   const seedManifest = SEED_DATA.manifest.map(e => ({ ...e, id: sanitizeId(e.id) }));
-  for (let i = 0; i < seedManifest.length; i++) {
+  await Promise.all(seedManifest.map((entry, i) => {
     const originalSeedId = SEED_DATA.manifest[i].id;
-    await storageSet('file:' + seedManifest[i].id, SEED_DATA.files[originalSeedId]);
-  }
+    return storageSet('file:' + entry.id, SEED_DATA.files[originalSeedId]);
+  }));
   // Preserve any entries the user uploaded themselves (ids starting with 'f-'),
   // and drop stale bundled entries from a previous version before adding the fresh ones.
   const userUploaded = (existingManifest || []).filter(e => e.id.startsWith('f-'));
@@ -299,7 +299,9 @@ async function init(){
   state.allRows = [];
   let manifestChanged = false;
 
-  for (const entry of manifest) {
+  // Read every account's file in parallel instead of one at a time —
+  // this was the main slow part of loading (12 sequential Firestore round trips).
+  const loaded = await Promise.all(manifest.map(async (entry) => {
     let rows = await storageGet('file:' + entry.id);
     if ((!rows || rows.length === 0) && entry.rowCount > 0) {
       // Repair: this entry's data failed to save previously (e.g. bad key format).
@@ -316,7 +318,11 @@ async function init(){
         }
       }
     }
-    for (const r of (rows || [])) {
+    return { entry, rows: rows || [] };
+  }));
+
+  for (const { entry, rows } of loaded) {
+    for (const r of rows) {
       state.allRows.push({ ...r, account: entry.account, bankLabel: entry.bankLabel, fileId: entry.id });
     }
   }
