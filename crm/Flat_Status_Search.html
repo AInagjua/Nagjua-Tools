@@ -622,6 +622,11 @@ function sheetToAOA(workbook, sheetName){
   const ws = workbook.Sheets[sheetName];
   return XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
 }
+function wingMatches(sheetName, wing){
+  // Ignore whitespace differences - e.g. a sheet named "MAY FLOWER" (with a
+  // space) should still match the wing name "mayflower" (no space).
+  return String(sheetName).toLowerCase().replace(/\s+/g,'').includes(String(wing).replace(/\s+/g,''));
+}
 function looksLikeDatedRemarks(text){
   return !!text && /\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4}/.test(String(text));
 }
@@ -1122,7 +1127,7 @@ function searchPayment(term){
       // A specific building was recognized from the prefix - only ever look
       // in that building's sheet(s), never fall through to another building
       // just because it also happens to have a matching bare room number.
-      const wingSheets = candidateSheets.filter(s => s.toLowerCase().includes(parsed.wing));
+      const wingSheets = candidateSheets.filter(s => wingMatches(s, parsed.wing));
       if(wingSheets.length) candidateSheets = wingSheets;
     }
     for(const sheetName of candidateSheets){
@@ -1227,7 +1232,7 @@ function searchPossession(term){
     const wb = entry.wb;
     let candidateSheets = wb.SheetNames.slice();
     if(parsed && parsed.wing){
-      const wingSheets = candidateSheets.filter(s => s.toLowerCase().includes(parsed.wing));
+      const wingSheets = candidateSheets.filter(s => wingMatches(s, parsed.wing));
       if(wingSheets.length) candidateSheets = wingSheets;
     }
     for(const sheetName of candidateSheets){
@@ -1291,7 +1296,7 @@ function searchExtraWork(term){
     const wb = entry.wb;
     let candidateSheets = wb.SheetNames.slice();
     if(parsed && parsed.wing){
-      const wingSheets = candidateSheets.filter(s => s.toLowerCase().includes(parsed.wing));
+      const wingSheets = candidateSheets.filter(s => wingMatches(s, parsed.wing));
       if(wingSheets.length) candidateSheets = wingSheets;
     }
     for(const sheetName of candidateSheets){
