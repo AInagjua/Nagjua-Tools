@@ -894,11 +894,15 @@ function searchLoan(term){
       const cFlat = findCol(headers, ['flat no','flat number']);
       const cName = findCol(headers, ['customer name']);
       if(cFlat === -1 && cName === -1) continue;
-      const cBank = findCol(headers, ['bank/banks','banks','bank']);
+      // exact=true here too: 'Banker Meet' contains both 'bank' and 'banker'
+      // as substrings and sits earlier in the sheet than the real 'Bank'
+      // and 'Banker' columns, so substring matching would silently point
+      // both fields at the Banker Meet stage's remark text instead.
+      const cBank = findCol(headers, ['bank/banks','banks','bank'], true);
       const cLoanAmt = findCol(headers, ['loan amount']);
       const cInhouse = findCol(headers, ['inhouse loan','in house loan']);
       const cDSA = findCol(headers, ['dsa']);
-      const cAgent = findCol(headers, ['banker']);
+      const cAgent = findCol(headers, ['banker'], true);
       const cRemark = findCol(headers, ['folloups remark','followups remark','follow up remark']);
       const cAsOn = findCol(headers, ['asonstagedt','as on stage dt']);
       const stageNames = ['Lead','PhoneCall','Document Collect','Banker Meet','In Principle Sanction','Login','Sanction','DD generation','Disbursement'];
