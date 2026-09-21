@@ -622,6 +622,9 @@ function sheetToAOA(workbook, sheetName){
   const ws = workbook.Sheets[sheetName];
   return XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
 }
+function looksLikeDatedRemarks(text){
+  return !!text && /\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4}/.test(String(text));
+}
 function splitRemarks(text, limit){
   if(!text) return [];
   const re = /(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4})/g;
@@ -924,11 +927,12 @@ function searchLoan(term){
         if(cAgent!==-1) out += `<div class="field"><b>Banker:</b> ${esc(row[cAgent])||'-'}</div>`;
         if(cDSA!==-1) out += `<div class="field"><b>DSA:</b> ${esc(row[cDSA])||'-'}</div>`;
 
-        let furthest = null;
+        let furthest = null, furthestColIdx = -1;
         for(let s=stageCols.length-1;s>=0;s--){
           const ci = stageCols[s];
           if(ci!==-1 && row[ci] && String(row[ci]).trim()!=='' && String(row[ci]).trim().toUpperCase()!=='N/A'){
             furthest = stageNames[s];
+            furthestColIdx = ci;
             break;
           }
         }
@@ -938,7 +942,12 @@ function searchLoan(term){
           out += `<div class="field"><b>As On:</b> ${esc(row[cAsOn])}</div>`;
         }
 
-        const remarkText = cRemark!==-1 ? row[cRemark] : '';
+        // "Folloups ReMark" is a separate general column that tends to stop
+        // being updated once a loan reaches later stages, while the current
+        // stage's own column (e.g. "Disbursement") keeps getting dated
+        // updates. Prefer whichever actually has dated entries.
+        const stageRemarkText = furthestColIdx!==-1 ? row[furthestColIdx] : '';
+        const remarkText = looksLikeDatedRemarks(stageRemarkText) ? stageRemarkText : (cRemark!==-1 ? row[cRemark] : '');
         const remarks = splitRemarks(remarkText, 8);
         if(remarks.length){
           out += `<div class="field"><b>Recent remarks:</b></div><ul>${remarks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
