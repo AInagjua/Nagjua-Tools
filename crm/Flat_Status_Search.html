@@ -1110,14 +1110,41 @@ function searchPayment(term){
   return null;
 }
 
+// Some Possession sheets have no column actually named "Flat No" - e.g. a
+// sheet with the header repeated as "Bldg" twice, one holding the wing code
+// (NG) and the other holding the bare room number (201). When header
+// matching fails, fall back to whichever column's values actually look
+// like room numbers (mostly 3-4 digit integers), skipping any column
+// already identified as something else (like the wing-code Bldg column).
+function findFallbackFlatCol(aoa, hIdx, headers, excludeCols){
+  const sampleEnd = Math.min(aoa.length, hIdx + 40);
+  let best = -1, bestHits = 0;
+  for(let c=0;c<headers.length;c++){
+    if(excludeCols.includes(c)) continue;
+    let hits = 0, seen = 0;
+    for(let r=hIdx+1; r<sampleEnd; r++){
+      const v = aoa[r] ? aoa[r][c] : undefined;
+      if(v===undefined || v===null || String(v).trim()==='') continue;
+      seen++;
+      const n = Number(String(v).trim());
+      if(!isNaN(n) && n>=100 && n<=9999) hits++;
+    }
+    if(seen>=3 && hits/seen > 0.6 && hits>bestHits){ bestHits = hits; best = c; }
+  }
+  return best;
+}
+
 // ---- POSSESSION (sheets usually split per wing/building) ----
 function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode){
   const aoa = sheetToAOA(wb, sheetName);
   if(aoa.length < 2) return null;
   const hIdx = findHeaderRowIndex(aoa);
   const headers = aoa[hIdx];
-  const cFlat = findCol(headers, ['flat no','flat number']);
+  let cFlat = findCol(headers, ['flat no','flat number']);
   const cBldg = findCol(headers, ['bldg','name of bldg','name of building']);
+  if(cFlat === -1){
+    cFlat = findFallbackFlatCol(aoa, hIdx, headers, cBldg!==-1 ? [cBldg] : []);
+  }
   const cName = findCol(headers, ['name of customer','customer name','name']);
   if(cFlat === -1 && cName === -1) return null;
   const cIntim = findCol(headers, ['intimation date','possession intimation date']);
