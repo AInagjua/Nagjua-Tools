@@ -636,10 +636,9 @@ function splitRemarks(text, limit){
     const chunk = text.slice(start, end).trim();
     if(chunk) parts.push(chunk);
   }
-  // Remark cells are appended to over time (oldest entry first, newest
-  // last), so keep the LAST N chunks - the most recent updates - not the
-  // first N, which would silently drop anything newer than the limit.
-  return parts.slice(-(limit || 8));
+  // New updates are entered at the TOP of the remark cell (newest first),
+  // so the first N chunks are the most recent ones.
+  return parts.slice(0, limit || 8);
 }
 
 /* ============================================================
