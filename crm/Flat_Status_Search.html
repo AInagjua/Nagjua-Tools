@@ -548,9 +548,16 @@ function parseFlatCode(raw, wingMap){
 // Matches a flat code from a sheet cell against the search term. Tries an
 // exact match first (handles sheets that store the full code, e.g. "JD502").
 // If that fails AND the cell has no letters at all (a bare room number like
-// "502", common when a sheet/file is already dedicated to one building),
-// falls back to comparing digits only, so searching "JD502" still finds a
-// row that only says "502".
+// "502"), falls back to comparing digits only.
+//
+// SAFETY NOTE: the digit-only fallback is only safe to use when the caller
+// has ALREADY restricted the search to sheets/rows belonging to the single
+// correct building (e.g. a per-wing Payment/Possession/Extra Work sheet
+// whose name was filtered to match the parsed prefix). A bare "201" cannot
+// be told apart from another building's bare "201" by digits alone. Loan
+// and Documentation are single shared lists spanning multiple buildings
+// with no such per-building separation, so they deliberately do NOT use
+// this fallback - they require the sheet to contain the full code.
 function flatCodeMatches(flatVal, targetFlat){
   if(flatVal === undefined || flatVal === null || flatVal === '') return false;
   const normVal = normFlat(flatVal);
@@ -878,7 +885,7 @@ function searchLoan(term){
         const flatVal = cFlat!==-1 ? row[cFlat] : '';
         const nameVal = cName!==-1 ? row[cName] : '';
         let match = false;
-        if(isCode && cFlat!==-1 && flatCodeMatches(flatVal, targetFlat)) match = true;
+        if(isCode && cFlat!==-1 && normFlat(flatVal) === targetFlat) match = true;
         if(!match && !isCode && cName!==-1 && String(nameVal).toLowerCase().includes(targetName)) match = true;
         if(!match) continue;
 
@@ -953,7 +960,7 @@ function searchDocumentation(term){
         const flatVal = cFlat!==-1 ? row[cFlat] : '';
         const nameVal = cName!==-1 ? row[cName] : '';
         let match = false;
-        if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat)) match = true;
+        if(isCode && cFlat!==-1 && flatVal && normFlat(flatVal) === targetFlat) match = true;
         if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
         if(!match) continue;
 
@@ -1048,15 +1055,15 @@ function searchPayment(term){
 
   for(const entry of entries){
     const wb = entry.wb;
-    let orderedSheets = wb.SheetNames.slice();
+    let candidateSheets = wb.SheetNames.slice();
     if(parsed && parsed.wing){
-      orderedSheets.sort((a,b)=>{
-        const aMatch = a.toLowerCase().includes(parsed.wing) ? 0 : 1;
-        const bMatch = b.toLowerCase().includes(parsed.wing) ? 0 : 1;
-        return aMatch - bMatch;
-      });
+      // A specific building was recognized from the prefix - only ever look
+      // in that building's sheet(s), never fall through to another building
+      // just because it also happens to have a matching bare room number.
+      const wingSheets = candidateSheets.filter(s => s.toLowerCase().includes(parsed.wing));
+      if(wingSheets.length) candidateSheets = wingSheets;
     }
-    for(const sheetName of orderedSheets){
+    for(const sheetName of candidateSheets){
       const result = searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName);
       if(result) return result;
     }
@@ -1129,15 +1136,12 @@ function searchPossession(term){
 
   for(const entry of entries){
     const wb = entry.wb;
-    let orderedSheets = wb.SheetNames.slice();
+    let candidateSheets = wb.SheetNames.slice();
     if(parsed && parsed.wing){
-      orderedSheets.sort((a,b)=>{
-        const aMatch = a.toLowerCase().includes(parsed.wing) ? 0 : 1;
-        const bMatch = b.toLowerCase().includes(parsed.wing) ? 0 : 1;
-        return aMatch - bMatch;
-      });
+      const wingSheets = candidateSheets.filter(s => s.toLowerCase().includes(parsed.wing));
+      if(wingSheets.length) candidateSheets = wingSheets;
     }
-    for(const sheetName of orderedSheets){
+    for(const sheetName of candidateSheets){
       const result = searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode);
       if(result) return result;
     }
@@ -1193,9 +1197,15 @@ function searchExtraWork(term){
   const isCode = looksLikeFlatCode(term);
   const targetFlat = normFlat(term);
   const targetName = term.trim().toLowerCase();
+  const parsed = isCode ? parseFlatCode(term, WING_MAP) : null;
   for(const entry of entries){
     const wb = entry.wb;
-    for(const sheetName of wb.SheetNames){
+    let candidateSheets = wb.SheetNames.slice();
+    if(parsed && parsed.wing){
+      const wingSheets = candidateSheets.filter(s => s.toLowerCase().includes(parsed.wing));
+      if(wingSheets.length) candidateSheets = wingSheets;
+    }
+    for(const sheetName of candidateSheets){
       const result = searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName);
       if(result) return result;
     }
