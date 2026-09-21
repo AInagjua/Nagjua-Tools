@@ -362,7 +362,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
@@ -379,47 +379,53 @@ setPersistence(auth, browserSessionPersistence);
 
 // ---- Shared file storage (Firestore) ----
 // Files are shared between BOTH allowed accounts: one person uploads once,
-// everyone using this tool sees it. Each uploaded .xlsx is base64-encoded
-// and split into chunks (Firestore caps a single document at ~1 MiB), with
-// one small "meta" document per file recording its name/category/chunk count.
-const META_COL = 'flatStatusFiles';
-const CHUNK_COL = 'flatStatusFileChunks';
+// everyone using this tool sees it. Uses the existing "clientStatusData"
+// collection (already scoped to these accounts in the project's security
+// rules) rather than a new collection, since a new collection name would
+// have no rule granting it access at all. Meta and chunk documents live
+// side by side in this one collection, distinguished by a "type" field and
+// a distinct id prefix so they can never collide with each other or with
+// anything else already stored there.
+const SHARED_COL = 'clientStatusData';
 const CHUNK_SIZE = 700000; // base64 chars per chunk document, safely under the 1 MiB doc limit
 
 window.cloudSaveFile = async function (fileId, name, category, sheetCount, base64) {
   const chunkCount = Math.max(1, Math.ceil(base64.length / CHUNK_SIZE));
   const writes = [];
   for (let i = 0; i < chunkCount; i++) {
-    const chunkId = fileId + '_' + i;
-    writes.push(setDoc(doc(db, CHUNK_COL, chunkId), {
-      fileId, index: i, data: base64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+    const chunkId = 'fsChunk_' + fileId + '_' + i;
+    writes.push(setDoc(doc(db, SHARED_COL, chunkId), {
+      type: 'fsChunk', fileId, index: i, data: base64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
     }));
   }
   await Promise.all(writes);
-  await setDoc(doc(db, META_COL, fileId), { name, category, sheetCount, chunkCount, uploadedAt: Date.now() });
+  await setDoc(doc(db, SHARED_COL, 'fsMeta_' + fileId), {
+    type: 'fsMeta', name, category, sheetCount, chunkCount, uploadedAt: Date.now()
+  });
   return chunkCount;
 };
 
 window.cloudUpdateCategory = async function (fileId, category) {
-  await setDoc(doc(db, META_COL, fileId), { category }, { merge: true });
+  await setDoc(doc(db, SHARED_COL, 'fsMeta_' + fileId), { category }, { merge: true });
 };
 
 window.cloudDeleteFile = async function (fileId, chunkCount) {
   const deletes = [];
-  for (let i = 0; i < chunkCount; i++) deletes.push(deleteDoc(doc(db, CHUNK_COL, fileId + '_' + i)));
-  deletes.push(deleteDoc(doc(db, META_COL, fileId)));
+  for (let i = 0; i < chunkCount; i++) deletes.push(deleteDoc(doc(db, SHARED_COL, 'fsChunk_' + fileId + '_' + i)));
+  deletes.push(deleteDoc(doc(db, SHARED_COL, 'fsMeta_' + fileId)));
   await Promise.all(deletes);
 };
 
 window.cloudLoadAllFiles = async function () {
-  const metaSnap = await getDocs(collection(db, META_COL));
+  const metaQuery = query(collection(db, SHARED_COL), where('type', '==', 'fsMeta'));
+  const metaSnap = await getDocs(metaQuery);
   const results = [];
   for (const metaDoc of metaSnap.docs) {
     const meta = metaDoc.data();
-    const fileId = metaDoc.id;
+    const fileId = metaDoc.id.replace(/^fsMeta_/, '');
     const parts = [];
     for (let i = 0; i < meta.chunkCount; i++) {
-      const chunkSnap = await getDoc(doc(db, CHUNK_COL, fileId + '_' + i));
+      const chunkSnap = await getDoc(doc(db, SHARED_COL, 'fsChunk_' + fileId + '_' + i));
       parts.push(chunkSnap.exists() ? chunkSnap.data().data : '');
     }
     results.push({
