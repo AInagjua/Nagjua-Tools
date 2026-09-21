@@ -1035,13 +1035,36 @@ function searchDocumentation(term){
   return null;
 }
 
+// Some sheets have a leftover/garbage header over the flat-code column
+// (e.g. "A50" instead of "Unit Code") so it can't be found by name. Fall
+// back to whichever column's values actually look like flat codes
+// (letters followed by digits, e.g. JD101).
+function findFallbackCodeCol(aoa, hIdx, headers, excludeCols){
+  const sampleEnd = Math.min(aoa.length, hIdx + 40);
+  const codeRe = /^[A-Za-z]{1,4}[\s\-]?\d{1,4}[A-Za-z]?$/;
+  let best = -1, bestHits = 0;
+  for(let c=0;c<headers.length;c++){
+    if(excludeCols.includes(c)) continue;
+    let hits = 0, seen = 0;
+    for(let r=hIdx+1; r<sampleEnd; r++){
+      const v = aoa[r] ? aoa[r][c] : undefined;
+      if(v===undefined || v===null || String(v).trim()==='') continue;
+      seen++;
+      if(codeRe.test(String(v).trim())) hits++;
+    }
+    if(seen>=3 && hits/seen > 0.6 && hits>bestHits){ bestHits = hits; best = c; }
+  }
+  return best;
+}
+
 // ---- PAYMENT (may be spread across multiple uploaded files) ----
 function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName){
   const aoa = sheetToAOA(wb, sheetName);
   if(aoa.length < 2) return null;
   const hIdx = findHeaderRowIndex(aoa);
   const headers = aoa[hIdx];
-  const cFlat = findCol(headers, ['unit code','flat no','unit no','unit']);
+  let cFlat = findCol(headers, ['unit code','flat no','unit no','unit']);
+  if(cFlat === -1) cFlat = findFallbackCodeCol(aoa, hIdx, headers, []);
   const cName = findCol(headers, ['customer name','name of customer','name']);
   if(cFlat === -1 && cName === -1) return null;
   const cBooking = findCol(headers, ['booking date','booking confirmed date']);
