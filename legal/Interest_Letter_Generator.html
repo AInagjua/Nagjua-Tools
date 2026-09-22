@@ -472,9 +472,11 @@ const BOOKING_DATA_NLS = [{"n":"Mrs. PIU MONDAL","u":"1002","bu":"THE ETERNITY P
 // BOOKING_DATA_MMP / BOOKING_DATA_NLS with a newer export.
 let BOOKING_ROWS = [];
 
-function loadEmbeddedBookingData(){
+function loadEmbeddedBookingData(mmpData, nlsData){
+  const mmp = mmpData || BOOKING_DATA_MMP;
+  const nls = nlsData || BOOKING_DATA_NLS;
   BOOKING_ROWS = [];
-  BOOKING_DATA_MMP.forEach(r=>{
+  mmp.forEach(r=>{
     const entity = COMPANY_TO_ENTITY[r.co] || "";
     BOOKING_ROWS.push({
       customerName: r.n, unit: r.u, businessUnit: r.bu, companyName: r.co, entity,
@@ -483,7 +485,7 @@ function loadEmbeddedBookingData(){
       agreementValue: r.av
     });
   });
-  BOOKING_DATA_NLS.forEach(r=>{
+  nls.forEach(r=>{
     const entity = COMPANY_TO_ENTITY[r.co] || "";
     BOOKING_ROWS.push({
       customerName: r.n, unit: r.u, businessUnit: r.bu, companyName: r.co, entity,
@@ -1374,7 +1376,6 @@ function updateEffectiveRate(){
 }
 
 // ---------- Init ----------
-loadEmbeddedBookingData();
 updateEffectiveRate();
 
 </script>
@@ -1382,6 +1383,7 @@ updateEffectiveRate();
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
@@ -1393,6 +1395,32 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+// Booking data (customer names/addresses/agreement values) now lives in
+// Firestore, not in this file. On first-ever load it seeds Firestore from
+// the bundled arrays below; afterwards it always reads from Firestore.
+// Once Firestore is confirmed to have this data, the bundled copies here
+// should be deleted.
+async function loadBookingData(){
+  const mmpRef = doc(db, 'legalToolsData', 'bookingMMP');
+  const nlsRef = doc(db, 'legalToolsData', 'bookingNLS');
+  const [mmpSnap, nlsSnap] = await Promise.all([getDoc(mmpRef), getDoc(nlsRef)]);
+  let mmpData, nlsData;
+  if (mmpSnap.exists()) {
+    mmpData = mmpSnap.data().data;
+  } else {
+    mmpData = BOOKING_DATA_MMP;
+    await setDoc(mmpRef, { data: mmpData });
+  }
+  if (nlsSnap.exists()) {
+    nlsData = nlsSnap.data().data;
+  } else {
+    nlsData = BOOKING_DATA_NLS;
+    await setDoc(nlsRef, { data: nlsData });
+  }
+  if (typeof loadEmbeddedBookingData === 'function') loadEmbeddedBookingData(mmpData, nlsData);
+}
 setPersistence(auth, inMemoryPersistence);
 
 const loginOverlay = document.getElementById('loginOverlay');
@@ -1414,11 +1442,12 @@ loginBtn.addEventListener('click', async () => {
 
 logoutBtn.addEventListener('click', () => signOut(auth));
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginOverlay.style.display = 'none';
     mainWrap.style.display = '';
     logoutBtn.style.display = '';
+    await loadBookingData();
   } else {
     loginOverlay.style.display = 'flex';
     mainWrap.style.display = 'none';
