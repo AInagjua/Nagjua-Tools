@@ -201,7 +201,7 @@
   <div class="login-box">
     <h2>Document Link Search</h2>
     <p>Sign in to access the document links.</p>
-    <div id="loginError" class="login-error">Incorrect email or password.</div>
+    <div id="loginError" class="login-error">Incorrect email or password, or this account isn't authorized.</div>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="username" />
     <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
     <button id="loginBtn">Sign In</button>
@@ -210,6 +210,7 @@
 <button id="logoutBtn" class="logout-btn" style="display:none;">Sign out</button>
 
 <div id="mainWrap" style="display:none;">
+
 <header>
   <h1>Document Link Search</h1>
   <p>Search a document name — links open in OneDrive</p>
@@ -233,56 +234,6 @@
     </div>
   </div>
 </div>
-
-</div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
-  authDomain: "transaction-search-ng.firebaseapp.com",
-  projectId: "transaction-search-ng",
-  storageBucket: "transaction-search-ng.firebasestorage.app",
-  messagingSenderId: "913327997399",
-  appId: "1:913327997399:web:e1f777f9aae176d94e8b92"
-};
-const fbApp = initializeApp(firebaseConfig);
-const auth = getAuth(fbApp);
-setPersistence(auth, inMemoryPersistence);
-
-const loginOverlay = document.getElementById('loginOverlay');
-const mainWrap = document.getElementById('mainWrap');
-const logoutBtn = document.getElementById('logoutBtn');
-const loginBtn = document.getElementById('loginBtn');
-const loginError = document.getElementById('loginError');
-
-loginBtn.addEventListener('click', async () => {
-  const email = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  loginError.style.display = 'none';
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch (e) {
-    loginError.style.display = 'block';
-  }
-});
-
-logoutBtn.addEventListener('click', () => signOut(auth));
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    loginOverlay.style.display = 'none';
-    mainWrap.style.display = '';
-    logoutBtn.style.display = '';
-  } else {
-    loginOverlay.style.display = 'flex';
-    mainWrap.style.display = 'none';
-    logoutBtn.style.display = 'none';
-  }
-});
-</script>
 
 <script>
   // ---------------------------------------------------------------
@@ -380,10 +331,6 @@ onAuthStateChanged(auth, (user) => {
   const modalError = document.getElementById("modalError");
 
   function openDoc(docItem) {
-    if (!docItem.password) {
-      window.open(docItem.link, "_blank", "noopener");
-      return;
-    }
     pendingDoc = docItem;
     modalDocName.textContent = docItem.doc;
     modalPwInput.value = "";
@@ -397,9 +344,11 @@ onAuthStateChanged(auth, (user) => {
     pendingDoc = null;
   }
 
+  const GATE_PASSWORD = "N@gju@2026.S"; // same password used on every document's gate
+
   function tryUnlock() {
     if (!pendingDoc) return;
-    if (modalPwInput.value === pendingDoc.password) {
+    if (modalPwInput.value === GATE_PASSWORD) {
       window.open(pendingDoc.link, "_blank", "noopener");
       closeModal();
     } else {
@@ -423,6 +372,65 @@ onAuthStateChanged(auth, (user) => {
 
   input.addEventListener("input", () => render(search(input.value)));
   render(documents);
+</script>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
+  authDomain: "transaction-search-ng.firebaseapp.com",
+  projectId: "transaction-search-ng",
+  storageBucket: "transaction-search-ng.firebasestorage.app",
+  messagingSenderId: "913327997399",
+  appId: "1:913327997399:web:e1f777f9aae176d94e8b92"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+setPersistence(auth, inMemoryPersistence);
+
+// Only these two accounts may use this tool, even if other accounts exist
+// in the shared Firebase project used by the rest of the tool suite.
+const ALLOWED_EMAILS = ["ai@nagjua.com", "nagjua@yahoo.com"];
+
+const loginOverlay = document.getElementById('loginOverlay');
+const mainWrap = document.getElementById('mainWrap');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+loginBtn.addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  loginError.style.display = 'none';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    loginError.style.display = 'block';
+  }
+});
+
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, (user) => {
+  if (user && ALLOWED_EMAILS.includes((user.email || '').toLowerCase())) {
+    loginOverlay.style.display = 'none';
+    mainWrap.style.display = '';
+    logoutBtn.style.display = '';
+  } else if (user) {
+    // Signed in, but not one of the two allowed accounts - kick back out.
+    loginError.textContent = "This account isn't authorized for this tool.";
+    loginError.style.display = 'block';
+    signOut(auth);
+  } else {
+    loginOverlay.style.display = 'flex';
+    mainWrap.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  }
+});
 </script>
 
 </body>
