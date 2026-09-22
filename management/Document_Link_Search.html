@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Link Search</title>
+<style>
+  :root {
+    --navy: #1b2a41;
+    --navy-dark: #121e30;
+    --line: #dde3e8;
+    --bg: #f5f7f9;
+    --card: #ffffff;
+    --text: #1c2530;
+    --muted: #6b7684;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 22px 20px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 600;
+  }
+  header p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #b9c3cf;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+  #searchInput {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  #searchInput:focus {
+    outline: none;
+    border-color: var(--navy);
+  }
+  #count {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .result {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .result-info .doc-type {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .result-info .doc-pass {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .result-info .doc-pass code {
+    background: #eef1f4;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .actions { display: flex; gap: 8px; }
+  .open-btn, .copy-btn {
+    flex-shrink: 0;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+  }
+  .open-btn { background: var(--navy); color: #fff; }
+  .open-btn:hover { background: var(--navy-dark); }
+  .copy-btn { background: #eef1f4; color: var(--text); }
+  .copy-btn:hover { background: #e2e7ec; }
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 10px;
+    font-size: 14px;
+  }
+  .note {
+    margin-top: 30px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(18, 30, 48, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-box {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 20px;
+    width: 100%;
+    max-width: 340px;
+  }
+  .modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  #modalPwInput {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  #modalPwInput:focus { outline: none; border-color: var(--navy); }
+  .modal-error {
+    font-size: 12px;
+    color: #b3261e;
+    min-height: 16px;
+    margin-bottom: 8px;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .cancel-btn, .unlock-btn {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+  }
+  .cancel-btn { background: #eef1f4; color: var(--text); }
+  .unlock-btn { background: var(--navy); color: #fff; }
+  .unlock-btn:hover { background: var(--navy-dark); }
+  .login-overlay{
+    position:fixed;inset:0;background:var(--navy-dark);
+    display:flex;align-items:center;justify-content:center;z-index:9999;
+  }
+  .login-box{
+    background:#fff;border-radius:10px;padding:32px 28px;width:100%;max-width:340px;
+    box-shadow:0 12px 30px rgba(0,0,0,.35);
+  }
+  .login-box h2{margin:0 0 6px;color:var(--navy);font-size:1.2rem;}
+  .login-box p{margin:0 0 18px;color:var(--muted);font-size:.85rem;}
+  .login-box input{
+    width:100%;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);
+    border-radius:6px;font-size:.9rem;
+  }
+  .login-box button{
+    width:100%;padding:10px;background:var(--navy);color:#fff;border:none;
+    border-radius:6px;font-weight:600;cursor:pointer;font-size:.9rem;
+  }
+  .login-box button:hover{background:var(--navy-dark);}
+  .login-error{color:#b3261e;font-size:.8rem;margin:-6px 0 12px;display:none;}
+  .logout-btn{
+    position:fixed;top:14px;right:16px;background:#fff;border:1px solid var(--line);
+    border-radius:6px;padding:6px 12px;font-size:.78rem;cursor:pointer;color:var(--text);
+    z-index:100;
+  }
+</style>
+</head>
+<body>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <h2>Document Link Search</h2>
+    <p>Sign in to access the document links.</p>
+    <div id="loginError" class="login-error">Incorrect email or password.</div>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username" />
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn">Sign In</button>
+  </div>
+</div>
+<button id="logoutBtn" class="logout-btn" style="display:none;">Sign out</button>
+
+<div id="mainWrap" style="display:none;">
+<header>
+  <h1>Document Link Search</h1>
+  <p>Search a document name — links open in OneDrive</p>
+</header>
+
+<main>
+  <input type="text" id="searchInput" placeholder="e.g. PAN card, Sale Deed, Ananta..." autofocus>
+  <div id="count"></div>
+  <div id="results"></div>
+  <div class="note">Some links are password-protected — you'll be prompted for the password when you open them.</div>
+</main>
+
+<div class="modal-overlay hidden" id="pwModal">
+  <div class="modal-box">
+    <div class="modal-title" id="modalDocName"></div>
+    <input type="password" id="modalPwInput" placeholder="Enter password">
+    <div class="modal-error" id="modalError"></div>
+    <div class="modal-actions">
+      <button class="cancel-btn" id="modalCancel">Cancel</button>
+      <button class="unlock-btn" id="modalUnlock">Unlock</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
+  authDomain: "transaction-search-ng.firebaseapp.com",
+  projectId: "transaction-search-ng",
+  storageBucket: "transaction-search-ng.firebasestorage.app",
+  messagingSenderId: "913327997399",
+  appId: "1:913327997399:web:e1f777f9aae176d94e8b92"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+setPersistence(auth, inMemoryPersistence);
+
+const loginOverlay = document.getElementById('loginOverlay');
+const mainWrap = document.getElementById('mainWrap');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+loginBtn.addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  loginError.style.display = 'none';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    loginError.style.display = 'block';
+  }
+});
+
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loginOverlay.style.display = 'none';
+    mainWrap.style.display = '';
+    logoutBtn.style.display = '';
+  } else {
+    loginOverlay.style.display = 'flex';
+    mainWrap.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  }
+});
+</script>
+
+<script>
+  // ---------------------------------------------------------------
+  // DOCUMENT INDEX — generated from Document Links.xlsx.
+  // To update: edit this array directly (add/remove/change entries),
+  // or regenerate it from a new export of the sheet.
+  // ---------------------------------------------------------------
+  const documents = [
+  {"doc": "Sale deed (Sharda & kaushil )", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQAT9WzeLisYQ6U3AiRVHY6iAdyV7gjPLkAYtpPDHPMJk84?e=hZQVgy", "password": "N@gju@2026.S"},
+  {"doc": "Sale deed (Sharda & Bhikiben)", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQAlPxy6fvlKSKup9jVbUYBTAS0EGCj1khhy57KDVQQkIW8?e=e5rZ1b", "password": ""},
+  {"doc": "Wright Of Way Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQC97FKXVEKkSKG_-fu3OF9pAeqZSZkBn7vpZZyz56K6HYk?e=l9JYhV", "password": ""},
+  {"doc": "Sale deed (Sharda & kaushil ) 2", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDHNaRYBw9vSpm7SjPA9YXpAciYXBZm1agRx-uqocSyXjE?e=KUZVAi", "password": ""},
+  {"doc": "Sale deed of land Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCBXnM6HsEoTaJ3Oq5OCQsuAZwrKH7o2OCEVSVEb5mnIn0?e=Q2GrMm", "password": ""},
+  {"doc": "OC of Cygnus", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQD-okr5BhW6QoLBlkiUH7fKAeHS2N2tpco980mJZqjwkNs?e=ub9SwO", "password": ""},
+  {"doc": "OC of A, B, D & Clubhouse", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBiTeWGjPL3RKhUMLMPyeASARzCfArleFDjjfWI_VdY9Ug?e=qfl5BF", "password": ""},
+  {"doc": "Construction Permission of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQAWgbOmJJiCR5hxwl1JcwgqAQqa21RmBNWcV9nPZDvlMfg?e=ziQHdj", "password": ""},
+  {"doc": "Layout Of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQD1Opj5aEz8TLH_ueQpfHHDASBQhbb_ONoTKApK8tPA6YQ?e=6U3tOj", "password": ""},
+  {"doc": "Club House Of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBvLmWlRsVeRrU3wDqBoJVEAZ0yLw5itg-7yuEz4B7qN3w?e=ycNfEo", "password": ""},
+  {"doc": "House Tax Receipt Of Cygnus", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQAwV2IYWiB6S6cJ3lH4wtE-AW8c177VhjoM9EUZPDAvD2c?e=AeXmCc", "password": ""},
+  {"doc": "House Tax Cetificate Of Cygnus", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDkA7tEv1UzT7lU_m3HXPJoAVJORkbHrRsKWgRNPUGyU20?e=yBe2ty", "password": ""},
+  {"doc": "House Tax Receipt Of A, B, D", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDm42mIlgKCRZDpruyGXiHoAYriDVDZ1udWIduxfiCjUho?e=R11afd", "password": ""},
+  {"doc": "House Tax Cetificate Of A, B, D & E", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDj9t8s5Py9QIVrcbTwT-YoAa0E-2lX7uixAs0vVYcAAog?e=ayAo2F", "password": ""},
+  {"doc": "Floor Plan Of Divine", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCw4gO9WqxlQIFrOf9jc57MASN0RtAbVzR3R23fqvl8qUM?e=STi2Zq", "password": ""},
+  {"doc": "Work Establishment Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQAhmcQelUH5Sb-ieMIIoc05AdxyNRV2gPgNcoX11HRXhYo?e=FqxA6K", "password": ""},
+  {"doc": "Elevation Plan of Divine", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCdnl_UiIxVR4oC_desgUJeAfNZ2DI98Qs_Olv3vgqNoII?e=KYvma3", "password": ""},
+  {"doc": "TCR Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQB2cAG6h9DnRIXHJQ8RXKWHAf-0CW4UR-hgtKMl3-6TCSE?e=r43ooW", "password": ""},
+  {"doc": "Certified Map of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCpG-FBNaCPR4t8TwKOe07kASw5PTfTEDwt4swO_8UNvuk?e=IUacZr", "password": ""},
+  {"doc": "Floor Plan Of Cygnus", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCdktISK7eBT56Ey35JD9QAAcjiayLrBwjY6_McUKm1MCI?e=S9CRjM", "password": ""},
+  {"doc": "SRV No. 231-1 NA Order of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDd32NIx2WeTpjrC7fhJeTGAUgcQ5yB1uDPJ-UyPX36HZc?e=dY1Ry9", "password": ""},
+  {"doc": "SRV No. 229-1-1 NA Order of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBf5uOWZCEXSK6Kto_EjY4bAbSmPvJrdJqiBgx7hbV66OM?e=gpmT8A", "password": ""},
+  {"doc": "Floor Plan Of Beryll", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDMbzi1r-AxS63Rew3DHEGPAR-Df6ojk6CBquNEZmg5TbA?e=iSAmqX", "password": ""},
+  {"doc": "Elevation Plan of Cygnus", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBb5IdOsJ3KQqpRmqUZRyUSAUp6QhCX2fVcZSXvwrR6dX8?e=qXCMg3", "password": ""},
+  {"doc": "Amalgamation order of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDkBsoXN992Q59ix75MyyFAAUHPt26UIK4ErcislixJI5M?e=BuYljW", "password": ""},
+  {"doc": "Rera Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCn1obm74eOTaBNX1O3IzSiAQHWNKVPyytjER37iKHFIxg?e=lX4tsB", "password": ""},
+  {"doc": "Elevation Plan of Beryll", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCHF5q_bn_xRY6mLvaBR_M9AaqKN6co060AkHrrZ6g7DCE?e=rIs6nB", "password": ""},
+  {"doc": "Pan Card of MMP", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBsfFmOAyEOQLPNinnAaukyATVEvQbR--AGOQI_ByznuKU?e=CxnmHb", "password": ""},
+  {"doc": "Floor Plan Of Amber", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDw7WJvT7ItTpbS-YDIzQAFATVC7WFNhLpfNI3HBbEfOPU?e=Vrsaby", "password": ""},
+  {"doc": "SRV No. 229-2 NA Order of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDp7rP-44-3TqclleixHJHRAfvvdsTF2f1mTtngZpXqEVg?e=DxPhIk", "password": ""},
+  {"doc": "Elevation Plan of Amber", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCyOAEvWSH_Qq9coKMxV271ASBeDgFY91F2Ke3w4j3peWA?e=aSUMpR", "password": ""},
+  {"doc": "Firm Registration of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBXc1bF26eWSJ03RebjbXxNAcRs-NmMroPQ4nL0hp2bCvk?e=j5JqFi", "password": ""},
+  {"doc": "SRV No. 229-1-1 Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQAvYq7m9i6ASZ3ila13gYG7AQp9TpYe8-LjlT2iN1VVAFk?e=fdfOza", "password": ""},
+  {"doc": "Retirement Deed of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQB7ee1PjFSxRL0jviyx9geIAdIgbnSDKWXEmkKqN7X-LT4?e=fCAOit", "password": ""},
+  {"doc": "SRV No. 231-1 Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDqTSBWt76OSK8Uc8r0wAWJAe-OU0r73GWHv_sBLTjhfTY?e=pzMd6K", "password": ""},
+  {"doc": "Power Of Attorny Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDZyFSpLCIZRLfwqJdBBONzAWMu1748S28IEQwxYydVF08?e=WmNxv8", "password": ""},
+  {"doc": "Area Detail of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQAVgDQ_1JCkSbO5XDJ7edD1AVxl7iIBGXm_OveWOdb89fg?e=y7Ysf9", "password": ""},
+  {"doc": "Partnership Deed Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQDqJjjX-_t3TZCl01UuZK70AfMp2rJk39JbHaAl7jxOlUE?e=x6TQaz", "password": ""},
+  {"doc": "Report Certificate of Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQCr_F_DGL_wTbDsdshrbBTgASGSKKIREGZ6tRWxnQ66kG0?e=zllSsB", "password": ""},
+  {"doc": "Fire NOC Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBAUtpH35IFSKcB2L3rm3mMAQ7UP6XltPj41WIC0ao6Tfo?e=RKDFa9", "password": ""},
+  {"doc": "GST Ananta", "link": "https://nagjua2025-my.sharepoint.com/:b:/g/personal/ai_nagjua_com/IQBpzDtsNrmdRogySoeAHnlEARIemgE0K7f9BYhrRZI3c_o?e=k6CJI4", "password": ""}
+  ];
+  // ---------------------------------------------------------------
+
+  const input = document.getElementById("searchInput");
+  const resultsEl = document.getElementById("results");
+  const countEl = document.getElementById("count");
+
+  function escapeHtml(str) {
+    const d = document.createElement("div");
+    d.textContent = str || "";
+    return d.innerHTML;
+  }
+
+  function render(list) {
+    resultsEl.innerHTML = "";
+    if (list.length === 0) {
+      resultsEl.innerHTML = '<div class="empty">No matching documents.</div>';
+      countEl.textContent = "";
+      return;
+    }
+    countEl.textContent = list.length + (list.length === 1 ? " match" : " matches");
+    list.forEach((docItem) => {
+      const row = document.createElement("div");
+      row.className = "result";
+      row.innerHTML = `
+        <div class="result-info">
+          <div class="doc-type">${escapeHtml(docItem.doc)}</div>
+        </div>
+        <div class="actions">
+          <button class="open-btn" type="button">Open</button>
+        </div>
+      `;
+      row.querySelector(".open-btn").addEventListener("click", () => openDoc(docItem));
+      resultsEl.appendChild(row);
+    });
+  }
+
+  // ---- Password gate ----
+  // Always re-prompts, even for documents opened moments ago in the
+  // same browser — this check lives here, not in OneDrive's session,
+  // so it never gets "remembered."
+  let pendingDoc = null;
+  const modal = document.getElementById("pwModal");
+  const modalDocName = document.getElementById("modalDocName");
+  const modalPwInput = document.getElementById("modalPwInput");
+  const modalError = document.getElementById("modalError");
+
+  function openDoc(docItem) {
+    if (!docItem.password) {
+      window.open(docItem.link, "_blank", "noopener");
+      return;
+    }
+    pendingDoc = docItem;
+    modalDocName.textContent = docItem.doc;
+    modalPwInput.value = "";
+    modalError.textContent = "";
+    modal.classList.remove("hidden");
+    modalPwInput.focus();
+  }
+
+  function closeModal() {
+    modal.classList.add("hidden");
+    pendingDoc = null;
+  }
+
+  function tryUnlock() {
+    if (!pendingDoc) return;
+    if (modalPwInput.value === pendingDoc.password) {
+      window.open(pendingDoc.link, "_blank", "noopener");
+      closeModal();
+    } else {
+      modalError.textContent = "Incorrect password.";
+      modalPwInput.value = "";
+      modalPwInput.focus();
+    }
+  }
+
+  document.getElementById("modalCancel").addEventListener("click", closeModal);
+  document.getElementById("modalUnlock").addEventListener("click", tryUnlock);
+  modalPwInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryUnlock();
+  });
+
+  function search(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return documents;
+    return documents.filter(d => d.doc.toLowerCase().includes(q));
+  }
+
+  input.addEventListener("input", () => render(search(input.value)));
+  render(documents);
+</script>
+
+</body>
+</html>
