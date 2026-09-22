@@ -566,12 +566,12 @@ function parseFlatCode(raw, wingMap){
 // and Documentation are single shared lists spanning multiple buildings
 // with no such per-building separation, so they deliberately do NOT use
 // this fallback - they require the sheet to contain the full code.
-function flatCodeMatches(flatVal, targetFlat){
+function flatCodeMatches(flatVal, targetFlat, wingConfirmed){
   if(flatVal === undefined || flatVal === null || flatVal === '') return false;
   const normVal = normFlat(flatVal);
   if(!normVal) return false;
   if(normVal === targetFlat) return true;
-  if(!/[A-Z]/.test(normVal)){
+  if(wingConfirmed && !/[A-Z]/.test(normVal)){
     const digitsVal = normVal.replace(/\D/g,'');
     const digitsTarget = targetFlat.replace(/\D/g,'');
     if(digitsVal && digitsVal === digitsTarget) return true;
@@ -1070,7 +1070,7 @@ function findFallbackCodeCol(aoa, hIdx, headers, excludeCols){
 }
 
 // ---- PAYMENT (may be spread across multiple uploaded files) ----
-function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName){
+function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName, wingConfirmed){
   const aoa = sheetToAOA(wb, sheetName);
   if(aoa.length < 2) return null;
   const hIdx = findHeaderRowIndex(aoa);
@@ -1094,7 +1094,7 @@ function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName){
     const flatVal = cFlat!==-1 ? row[cFlat] : '';
     const nameVal = cName!==-1 ? row[cName] : '';
     let match = false;
-    if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat)) match = true;
+    if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat, wingConfirmed)) match = true;
     if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
     if(!match) continue;
 
@@ -1130,15 +1130,21 @@ function searchPayment(term){
   for(const entry of entries){
     const wb = entry.wb;
     let candidateSheets = wb.SheetNames.slice();
+    let wingConfirmed = false;
     if(parsed && parsed.wing){
-      // A specific building was recognized from the prefix - only ever look
-      // in that building's sheet(s), never fall through to another building
-      // just because it also happens to have a matching bare room number.
+      // A specific building was recognized from the prefix. If we find a
+      // sheet actually named for that building, restrict to it AND allow
+      // bare-digit matching within it. If no such sheet exists in this file
+      // (e.g. a different project's file with no matching building at all),
+      // we still search every sheet as a fallback, but wingConfirmed stays
+      // false so a bare room number can't wrongly match an unrelated
+      // building in this file - only an exact full code (with the right
+      // wing letters) will match in that fallback case.
       const wingSheets = candidateSheets.filter(s => wingMatches(s, parsed.wing));
-      if(wingSheets.length) candidateSheets = wingSheets;
+      if(wingSheets.length){ candidateSheets = wingSheets; wingConfirmed = true; }
     }
     for(const sheetName of candidateSheets){
-      const result = searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName);
+      const result = searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName, wingConfirmed);
       if(result) return result;
     }
   }
@@ -1170,7 +1176,7 @@ function findFallbackFlatCol(aoa, hIdx, headers, excludeCols){
 }
 
 // ---- POSSESSION (sheets usually split per wing/building) ----
-function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode){
+function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode, wingConfirmed){
   const aoa = sheetToAOA(wb, sheetName);
   if(aoa.length < 2) return null;
   const hIdx = findHeaderRowIndex(aoa);
@@ -1198,7 +1204,7 @@ function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, is
     let match = false;
     if(isCode && cFlat!==-1 && flatVal){
       const rn = flatVal.replace(/[^0-9]/g,'');
-      if(rn && (rn === roomNum || normFlat(flatVal) === fullFlat)) match = true;
+      if(rn && ((wingConfirmed && rn === roomNum) || normFlat(flatVal) === fullFlat)) match = true;
     }
     if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(nameLower)) match = true;
     if(!match) continue;
@@ -1238,12 +1244,13 @@ function searchPossession(term){
   for(const entry of entries){
     const wb = entry.wb;
     let candidateSheets = wb.SheetNames.slice();
+    let wingConfirmed = false;
     if(parsed && parsed.wing){
       const wingSheets = candidateSheets.filter(s => wingMatches(s, parsed.wing));
-      if(wingSheets.length) candidateSheets = wingSheets;
+      if(wingSheets.length){ candidateSheets = wingSheets; wingConfirmed = true; }
     }
     for(const sheetName of candidateSheets){
-      const result = searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode);
+      const result = searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode, wingConfirmed);
       if(result) return result;
     }
   }
@@ -1251,7 +1258,7 @@ function searchPossession(term){
 }
 
 // ---- EXTRA WORK (header-matched where possible) ----
-function searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName){
+function searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName, wingConfirmed){
   const aoa = sheetToAOA(wb, sheetName);
   if(aoa.length < 2) return null;
   const hIdx = findHeaderRowIndex(aoa);
@@ -1273,7 +1280,7 @@ function searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName){
     const flatVal = cFlat!==-1 ? row[cFlat] : '';
     const nameVal = cName!==-1 ? row[cName] : '';
     let match = false;
-    if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat)) match = true;
+    if(isCode && cFlat!==-1 && flatVal && flatCodeMatches(flatVal, targetFlat, wingConfirmed)) match = true;
     if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(targetName)) match = true;
     if(!match) continue;
 
@@ -1302,12 +1309,13 @@ function searchExtraWork(term){
   for(const entry of entries){
     const wb = entry.wb;
     let candidateSheets = wb.SheetNames.slice();
+    let wingConfirmed = false;
     if(parsed && parsed.wing){
       const wingSheets = candidateSheets.filter(s => wingMatches(s, parsed.wing));
-      if(wingSheets.length) candidateSheets = wingSheets;
+      if(wingSheets.length){ candidateSheets = wingSheets; wingConfirmed = true; }
     }
     for(const sheetName of candidateSheets){
-      const result = searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName);
+      const result = searchExtraWorkInSheet(wb, sheetName, isCode, targetFlat, targetName, wingConfirmed);
       if(result) return result;
     }
   }
