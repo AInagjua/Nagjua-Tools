@@ -120,6 +120,29 @@
 </style>
 </head>
 <body>
+<style>
+  .login-overlay{position:fixed;inset:0;background:#0b1f3f;display:flex;align-items:center;justify-content:center;z-index:9999;}
+  .login-box{background:#fff;border-radius:10px;padding:32px 28px;width:100%;max-width:340px;box-shadow:0 12px 30px rgba(0,0,0,.35);font-family:Arial,sans-serif;}
+  .login-box h2{margin:0 0 6px;color:#0b1f3f;font-size:1.2rem;}
+  .login-box p{margin:0 0 18px;color:#666;font-size:.85rem;}
+  .login-box input{width:100%;padding:10px 12px;margin-bottom:12px;border:1px solid #d7dae0;border-radius:6px;font-size:.9rem;box-sizing:border-box;}
+  .login-box button{width:100%;padding:10px;background:#0b1f3f;color:#fff;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;}
+  .login-box button:hover{background:#071633;}
+  .login-error{color:#c0392b;font-size:.8rem;margin:-6px 0 12px;display:none;}
+  .logout-btn{position:fixed;top:14px;right:16px;background:#fff;border:1px solid #d7dae0;border-radius:6px;padding:6px 12px;font-size:.78rem;cursor:pointer;color:#1c2333;z-index:10000;font-family:Arial,sans-serif;}
+</style>
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <h2>Builder NOC Generator</h2>
+    <p>Sign in to access this tool.</p>
+    <div id="loginError" class="login-error">Incorrect email or password.</div>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username" />
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn">Sign In</button>
+  </div>
+</div>
+<button id="logoutBtn" class="logout-btn" style="display:none;">Sign out</button>
+<div id="mainWrap" style="display:none;">
 <div class="wrap">
 
   <div class="head">
@@ -1593,6 +1616,54 @@ async function previewLetter(){
     msg.className = "msg err";
   }
 }
+</script>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
+  authDomain: "transaction-search-ng.firebaseapp.com",
+  projectId: "transaction-search-ng",
+  storageBucket: "transaction-search-ng.firebasestorage.app",
+  messagingSenderId: "913327997399",
+  appId: "1:913327997399:web:e1f777f9aae176d94e8b92"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+setPersistence(auth, inMemoryPersistence);
+
+const loginOverlay = document.getElementById('loginOverlay');
+const mainWrap = document.getElementById('mainWrap');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+loginBtn.addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  loginError.style.display = 'none';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    loginError.style.display = 'block';
+  }
+});
+
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loginOverlay.style.display = 'none';
+    mainWrap.style.display = '';
+    logoutBtn.style.display = '';
+  } else {
+    loginOverlay.style.display = 'flex';
+    mainWrap.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  }
+});
 </script>
 </body>
 </html>
