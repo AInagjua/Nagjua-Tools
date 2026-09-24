@@ -399,17 +399,26 @@ async function generate(workbook, companyKey) {
   }
 
   function groupByVendor(recs) {
+    // Group by vendor + business unit (phase) TOGETHER, not vendor alone.
+    // A vendor's bills in one phase are a separate financial matter from
+    // the same vendor's bills in a different phase, so each (vendor, phase)
+    // combination gets its own total for above/below classification - a
+    // vendor with bills spread across several phases can correctly end up
+    // with some phases above the threshold and others below.
     const sorted = recs.slice().sort((a, b) => {
       const an = a.account.toLowerCase(), bn = b.account.toLowerCase();
       if (an < bn) return -1;
       if (an > bn) return 1;
+      const au = (a.businessUnit || '').toLowerCase(), bu = (b.businessUnit || '').toLowerCase();
+      if (au < bu) return -1;
+      if (au > bu) return 1;
       return (a.invoiceDate || 0) - (b.invoiceDate || 0);
     });
     const out = [];
     let i = 0;
     while (i < sorted.length) {
       let j = i;
-      while (j < sorted.length && sorted[j].account === sorted[i].account) j++;
+      while (j < sorted.length && sorted[j].account === sorted[i].account && sorted[j].businessUnit === sorted[i].businessUnit) j++;
       out.push(sorted.slice(i, j));
       i = j;
     }
@@ -417,17 +426,16 @@ async function generate(workbook, companyKey) {
   }
 
   const THRESHOLD = 5000;
-  // Classify by each vendor's TOTAL outstanding across all their invoices,
-  // not by each invoice individually - otherwise a vendor with several
-  // invoices each under the threshold, but summing above it, would end up
-  // sitting entirely in the "below" section (and a vendor could even be
-  // split across both sections if their invoices straddled the threshold).
+  // Classify by each (vendor, phase) group's TOTAL outstanding, not by each
+  // invoice individually - a vendor's several invoices in the same phase,
+  // each under the threshold, should still be classified by their combined
+  // total for that phase.
   const allGroups = groupByVendor(records);
   const groupsAbove = [];
   const groupsBelow = [];
   for (const group of allGroups) {
-    const vendorTotal = group.reduce((sum, r) => sum + r.netOutstanding, 0);
-    if (vendorTotal > THRESHOLD) groupsAbove.push(group);
+    const groupTotal = group.reduce((sum, r) => sum + r.netOutstanding, 0);
+    if (groupTotal > THRESHOLD) groupsAbove.push(group);
     else groupsBelow.push(group);
   }
 
