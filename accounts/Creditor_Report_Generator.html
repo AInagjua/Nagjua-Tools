@@ -417,10 +417,19 @@ async function generate(workbook, companyKey) {
   }
 
   const THRESHOLD = 5000;
-  const aboveRecords = records.filter(r => r.netOutstanding > THRESHOLD);
-  const belowRecords = records.filter(r => r.netOutstanding <= THRESHOLD);
-  const groupsAbove = groupByVendor(aboveRecords);
-  const groupsBelow = groupByVendor(belowRecords);
+  // Classify by each vendor's TOTAL outstanding across all their invoices,
+  // not by each invoice individually - otherwise a vendor with several
+  // invoices each under the threshold, but summing above it, would end up
+  // sitting entirely in the "below" section (and a vendor could even be
+  // split across both sections if their invoices straddled the threshold).
+  const allGroups = groupByVendor(records);
+  const groupsAbove = [];
+  const groupsBelow = [];
+  for (const group of allGroups) {
+    const vendorTotal = group.reduce((sum, r) => sum + r.netOutstanding, 0);
+    if (vendorTotal > THRESHOLD) groupsAbove.push(group);
+    else groupsBelow.push(group);
+  }
 
   return { sourceSheet: name, headerLines, asOnSerial, config, groupsAbove, groupsBelow, threshold: THRESHOLD, unmapped: Array.from(unmapped), negativeExcluded };
 }
