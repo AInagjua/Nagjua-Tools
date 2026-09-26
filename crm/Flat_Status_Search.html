@@ -630,9 +630,11 @@ function sheetToAOA(workbook, sheetName){
   return XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
 }
 function wingMatches(sheetName, wing){
-  // Ignore whitespace differences - e.g. a sheet named "MAY FLOWER" (with a
-  // space) should still match the wing name "mayflower" (no space).
-  return String(sheetName).toLowerCase().replace(/\s+/g,'').includes(String(wing).replace(/\s+/g,''));
+  // Ignore whitespace AND hyphen differences - e.g. sheets/Bldg columns
+  // write the same building as "MAY FLOWER", "Elda-1", "elda 1", "E-1" etc,
+  // and all of these should still match the wing name ("mayflower"/"elda1").
+  const norm = s => String(s).toLowerCase().replace(/[\s\-]+/g,'');
+  return norm(sheetName).includes(norm(wing));
 }
 function looksLikeDatedRemarks(text){
   return !!text && /\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{2,4}/.test(String(text));
