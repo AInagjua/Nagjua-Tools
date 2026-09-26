@@ -1176,7 +1176,7 @@ function findFallbackFlatCol(aoa, hIdx, headers, excludeCols){
 }
 
 // ---- POSSESSION (sheets usually split per wing/building) ----
-function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode, wingConfirmed){
+function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode, wingConfirmed, wing){
   const aoa = sheetToAOA(wb, sheetName);
   if(aoa.length < 2) return null;
   const hIdx = findHeaderRowIndex(aoa);
@@ -1201,10 +1201,15 @@ function searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, is
     if(!row || row.length===0) continue;
     const flatVal = cFlat!==-1 ? String(row[cFlat]).trim() : '';
     const nameVal = cName!==-1 ? row[cName] : '';
+    // Some Possession files are a single sheet covering every building, with
+    // a Bldg column identifying which building each row belongs to (rather
+    // than one sheet per building). In that case sheet-name confirmation is
+    // never possible, so also confirm the wing per-row via that column.
+    const rowWingConfirmed = wingConfirmed || (!!wing && cBldg!==-1 && row[cBldg] && wingMatches(String(row[cBldg]), wing));
     let match = false;
     if(isCode && cFlat!==-1 && flatVal){
       const rn = flatVal.replace(/[^0-9]/g,'');
-      if(rn && ((wingConfirmed && rn === roomNum) || normFlat(flatVal) === fullFlat)) match = true;
+      if(rn && ((rowWingConfirmed && rn === roomNum) || normFlat(flatVal) === fullFlat)) match = true;
     }
     if(!match && !isCode && cName!==-1 && nameVal && String(nameVal).toLowerCase().includes(nameLower)) match = true;
     if(!match) continue;
@@ -1250,7 +1255,7 @@ function searchPossession(term){
       if(wingSheets.length){ candidateSheets = wingSheets; wingConfirmed = true; }
     }
     for(const sheetName of candidateSheets){
-      const result = searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode, wingConfirmed);
+      const result = searchPossessionInSheet(wb, sheetName, roomNum, fullFlat, nameLower, isCode, wingConfirmed, parsed ? parsed.wing : null);
       if(result) return result;
     }
   }
