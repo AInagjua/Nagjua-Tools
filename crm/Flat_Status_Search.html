@@ -948,11 +948,16 @@ function searchLoan(term){
         let furthest = null, furthestColIdx = -1;
         for(let s=stageCols.length-1;s>=0;s--){
           const ci = stageCols[s];
-          if(ci!==-1 && row[ci] && String(row[ci]).trim()!=='' && String(row[ci]).trim().toUpperCase()!=='N/A'){
-            furthest = stageNames[s];
-            furthestColIdx = ci;
-            break;
-          }
+          if(ci===-1 || !row[ci]) continue;
+          const cellText = String(row[ci]).trim();
+          // A lone "." or "-" etc is used as an informal placeholder for "no
+          // update yet" in these sheets, same as N/A - it shouldn't count as
+          // having reached that stage, or the real current stage (and its
+          // actual remarks) gets skipped in favor of an empty one.
+          if(cellText==='' || cellText.toUpperCase()==='N/A' || /^[.\-]+$/.test(cellText)) continue;
+          furthest = stageNames[s];
+          furthestColIdx = ci;
+          break;
         }
         if(furthest){
           out += `<div class="field stage-done"><b>Current Stage:</b> ${furthest}</div>`;
