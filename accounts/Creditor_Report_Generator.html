@@ -439,7 +439,26 @@ async function generate(workbook, companyKey) {
     else groupsBelow.push(group);
   }
 
-  return { sourceSheet: name, headerLines, asOnSerial, config, groupsAbove, groupsBelow, threshold: THRESHOLD, unmapped: Array.from(unmapped), negativeExcluded };
+  // A vendor's phase-groups were classified independently above, but most
+  // vendors bill under several phases that all land in the SAME section -
+  // those should still appear as ONE combined block, not one block per
+  // phase. Only re-split a vendor within a section if their phases
+  // genuinely disagree (some above, some below) - that's already handled
+  // by groupsAbove/groupsBelow being separate; within each one, merge every
+  // phase-group back into a single block per vendor.
+  function mergeSameVendor(groups) {
+    const byVendor = new Map();
+    for (const group of groups) {
+      const acct = group[0].account;
+      if (!byVendor.has(acct)) byVendor.set(acct, []);
+      byVendor.get(acct).push(...group);
+    }
+    return Array.from(byVendor.values());
+  }
+  const mergedAbove = mergeSameVendor(groupsAbove);
+  const mergedBelow = mergeSameVendor(groupsBelow);
+
+  return { sourceSheet: name, headerLines, asOnSerial, config, groupsAbove: mergedAbove, groupsBelow: mergedBelow, threshold: THRESHOLD, unmapped: Array.from(unmapped), negativeExcluded };
 }
 
 async function buildAndOffer(result, companyKey, sourceFileName) {
