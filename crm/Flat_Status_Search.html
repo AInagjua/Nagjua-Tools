@@ -538,7 +538,12 @@ function normHeader(s){
   return (s===undefined||s===null) ? '' : String(s).toLowerCase().replace(/\s+/g,' ').trim();
 }
 function normFlat(s){
-  return (s===undefined||s===null) ? '' : String(s).toUpperCase().replace(/[\s\-.]/g,'');
+  if(s===undefined||s===null) return '';
+  // Strip a trailing "(1)", "(2)" etc - some sheets add this to tell apart
+  // multiple line items for the same flat (e.g. "A1-102 (1)"), and it isn't
+  // part of the actual flat code.
+  const t = String(s).toUpperCase().replace(/\s*\(\d+\)\s*$/,'');
+  return t.replace(/[\s\-.]/g,'');
 }
 function looksLikeFlatCode(term){
   return /^[A-Za-z]{0,3}[\s\-]?\d+/.test(term.trim());
