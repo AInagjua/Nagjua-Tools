@@ -328,12 +328,23 @@ function findRawSheet(workbook) {
   return null;
 }
 
+const MONTH_ABBR = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+
 function extractAsOnDate(headerLines) {
   for (const line of headerLines) {
     const text = String(line[0] || '');
-    if (text.includes('As On Date')) {
-      const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*$/);
-      if (m) return excelSerialFromDMY(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+    // "As On Date" was too specific - actual headers vary ("As on",
+    // "As On Date", any case). Just require the words "as" and "on"
+    // together, then try both date formats seen in practice.
+    if (!/as\s*on/i.test(text)) continue;
+    // DD/MM/YYYY or DD-MM-YYYY (numeric month)
+    let m = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\s*$/);
+    if (m) return excelSerialFromDMY(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+    // DD-Mon-YYYY (month name, e.g. "16-Sep-2026")
+    m = text.match(/(\d{1,2})[\-\s]([A-Za-z]{3,})[\-\s](\d{2,4})\s*$/);
+    if (m) {
+      const mon = MONTH_ABBR[m[2].toLowerCase().slice(0, 3)];
+      if (mon) return excelSerialFromDMY(parseInt(m[1]), mon, parseInt(m[3]));
     }
   }
   return null;
@@ -382,6 +393,12 @@ async function generate(workbook, companyKey) {
     const row = arr[r];
     const account = String(row[colMap['Account Head']] || '').trim();
     if (!account) continue;
+    // Structured/pre-formatted files (as opposed to a raw flat ledger) can
+    // include subtotal rows ("GRAND TOTAL") and repeated header rows mixed
+    // into the data - these aren't real vendor rows and must never be
+    // treated as one, regardless of what ends up in the numeric column.
+    const accountLower = account.toLowerCase();
+    if (accountLower === 'account head' || accountLower.includes('grand total') || accountLower === 'total') continue;
     const net = Number(row[colMap['Net Outstanding']]);
     if (isNaN(net)) continue;
     if (net < 0) { negativeExcluded++; continue; }
