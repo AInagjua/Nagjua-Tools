@@ -1075,6 +1075,29 @@ function findFallbackCodeCol(aoa, hIdx, headers, excludeCols){
   return best;
 }
 
+// Some sheets rename their remarks column to something like a date/label
+// ("01-03-2026 [LATEST]") that doesn't contain the word "remark" at all, so
+// header matching misses it entirely. Fall back to detecting it by content:
+// a real remarks cell is long free text containing dates, not just a bare
+// date on its own (which a Booking Date-style column would also match).
+function findFallbackRemarksCol(aoa, hIdx, headers, excludeCols){
+  const sampleEnd = Math.min(aoa.length, hIdx + 40);
+  let best = -1, bestHits = 0;
+  for(let c=0;c<headers.length;c++){
+    if(excludeCols.includes(c)) continue;
+    let hits = 0, seen = 0;
+    for(let r=hIdx+1; r<sampleEnd; r++){
+      const v = aoa[r] ? aoa[r][c] : undefined;
+      if(v===undefined || v===null || String(v).trim()==='') continue;
+      seen++;
+      const text = String(v).trim();
+      if(text.length > 15 && looksLikeDatedRemarks(text)) hits++;
+    }
+    if(seen>=2 && hits/seen > 0.5 && hits>bestHits){ bestHits = hits; best = c; }
+  }
+  return best;
+}
+
 // ---- PAYMENT (may be spread across multiple uploaded files) ----
 function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName, wingConfirmed){
   const aoa = sheetToAOA(wb, sheetName);
@@ -1092,7 +1115,10 @@ function searchPaymentInSheet(wb, sheetName, isCode, targetFlat, targetName, win
   const cBank = findCol(headers, ['bank']);
   const cInhouse = findCol(headers, ['inhouse loan','in house loan']);
   const cAgent = findCol(headers, ['agent']);
-  const cRemark = findCol(headers, ['re-marks','remarks','remark']);
+  let cRemark = findCol(headers, ['re-marks','remarks','remark']);
+  if(cRemark === -1){
+    cRemark = findFallbackRemarksCol(aoa, hIdx, headers, [cFlat, cName, cBooking, cCost, cPaid, cOutstanding].filter(x=>x!==-1));
+  }
 
   for(let r=hIdx+1; r<aoa.length; r++){
     const row = aoa[r];
