@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Documents</title>
+<style>
+  :root {
+    --navy: #1b2a41;
+    --navy-dark: #121e30;
+    --line: #dde3e8;
+    --bg: #f5f7f9;
+    --card: #ffffff;
+    --text: #1c2530;
+    --muted: #6b7684;
+    --danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 22px 24px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  header p { margin: 0; color: #cfd9e4; font-size: 0.85rem; }
+  main {
+    max-width: 760px;
+    margin: 24px auto;
+    padding: 0 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 1.05rem; color: var(--navy); }
+  label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; margin-top: 12px; }
+  label:first-child { margin-top: 0; }
+  select, input[type="text"], input[type="file"] {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 6px; font-size: 0.92rem; background: #fff;
+  }
+  button {
+    margin-top: 16px; padding: 10px 18px; background: var(--navy); color: #fff;
+    border: none; border-radius: 6px; font-size: 0.92rem; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: var(--navy-dark); }
+  button:disabled { background: #9aa5b1; cursor: not-allowed; }
+  .msg { margin-top: 10px; font-size: 0.85rem; }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: #1a7a3c; }
+  .doc-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .doc-row:last-child { border-bottom: none; }
+  .doc-info .name { font-weight: 600; font-size: 0.92rem; }
+  .doc-info .meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .doc-actions a, .doc-actions button {
+    margin-top: 0; margin-left: 8px; font-size: 0.8rem; padding: 6px 12px;
+  }
+  .doc-actions .del { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+  .doc-actions .del:hover { background: #fdecea; }
+  .empty { color: var(--muted); font-size: 0.88rem; padding: 8px 0; }
+
+  .login-overlay {
+    position: fixed; inset: 0; background: var(--navy-dark);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+  }
+  .login-box {
+    background: #fff; border-radius: 10px; padding: 32px 28px; width: 100%; max-width: 340px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  }
+  .login-box h2 { margin: 0 0 6px; color: var(--navy); font-size: 1.2rem; }
+  .login-box p { margin: 0 0 18px; color: var(--muted); font-size: 0.85rem; }
+  .login-box input {
+    width: 100%; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--line);
+    border-radius: 6px; font-size: 0.9rem;
+  }
+  .login-box button { width: 100%; margin-top: 0; }
+  .login-error { color: var(--danger); font-size: 0.8rem; margin: -6px 0 12px; display: none; }
+  .logout-btn {
+    position: fixed; top: 14px; right: 16px; background: #fff; border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 12px; font-size: 0.78rem; cursor: pointer; color: var(--text);
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <h2>My Documents</h2>
+    <p>Sign in to access your personal documents.</p>
+    <div id="loginError" class="login-error">Incorrect email or password, or this account isn't authorized.</div>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username" />
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn">Sign In</button>
+  </div>
+</div>
+<button id="logoutBtn" class="logout-btn" style="display:none;">Sign out</button>
+
+<div id="mainWrap" style="display:none;">
+
+<header>
+  <h1>My Documents</h1>
+  <p>Personal document storage — private, accessible only to you</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Add a document</h2>
+    <label for="docCategory">Category</label>
+    <select id="docCategory">
+      <option>Aadhaar Card</option>
+      <option>PAN Card</option>
+      <option>Bank Details</option>
+      <option>Passport</option>
+      <option>Other</option>
+    </select>
+
+    <label for="docLabel">Label (optional)</label>
+    <input type="text" id="docLabel" placeholder="e.g. Front side, HDFC savings" />
+
+    <label for="docFile">File (PDF or image, up to ~700 KB)</label>
+    <input type="file" id="docFile" accept="application/pdf,image/*" />
+
+    <button id="uploadBtn">Upload</button>
+    <div id="uploadMsg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Your documents</h2>
+    <div id="docList"><div class="empty">Loading…</div></div>
+  </div>
+</main>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
+  authDomain: "transaction-search-ng.firebaseapp.com",
+  projectId: "transaction-search-ng",
+  storageBucket: "transaction-search-ng.firebasestorage.app",
+  messagingSenderId: "913327997399",
+  appId: "1:913327997399:web:e1f777f9aae176d94e8b92"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+setPersistence(auth, inMemoryPersistence);
+
+// This tool is for one account only, by design - personal documents are
+// not shared with the rest of the team's tools.
+const ALLOWED_EMAIL = "ai@nagjua.com";
+const MAX_BYTES = 700 * 1024; // ~700KB raw file size, stays under Firestore's 1MB doc cap once base64-encoded
+
+const loginOverlay = document.getElementById('loginOverlay');
+const mainWrap = document.getElementById('mainWrap');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadMsg = document.getElementById('uploadMsg');
+const docList = document.getElementById('docList');
+
+let currentUser = null;
+
+loginBtn.addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  loginError.style.display = 'none';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    loginError.textContent = "Incorrect email or password.";
+    loginError.style.display = 'block';
+  }
+});
+
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, async (user) => {
+  if (user && (user.email || '').toLowerCase() === ALLOWED_EMAIL) {
+    currentUser = user;
+    loginOverlay.style.display = 'none';
+    mainWrap.style.display = '';
+    logoutBtn.style.display = '';
+    await loadDocuments();
+  } else if (user) {
+    loginError.textContent = "This account isn't authorized for this tool.";
+    loginError.style.display = 'block';
+    signOut(auth);
+  } else {
+    currentUser = null;
+    loginOverlay.style.display = 'flex';
+    mainWrap.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  }
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result); // data URL, e.g. "data:application/pdf;base64,...."
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function fmtDate(ts) {
+  if (!ts || !ts.toDate) return '';
+  return ts.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+uploadBtn.addEventListener('click', async () => {
+  const category = document.getElementById('docCategory').value;
+  const label = document.getElementById('docLabel').value.trim();
+  const fileInput = document.getElementById('docFile');
+  const file = fileInput.files[0];
+  uploadMsg.textContent = '';
+  uploadMsg.className = 'msg';
+
+  if (!file) {
+    uploadMsg.textContent = 'Choose a file first.';
+    uploadMsg.className = 'msg error';
+    return;
+  }
+  if (file.size > MAX_BYTES) {
+    uploadMsg.textContent = `File is ${fmtBytes(file.size)} - please keep it under ${fmtBytes(MAX_BYTES)}.`;
+    uploadMsg.className = 'msg error';
+    return;
+  }
+
+  uploadBtn.disabled = true;
+  uploadMsg.textContent = 'Uploading…';
+  try {
+    const dataUrl = await fileToBase64(file);
+    const id = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await setDoc(doc(db, 'personalDocuments', id), {
+      owner: currentUser.email,
+      category,
+      label,
+      fileName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size,
+      data: dataUrl,
+      uploadedAt: serverTimestamp()
+    });
+    uploadMsg.textContent = 'Uploaded.';
+    uploadMsg.className = 'msg ok';
+    fileInput.value = '';
+    document.getElementById('docLabel').value = '';
+    await loadDocuments();
+  } catch (e) {
+    uploadMsg.textContent = 'Upload failed: ' + e.message;
+    uploadMsg.className = 'msg error';
+  } finally {
+    uploadBtn.disabled = false;
+  }
+});
+
+async function loadDocuments() {
+  docList.innerHTML = '<div class="empty">Loading…</div>';
+  const snap = await getDocs(collection(db, 'personalDocuments'));
+  const items = [];
+  snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+  items.sort((a, b) => (b.uploadedAt?.seconds || 0) - (a.uploadedAt?.seconds || 0));
+
+  if (items.length === 0) {
+    docList.innerHTML = '<div class="empty">No documents uploaded yet.</div>';
+    return;
+  }
+
+  docList.innerHTML = items.map(it => `
+    <div class="doc-row" data-id="${it.id}">
+      <div class="doc-info">
+        <div class="name">${escapeHtml(it.category)}${it.label ? ' — ' + escapeHtml(it.label) : ''}</div>
+        <div class="meta">${escapeHtml(it.fileName || '')} · ${fmtBytes(it.size || 0)} · ${fmtDate(it.uploadedAt)}</div>
+      </div>
+      <div class="doc-actions">
+        <a href="${it.data}" download="${escapeHtml(it.fileName || 'document')}"><button>Download</button></a>
+        <button class="del" data-id="${it.id}">Delete</button>
+      </div>
+    </div>
+  `).join('');
+
+  docList.querySelectorAll('.del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this document? This cannot be undone.')) return;
+      await deleteDoc(doc(db, 'personalDocuments', btn.dataset.id));
+      await loadDocuments();
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+
+</body>
+</html>
