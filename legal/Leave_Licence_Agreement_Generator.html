@@ -21338,13 +21338,12 @@ setPersistence(auth, inMemoryPersistence);
 // below; afterwards it always reads from Firestore. Once Firestore is
 // confirmed to have this data, the bundled copy here should be deleted.
 async function loadProperties(){
+  // Force-write the known-good local data to Firestore every time, rather
+  // than trusting whatever's already saved there - a prior version of this
+  // tool could have saved an empty list before this data was restored, and
+  // reading that back would silently wipe out the real data again.
   const ref = doc(db, 'legalToolsData', 'properties');
-  const snap = await getDoc(ref);
-  if (snap.exists()) {
-    PROPERTIES = snap.data().data;
-  } else {
-    await setDoc(ref, { data: PROPERTIES });
-  }
+  await setDoc(ref, { data: PROPERTIES });
 }
 
 const loginOverlay = document.getElementById('loginOverlay');
