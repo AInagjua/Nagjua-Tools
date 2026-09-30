@@ -1014,7 +1014,7 @@ function searchDocumentation(term){
       const cFlat = findCol(headers, ['flat no','flat number','flat no.']);
       const cName = findCol(headers, ['customer name','name of client','name']);
       if(cFlat === -1 && cName === -1) continue;
-      const skip = ['sr no','sr.','assigned by','assigned to','assigned date','flat no','name','remarks'];
+      const skip = ['sr no','sr.','assigned by','assigned to','assigned date','flat no','name','remarks','status','source sheet'];
 
       for(let r=hIdx+1; r<aoa.length; r++){
         const row = aoa[r];
