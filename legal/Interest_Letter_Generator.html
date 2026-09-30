@@ -1403,23 +1403,17 @@ const db = getFirestore(fbApp);
 // Once Firestore is confirmed to have this data, the bundled copies here
 // should be deleted.
 async function loadBookingData(){
+  // Force-write the known-good local data every time, rather than trusting
+  // whatever's already saved in Firestore - a prior version of this tool
+  // could have saved an empty list before this data was restored, and
+  // reading that back would silently wipe out the real data again.
   const mmpRef = doc(db, 'legalToolsData', 'bookingMMP');
   const nlsRef = doc(db, 'legalToolsData', 'bookingNLS');
-  const [mmpSnap, nlsSnap] = await Promise.all([getDoc(mmpRef), getDoc(nlsRef)]);
-  let mmpData, nlsData;
-  if (mmpSnap.exists()) {
-    mmpData = mmpSnap.data().data;
-  } else {
-    mmpData = BOOKING_DATA_MMP;
-    await setDoc(mmpRef, { data: mmpData });
-  }
-  if (nlsSnap.exists()) {
-    nlsData = nlsSnap.data().data;
-  } else {
-    nlsData = BOOKING_DATA_NLS;
-    await setDoc(nlsRef, { data: nlsData });
-  }
-  if (typeof loadEmbeddedBookingData === 'function') loadEmbeddedBookingData(mmpData, nlsData);
+  await Promise.all([
+    setDoc(mmpRef, { data: BOOKING_DATA_MMP }),
+    setDoc(nlsRef, { data: BOOKING_DATA_NLS })
+  ]);
+  if (typeof loadEmbeddedBookingData === 'function') loadEmbeddedBookingData(BOOKING_DATA_MMP, BOOKING_DATA_NLS);
 }
 setPersistence(auth, inMemoryPersistence);
 
