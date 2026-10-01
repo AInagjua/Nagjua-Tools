@@ -124,18 +124,6 @@
 
   <div class="card">
     <h2>2. Upload a Document</h2>
-    <label for="docCategory">Category</label>
-    <select id="docCategory">
-      <option>Aadhaar Card</option>
-      <option>PAN Card</option>
-      <option>Bank Details</option>
-      <option>Passport</option>
-      <option>Other</option>
-    </select>
-
-    <label for="docLabel">Label (optional)</label>
-    <input type="text" id="docLabel" placeholder="e.g. Front side, HDFC savings" />
-
     <label for="docFile">File (PDF or image, up to ~700 KB)</label>
     <input type="file" id="docFile" accept="application/pdf,image/*" />
 
@@ -241,8 +229,6 @@ function fmtDate(ts) {
 }
 
 uploadBtn.addEventListener('click', async () => {
-  const category = document.getElementById('docCategory').value;
-  const label = document.getElementById('docLabel').value.trim();
   const fileInput = document.getElementById('docFile');
   const file = fileInput.files[0];
   uploadMsg.textContent = '';
@@ -266,8 +252,6 @@ uploadBtn.addEventListener('click', async () => {
     const id = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     await setDoc(doc(db, 'personalDocuments', id), {
       owner: currentUser.email,
-      category,
-      label,
       fileName: file.name,
       mimeType: file.type || 'application/octet-stream',
       size: file.size,
@@ -277,7 +261,6 @@ uploadBtn.addEventListener('click', async () => {
     uploadMsg.textContent = 'Uploaded.';
     uploadMsg.className = 'msg ok';
     fileInput.value = '';
-    document.getElementById('docLabel').value = '';
     await loadDocuments();
   } catch (e) {
     uploadMsg.textContent = 'Upload failed: ' + e.message;
@@ -318,7 +301,7 @@ function renderDocuments(filterText) {
   docList.innerHTML = items.map(it => `
     <div class="doc-row" data-id="${it.id}">
       <div class="doc-info">
-        <div class="name">${escapeHtml(it.category)}${it.label ? ' — ' + escapeHtml(it.label) : ''}</div>
+        <div class="name">${it.category ? escapeHtml(it.category) + (it.label ? ' — ' + escapeHtml(it.label) : '') : escapeHtml(it.fileName || 'Document')}</div>
         <div class="meta">${escapeHtml(it.fileName || '')} · ${fmtBytes(it.size || 0)} · ${fmtDate(it.uploadedAt)}</div>
       </div>
       <div class="doc-actions">
