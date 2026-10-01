@@ -117,7 +117,13 @@
 
 <main>
   <div class="card">
-    <h2>Add a document</h2>
+    <h2>1. Search Documents</h2>
+    <label for="docSearch">Find a document</label>
+    <input type="text" id="docSearch" placeholder="Search by category, label, or file name…" />
+  </div>
+
+  <div class="card">
+    <h2>2. Upload a Document</h2>
     <label for="docCategory">Category</label>
     <select id="docCategory">
       <option>Aadhaar Card</option>
@@ -138,7 +144,7 @@
   </div>
 
   <div class="card">
-    <h2>Your documents</h2>
+    <h2>3. Access Documents</h2>
     <div id="docList"><div class="empty">Loading…</div></div>
   </div>
 </main>
@@ -176,6 +182,8 @@ const loginError = document.getElementById('loginError');
 const uploadBtn = document.getElementById('uploadBtn');
 const uploadMsg = document.getElementById('uploadMsg');
 const docList = document.getElementById('docList');
+const docSearch = document.getElementById('docSearch');
+docSearch.addEventListener('input', () => renderDocuments(docSearch.value));
 
 let currentUser = null;
 
@@ -279,15 +287,31 @@ uploadBtn.addEventListener('click', async () => {
   }
 });
 
+let allDocuments = [];
+
 async function loadDocuments() {
   docList.innerHTML = '<div class="empty">Loading…</div>';
   const snap = await getDocs(collection(db, 'personalDocuments'));
   const items = [];
   snap.forEach(d => items.push({ id: d.id, ...d.data() }));
   items.sort((a, b) => (b.uploadedAt?.seconds || 0) - (a.uploadedAt?.seconds || 0));
+  allDocuments = items;
+  renderDocuments(docSearch.value);
+}
 
-  if (items.length === 0) {
+function renderDocuments(filterText) {
+  const q = (filterText || '').trim().toLowerCase();
+  const items = !q ? allDocuments : allDocuments.filter(it => {
+    const haystack = [it.category, it.label, it.fileName].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+
+  if (allDocuments.length === 0) {
     docList.innerHTML = '<div class="empty">No documents uploaded yet.</div>';
+    return;
+  }
+  if (items.length === 0) {
+    docList.innerHTML = '<div class="empty">No documents match your search.</div>';
     return;
   }
 
