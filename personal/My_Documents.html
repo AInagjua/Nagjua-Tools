@@ -127,6 +127,9 @@
     <label for="docFile">File (PDF or image, up to ~700 KB)</label>
     <input type="file" id="docFile" accept="application/pdf,image/*" />
 
+    <label for="docPassword">Password to open this document (optional)</label>
+    <input type="text" id="docPassword" placeholder="Leave blank for no password" />
+
     <button id="uploadBtn">Upload</button>
     <div id="uploadMsg" class="msg"></div>
   </div>
@@ -145,7 +148,7 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPe
 import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBaSh2COBRy-xdJr_ccjYxg54A23EeMaS4",
+  apiKey: "AIzaSyADkd67rBpQyHTeZkFapixW1tBu_zZUG0c",
   authDomain: "transaction-search-ng.firebaseapp.com",
   projectId: "transaction-search-ng",
   storageBucket: "transaction-search-ng.firebasestorage.app",
@@ -230,7 +233,9 @@ function fmtDate(ts) {
 
 uploadBtn.addEventListener('click', async () => {
   const fileInput = document.getElementById('docFile');
+  const passwordInput = document.getElementById('docPassword');
   const file = fileInput.files[0];
+  const password = passwordInput.value;
   uploadMsg.textContent = '';
   uploadMsg.className = 'msg';
 
