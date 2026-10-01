@@ -165,7 +165,7 @@ setPersistence(auth, inMemoryPersistence);
 
 // This tool is for one account only, by design - personal documents are
 // not shared with the rest of the team's tools.
-const ALLOWED_EMAIL = "ai@nagjua.com";
+const ALLOWED_EMAILS = ["ai@nagjua.com", "nagjua@yahoo.com"];
 const MAX_BYTES = 700 * 1024; // ~700KB raw file size, stays under Firestore's 1MB doc cap once base64-encoded
 
 const loginOverlay = document.getElementById('loginOverlay');
@@ -194,7 +194,7 @@ loginBtn.addEventListener('click', async () => {
 logoutBtn.addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
-  if (user && (user.email || '').toLowerCase() === ALLOWED_EMAIL) {
+  if (user && ALLOWED_EMAILS.includes((user.email || '').toLowerCase())) {
     currentUser = user;
     loginOverlay.style.display = 'none';
     mainWrap.style.display = '';
