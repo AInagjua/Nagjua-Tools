@@ -4,100 +4,152 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Personal Documents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --navy: #1b2a41;
-    --navy-dark: #121e30;
-    --line: #dde3e8;
-    --bg: #f5f7f9;
+    --navy: #16243a;
+    --navy-dark: #0d1726;
+    --gold: #c8a24a;
+    --gold-light: #e8d5a3;
+    --line: #e3e7ee;
+    --bg: #eef1f6;
     --card: #ffffff;
     --text: #1c2530;
-    --muted: #6b7684;
-    --danger: #b3261e;
+    --muted: #7c8494;
+    --danger: #c0392b;
+    --ok: #1d8348;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    font-family: 'Inter', -apple-system, "Segoe UI", Arial, sans-serif;
     background: var(--bg);
+    background-image: radial-gradient(circle at top right, #f4ecd8 0%, var(--bg) 45%);
     color: var(--text);
+    min-height: 100vh;
   }
   header {
-    background: var(--navy);
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dark) 100%);
     color: #fff;
-    padding: 22px 24px;
+    padding: 32px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(13,23,38,.25);
+    position: relative;
   }
-  header h1 { margin: 0 0 4px; font-size: 1.4rem; }
-  header p { margin: 0; color: #cfd9e4; font-size: 0.85rem; }
+  header::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+  }
+  .header-text { display: flex; align-items: center; gap: 14px; }
+  .header-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(200,162,74,.18); border: 1px solid rgba(200,162,74,.4);
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;
+  }
+  header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: #a9b6c9; font-size: 0.85rem; }
   main {
-    max-width: 760px;
-    margin: 24px auto;
-    padding: 0 16px;
+    max-width: 820px;
+    margin: 32px auto 60px;
+    padding: 0 20px;
   }
   .card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
+    border-radius: 14px;
+    padding: 26px 28px;
+    margin-bottom: 22px;
+    box-shadow: 0 2px 8px rgba(22,36,58,.04), 0 10px 30px rgba(22,36,58,.03);
+    transition: box-shadow .2s ease;
   }
-  .card h2 { margin: 0 0 14px; font-size: 1.05rem; color: var(--navy); }
-  label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; margin-top: 12px; }
-  label:first-child { margin-top: 0; }
+  .card:hover { box-shadow: 0 2px 8px rgba(22,36,58,.06), 0 14px 36px rgba(22,36,58,.06); }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .card-num {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: var(--gold-light);
+    display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0;
+  }
+  .card h2 { margin: 0; font-size: 1.08rem; color: var(--navy); font-weight: 700; }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; margin-top: 16px; font-weight: 500; }
+  label:first-of-type { margin-top: 0; }
   select, input[type="text"], input[type="file"] {
-    width: 100%; padding: 9px 10px; border: 1px solid var(--line);
-    border-radius: 6px; font-size: 0.92rem; background: #fff;
+    width: 100%; padding: 11px 13px; border: 1.5px solid var(--line);
+    border-radius: 8px; font-size: 0.92rem; background: #fbfcfe; font-family: inherit;
+    transition: border-color .15s ease, background .15s ease;
   }
+  select:focus, input[type="text"]:focus {
+    outline: none; border-color: var(--gold); background: #fff;
+  }
+  input[type="file"] { padding: 9px 13px; cursor: pointer; }
   button {
-    margin-top: 16px; padding: 10px 18px; background: var(--navy); color: #fff;
-    border: none; border-radius: 6px; font-size: 0.92rem; cursor: pointer; font-weight: 600;
+    margin-top: 18px; padding: 11px 22px; background: var(--navy); color: #fff;
+    border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; font-weight: 600;
+    transition: background .15s ease, transform .1s ease; font-family: inherit;
   }
   button:hover { background: var(--navy-dark); }
-  button:disabled { background: #9aa5b1; cursor: not-allowed; }
-  .msg { margin-top: 10px; font-size: 0.85rem; }
+  button:active { transform: scale(0.98); }
+  button:disabled { background: #b7bec9; cursor: not-allowed; }
+  .msg { margin-top: 12px; font-size: 0.85rem; font-weight: 500; }
   .msg.error { color: var(--danger); }
-  .msg.ok { color: #1a7a3c; }
+  .msg.ok { color: var(--ok); }
   .doc-row {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 0; border-bottom: 1px solid var(--line);
+    padding: 14px 4px; border-bottom: 1px solid var(--line);
   }
   .doc-row:last-child { border-bottom: none; }
-  .doc-info .name { font-weight: 600; font-size: 0.92rem; }
-  .doc-info .meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
-  .doc-actions a, .doc-actions button {
-    margin-top: 0; margin-left: 8px; font-size: 0.8rem; padding: 6px 12px;
+  .doc-row:hover { background: #fafbfd; margin: 0 -4px; padding: 14px 8px; border-radius: 8px; }
+  .doc-icon {
+    width: 36px; height: 36px; border-radius: 9px; background: #f0e9d8; color: var(--gold);
+    display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; margin-right: 12px;
   }
-  .doc-actions .del { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
-  .doc-actions .del:hover { background: #fdecea; }
-  .empty { color: var(--muted); font-size: 0.88rem; padding: 8px 0; }
+  .doc-row-inner { display: flex; align-items: center; }
+  .doc-info .name { font-weight: 600; font-size: 0.93rem; }
+  .doc-info .meta { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+  .doc-actions a, .doc-actions button {
+    margin-top: 0; margin-left: 8px; font-size: 0.8rem; padding: 7px 14px; border-radius: 7px;
+  }
+  .doc-actions .dl { background: var(--navy); }
+  .doc-actions .del { background: #fff; color: var(--danger); border: 1.5px solid #f0d4cf; }
+  .doc-actions .del:hover { background: #fdf1ef; }
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 18px 4px; text-align: center; }
 
   .login-overlay {
-    position: fixed; inset: 0; background: var(--navy-dark);
+    position: fixed; inset: 0;
+    background: linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 100%);
     display: flex; align-items: center; justify-content: center; z-index: 9999;
   }
   .login-box {
-    background: #fff; border-radius: 10px; padding: 32px 28px; width: 100%; max-width: 340px;
-    box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    background: #fff; border-radius: 16px; padding: 36px 32px; width: 100%; max-width: 360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
   }
-  .login-box h2 { margin: 0 0 6px; color: var(--navy); font-size: 1.2rem; }
-  .login-box p { margin: 0 0 18px; color: var(--muted); font-size: 0.85rem; }
+  .login-icon {
+    width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 16px;
+    background: linear-gradient(135deg, var(--navy), var(--navy-dark));
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+  }
+  .login-box h2 { margin: 0 0 6px; color: var(--navy); font-size: 1.25rem; text-align: center; font-weight: 700; }
+  .login-box p { margin: 0 0 22px; color: var(--muted); font-size: 0.86rem; text-align: center; }
   .login-box input {
-    width: 100%; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--line);
-    border-radius: 6px; font-size: 0.9rem;
+    width: 100%; padding: 11px 13px; margin-bottom: 12px; border: 1.5px solid var(--line);
+    border-radius: 8px; font-size: 0.9rem; font-family: inherit;
   }
-  .login-box button { width: 100%; margin-top: 0; }
-  .login-error { color: var(--danger); font-size: 0.8rem; margin: -6px 0 12px; display: none; }
+  .login-box input:focus { outline: none; border-color: var(--gold); }
+  .login-box button { width: 100%; margin-top: 4px; }
+  .login-error { color: var(--danger); font-size: 0.8rem; margin: -6px 0 12px; display: none; text-align: center; }
   .logout-btn {
-    position: fixed; top: 14px; right: 16px; background: #fff; border: 1px solid var(--line);
-    border-radius: 6px; padding: 6px 12px; font-size: 0.78rem; cursor: pointer; color: var(--text);
-    z-index: 100;
+    position: fixed; top: 18px; right: 20px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 8px; padding: 8px 16px; font-size: 0.8rem; cursor: pointer; color: #fff; font-weight: 500;
+    z-index: 100; backdrop-filter: blur(4px); transition: background .15s ease;
   }
+  .logout-btn:hover { background: rgba(255,255,255,.18); }
 </style>
 </head>
 <body>
 
 <div id="loginOverlay" class="login-overlay">
   <div class="login-box">
+    <div class="login-icon">🔐</div>
     <h2>Personal Documents</h2>
     <p>Sign in to access your personal documents.</p>
     <div id="loginError" class="login-error">Incorrect email or password, or this account isn't authorized.</div>
@@ -111,19 +163,24 @@
 <div id="mainWrap" style="display:none;">
 
 <header>
-  <h1>Personal Documents</h1>
-  <p>Personal document storage — private, accessible only to you</p>
+  <div class="header-text">
+    <div class="header-icon">📁</div>
+    <div>
+      <h1>Personal Documents</h1>
+      <p>Private storage — accessible only to you</p>
+    </div>
+  </div>
 </header>
 
 <main>
   <div class="card">
-    <h2>1. Search Documents</h2>
+    <div class="card-head"><div class="card-num">1</div><h2>Search Documents</h2></div>
     <label for="docSearch">Find a document</label>
     <input type="text" id="docSearch" placeholder="Search by category, label, or file name…" />
   </div>
 
   <div class="card">
-    <h2>2. Upload a Document</h2>
+    <div class="card-head"><div class="card-num">2</div><h2>Upload a Document</h2></div>
     <label for="docFile">File (PDF or image, up to 50 MB)</label>
     <input type="file" id="docFile" accept="application/pdf,image/*" />
 
@@ -135,7 +192,7 @@
   </div>
 
   <div class="card">
-    <h2>3. Access Documents</h2>
+    <div class="card-head"><div class="card-num">3</div><h2>Access Documents</h2></div>
     <div id="docList"><div class="empty">Loading…</div></div>
   </div>
 </main>
@@ -329,9 +386,12 @@ function renderDocuments(filterText) {
 
   docList.innerHTML = items.map(it => `
     <div class="doc-row" data-id="${it.id}">
-      <div class="doc-info">
-        <div class="name">${it.password ? '🔒 ' : ''}${it.category ? escapeHtml(it.category) + (it.label ? ' — ' + escapeHtml(it.label) : '') : escapeHtml(it.fileName || 'Document')}</div>
-        <div class="meta">${escapeHtml(it.fileName || '')} · ${fmtBytes(it.size || 0)} · ${fmtDate(it.uploadedAt)}</div>
+      <div class="doc-row-inner">
+        <div class="doc-icon">${fileIcon(it.mimeType)}</div>
+        <div class="doc-info">
+          <div class="name">${it.password ? '🔒 ' : ''}${it.category ? escapeHtml(it.category) + (it.label ? ' — ' + escapeHtml(it.label) : '') : escapeHtml(it.fileName || 'Document')}</div>
+          <div class="meta">${escapeHtml(it.fileName || '')} · ${fmtBytes(it.size || 0)} · ${fmtDate(it.uploadedAt)}</div>
+        </div>
       </div>
       <div class="doc-actions">
         <button class="dl" data-id="${it.id}">Download</button>
@@ -403,6 +463,13 @@ async function downloadDocument(item) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function fileIcon(mimeType) {
+  if (!mimeType) return '📄';
+  if (mimeType.startsWith('image/')) return '🖼️';
+  if (mimeType === 'application/pdf') return '📕';
+  return '📄';
 }
 
 function escapeHtml(s) {
