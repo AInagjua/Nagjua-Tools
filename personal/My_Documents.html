@@ -411,9 +411,10 @@ async function loadDocuments() {
 
 function renderDocuments(filterText) {
   const q = (filterText || '').trim().toLowerCase();
-  const items = !q ? allDocuments : allDocuments.filter(it => {
+  const words = q.split(/\s+/).filter(Boolean);
+  const items = words.length === 0 ? allDocuments : allDocuments.filter(it => {
     const haystack = [it.category, it.label, it.fileName].filter(Boolean).join(' ').toLowerCase();
-    return haystack.includes(q);
+    return words.every(w => haystack.includes(w));
   });
 
   if (allDocuments.length === 0) {
