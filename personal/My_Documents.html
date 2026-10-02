@@ -163,7 +163,13 @@ setPersistence(auth, inMemoryPersistence);
 // This tool is for one account only, by design - personal documents are
 // not shared with the rest of the team's tools.
 const ALLOWED_EMAILS = ["ai@nagjua.com", "nagjua@yahoo.com"];
-const MAX_BYTES = 700 * 1024; // ~700KB raw file size, stays under Firestore's 1MB doc cap once base64-encoded
+// Large files are split into chunks behind the scenes (each chunk stored as
+// its own Firestore document, since a single document is capped at 1MB) and
+// reassembled on download. CHUNK_SIZE is the raw bytes per chunk - kept
+// under 1MB after base64 encoding inflates it by ~33%. MAX_BYTES is an
+// overall sanity cap so one file can't eat too much of the free quota.
+const CHUNK_SIZE = 700 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
 
 const loginOverlay = document.getElementById('loginOverlay');
 const mainWrap = document.getElementById('mainWrap');
@@ -231,11 +237,23 @@ function fmtDate(ts) {
   return ts.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+async function uploadFileInChunks(file, groupId, onProgress) {
+  const chunkCount = Math.ceil(file.size / CHUNK_SIZE) || 1;
+  for (let i = 0; i < chunkCount; i++) {
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, file.size);
+    const blobChunk = file.slice(start, end);
+    const dataUrl = await fileToBase64(blobChunk);
+    const base64Only = dataUrl.split(',')[1] || '';
+    await setDoc(doc(db, 'personalDocumentChunks', `${groupId}_${i}`), { data: base64Only });
+    if (onProgress) onProgress(i + 1, chunkCount);
+  }
+  return chunkCount;
+}
+
 uploadBtn.addEventListener('click', async () => {
   const fileInput = document.getElementById('docFile');
-  const passwordInput = document.getElementById('docPassword');
   const file = fileInput.files[0];
-  const password = passwordInput.value;
   uploadMsg.textContent = '';
   uploadMsg.className = 'msg';
 
@@ -251,16 +269,18 @@ uploadBtn.addEventListener('click', async () => {
   }
 
   uploadBtn.disabled = true;
-  uploadMsg.textContent = 'Uploading…';
   try {
-    const dataUrl = await fileToBase64(file);
-    const id = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    await setDoc(doc(db, 'personalDocuments', id), {
+    const groupId = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const chunkCount = await uploadFileInChunks(file, groupId, (done, total) => {
+      uploadMsg.textContent = total > 1 ? `Uploading… (${done}/${total})` : 'Uploading…';
+      uploadMsg.className = 'msg';
+    });
+    await setDoc(doc(db, 'personalDocuments', groupId), {
       owner: currentUser.email,
       fileName: file.name,
       mimeType: file.type || 'application/octet-stream',
       size: file.size,
-      data: dataUrl,
+      chunkCount,
       uploadedAt: serverTimestamp()
     });
     uploadMsg.textContent = 'Uploaded.';
@@ -310,19 +330,67 @@ function renderDocuments(filterText) {
         <div class="meta">${escapeHtml(it.fileName || '')} · ${fmtBytes(it.size || 0)} · ${fmtDate(it.uploadedAt)}</div>
       </div>
       <div class="doc-actions">
-        <a href="${it.data}" download="${escapeHtml(it.fileName || 'document')}"><button>Download</button></a>
+        <button class="dl" data-id="${it.id}">Download</button>
         <button class="del" data-id="${it.id}">Delete</button>
       </div>
     </div>
   `).join('');
 
+  docList.querySelectorAll('.dl').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = allDocuments.find(d => d.id === btn.dataset.id);
+      if (!item) return;
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Preparing…';
+      try {
+        await downloadDocument(item);
+      } catch (e) {
+        alert('Download failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  });
+
   docList.querySelectorAll('.del').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Delete this document? This cannot be undone.')) return;
-      await deleteDoc(doc(db, 'personalDocuments', btn.dataset.id));
+      const item = allDocuments.find(d => d.id === btn.dataset.id);
+      const deletes = [deleteDoc(doc(db, 'personalDocuments', btn.dataset.id))];
+      if (item) {
+        for (let i = 0; i < (item.chunkCount || 1); i++) {
+          deletes.push(deleteDoc(doc(db, 'personalDocumentChunks', `${item.id}_${i}`)));
+        }
+      }
+      await Promise.all(deletes);
       await loadDocuments();
     });
   });
+}
+
+async function downloadDocument(item) {
+  const chunkCount = item.chunkCount || 1;
+  const snaps = await Promise.all(
+    Array.from({ length: chunkCount }, (_, i) => getDoc(doc(db, 'personalDocumentChunks', `${item.id}_${i}`)))
+  );
+  const byteArrays = snaps.map(s => {
+    const base64 = s.data().data;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+    return bytes;
+  });
+  const blob = new Blob(byteArrays, { type: item.mimeType || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = item.fileName || 'document';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function escapeHtml(s) {
