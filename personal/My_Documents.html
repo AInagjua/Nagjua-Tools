@@ -457,12 +457,23 @@ function renderDocuments(filterText) {
       const item = allDocuments.find(d => d.id === btn.dataset.id);
       if (!item) return;
       if (!checkPassword(item)) return;
+      // Open the tab right now, synchronously, before any waiting - a tab
+      // opened after an await gets silently blocked by the browser's popup
+      // blocker. We fill in its content once the file is ready.
+      const newTab = window.open('', '_blank');
       const original = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Opening…';
       try {
-        await openDocument(item);
+        const blob = await buildDocumentBlob(item);
+        const url = URL.createObjectURL(blob);
+        if (newTab) {
+          newTab.location.href = url;
+        } else {
+          alert('Please allow popups for this site to open documents.');
+        }
       } catch (e) {
+        if (newTab) newTab.close();
         alert('Open failed: ' + e.message);
       } finally {
         btn.disabled = false;
@@ -519,21 +530,6 @@ async function buildDocumentBlob(item) {
     return bytes;
   });
   return new Blob(byteArrays, { type: item.mimeType || 'application/octet-stream' });
-}
-
-async function openDocument(item) {
-  const blob = await buildDocumentBlob(item);
-  const url = URL.createObjectURL(blob);
-  // window.open() after an async wait gets silently blocked by popup
-  // blockers in most browsers - a clicked link with target="_blank" is not.
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 async function downloadDocument(item) {
