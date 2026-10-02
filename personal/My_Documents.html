@@ -66,6 +66,14 @@
   }
   .card:hover { box-shadow: 0 2px 8px rgba(22,36,58,.06), 0 14px 36px rgba(22,36,58,.06); }
   .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .card-head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; }
+  .card-head-row .card-head { margin-bottom: 0; }
+  .toggle-btn {
+    background: none; border: 1.5px solid var(--navy); color: var(--navy);
+    padding: 7px 18px; border-radius: 7px; font-size: 0.8rem; cursor: pointer; font-weight: 600;
+    font-family: inherit; margin-top: 0; transition: background .15s ease, color .15s ease;
+  }
+  .toggle-btn:hover { background: var(--navy); color: #fff; }
   .card-num {
     width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: var(--gold-light);
     display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0;
@@ -192,23 +200,33 @@
   </div>
 
   <div class="card">
-    <div class="card-head"><div class="card-num">2</div><h2>Upload a Document</h2></div>
-    <label for="docFile">File (PDF or image, up to 50 MB)</label>
-    <input type="file" id="docFile" accept="application/pdf,image/*" />
-
-    <label for="docPassword">Password to open this document (optional)</label>
-    <div class="pw-field">
-      <input type="password" id="docPassword" placeholder="Leave blank for no password" />
-      <button type="button" class="pw-toggle" id="docPasswordToggle">Show</button>
+    <div class="card-head-row">
+      <div class="card-head"><div class="card-num">2</div><h2>Upload a Document</h2></div>
+      <button id="uploadToggle" class="toggle-btn" type="button">Show</button>
     </div>
+    <div id="uploadPanel" style="display:none">
+      <label for="docFile">File (PDF or image, up to 50 MB)</label>
+      <input type="file" id="docFile" accept="application/pdf,image/*" />
 
-    <button id="uploadBtn">Upload</button>
-    <div id="uploadMsg" class="msg"></div>
+      <label for="docPassword">Password to open this document (optional)</label>
+      <div class="pw-field">
+        <input type="password" id="docPassword" placeholder="Leave blank for no password" />
+        <button type="button" class="pw-toggle" id="docPasswordToggle">Show</button>
+      </div>
+
+      <button id="uploadBtn">Upload</button>
+      <div id="uploadMsg" class="msg"></div>
+    </div>
   </div>
 
   <div class="card">
-    <div class="card-head"><div class="card-num">3</div><h2>Access Documents</h2></div>
-    <div id="docList"><div class="empty">Loading…</div></div>
+    <div class="card-head-row">
+      <div class="card-head"><div class="card-num">3</div><h2>Access Documents</h2></div>
+      <button id="accessToggle" class="toggle-btn" type="button">Show</button>
+    </div>
+    <div id="accessPanel" style="display:none">
+      <div id="docList"><div class="empty">Loading…</div></div>
+    </div>
   </div>
 </main>
 
@@ -253,6 +271,18 @@ const uploadMsg = document.getElementById('uploadMsg');
 const docList = document.getElementById('docList');
 const docSearch = document.getElementById('docSearch');
 docSearch.addEventListener('input', () => renderDocuments(docSearch.value));
+
+function wireToggle(btnId, panelId) {
+  const btn = document.getElementById(btnId);
+  const panel = document.getElementById(panelId);
+  btn.addEventListener('click', () => {
+    const willShow = panel.style.display === 'none';
+    panel.style.display = willShow ? 'block' : 'none';
+    btn.textContent = willShow ? 'Hide' : 'Show';
+  });
+}
+wireToggle('uploadToggle', 'uploadPanel');
+wireToggle('accessToggle', 'accessPanel');
 
 const docPasswordInput = document.getElementById('docPassword');
 const docPasswordToggle = document.getElementById('docPasswordToggle');
