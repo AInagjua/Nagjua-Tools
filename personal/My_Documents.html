@@ -253,7 +253,9 @@ async function uploadFileInChunks(file, groupId, onProgress) {
 
 uploadBtn.addEventListener('click', async () => {
   const fileInput = document.getElementById('docFile');
+  const passwordInput = document.getElementById('docPassword');
   const file = fileInput.files[0];
+  const password = passwordInput.value;
   uploadMsg.textContent = '';
   uploadMsg.className = 'msg';
 
@@ -281,11 +283,13 @@ uploadBtn.addEventListener('click', async () => {
       mimeType: file.type || 'application/octet-stream',
       size: file.size,
       chunkCount,
+      password: password || null,
       uploadedAt: serverTimestamp()
     });
     uploadMsg.textContent = 'Uploaded.';
     uploadMsg.className = 'msg ok';
     fileInput.value = '';
+    passwordInput.value = '';
     await loadDocuments();
   } catch (e) {
     uploadMsg.textContent = 'Upload failed: ' + e.message;
@@ -326,7 +330,7 @@ function renderDocuments(filterText) {
   docList.innerHTML = items.map(it => `
     <div class="doc-row" data-id="${it.id}">
       <div class="doc-info">
-        <div class="name">${it.category ? escapeHtml(it.category) + (it.label ? ' — ' + escapeHtml(it.label) : '') : escapeHtml(it.fileName || 'Document')}</div>
+        <div class="name">${it.password ? '🔒 ' : ''}${it.category ? escapeHtml(it.category) + (it.label ? ' — ' + escapeHtml(it.label) : '') : escapeHtml(it.fileName || 'Document')}</div>
         <div class="meta">${escapeHtml(it.fileName || '')} · ${fmtBytes(it.size || 0)} · ${fmtDate(it.uploadedAt)}</div>
       </div>
       <div class="doc-actions">
@@ -340,6 +344,14 @@ function renderDocuments(filterText) {
     btn.addEventListener('click', async () => {
       const item = allDocuments.find(d => d.id === btn.dataset.id);
       if (!item) return;
+      if (item.password) {
+        const entered = prompt('This document is password protected. Enter the password:');
+        if (entered === null) return; // cancelled
+        if (entered !== item.password) {
+          alert('Incorrect password.');
+          return;
+        }
+      }
       const original = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Preparing…';
