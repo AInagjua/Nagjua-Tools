@@ -151,7 +151,6 @@
 
 <div id="loginOverlay" class="login-overlay">
   <div class="login-box">
-    <div class="login-icon">🔐</div>
     <h2>Personal Documents</h2>
     <p>Sign in to access your personal documents.</p>
     <div id="loginError" class="login-error">Incorrect email or password, or this account isn't authorized.</div>
@@ -486,8 +485,15 @@ async function buildDocumentBlob(item) {
 async function openDocument(item) {
   const blob = await buildDocumentBlob(item);
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  // Give the new tab time to load the blob before revoking it.
+  // window.open() after an async wait gets silently blocked by popup
+  // blockers in most browsers - a clicked link with target="_blank" is not.
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
