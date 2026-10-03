@@ -190,7 +190,7 @@
       <button id="uploadToggle" class="toggle-btn" type="button">Show</button>
     </div>
     <div id="uploadPanel" style="display:none">
-      <label for="docFile">File (PDF or image, up to 50 MB)</label>
+      <label for="docFile">File (PDF or image, up to 100 MB)</label>
       <input type="file" id="docFile" accept="application/pdf,image/*" />
 
       <label for="docPassword">Password to open this document (optional)</label>
@@ -241,7 +241,7 @@ const ALLOWED_EMAILS = ["ai@nagjua.com", "nagjua@yahoo.com"];
 // under 1MB after base64 encoding inflates it by ~33%. MAX_BYTES is an
 // overall sanity cap so one file can't eat too much of the free quota.
 const CHUNK_SIZE = 700 * 1024;
-const MAX_BYTES = 50 * 1024 * 1024;
+const MAX_BYTES = 100 * 1024 * 1024;
 
 const loginOverlay = document.getElementById('loginOverlay');
 const mainWrap = document.getElementById('mainWrap');
