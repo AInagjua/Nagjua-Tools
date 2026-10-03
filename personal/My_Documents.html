@@ -138,7 +138,6 @@
   }
   .doc-actions .op { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); }
   .doc-actions .op:hover { background: #f3f5f8; }
-  .doc-actions .dl { background: var(--navy); }
   .doc-actions .del { background: #fff; color: var(--danger); border: 1.5px solid #f0d4cf; }
   .doc-actions .del:hover { background: #fdf1ef; }
   .empty { color: var(--muted); font-size: 0.9rem; padding: 18px 4px; text-align: center; }
@@ -468,7 +467,6 @@ function renderDocuments(filterText) {
       </div>
       <div class="doc-actions">
         <button class="op" data-id="${it.id}">Open</button>
-        <button class="dl" data-id="${it.id}">Download</button>
         <button class="del" data-id="${it.id}">Delete</button>
       </div>
     </div>
@@ -499,25 +497,6 @@ function renderDocuments(filterText) {
         showViewer(item.fileName || 'Document', url);
       } catch (e) {
         alert('Open failed: ' + e.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = original;
-      }
-    });
-  });
-
-  docList.querySelectorAll('.dl').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const item = allDocuments.find(d => d.id === btn.dataset.id);
-      if (!item) return;
-      if (!checkPassword(item)) return;
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Preparing…';
-      try {
-        await downloadDocument(item);
-      } catch (e) {
-        alert('Download failed: ' + e.message);
       } finally {
         btn.disabled = false;
         btn.textContent = original;
@@ -581,18 +560,6 @@ async function buildDocumentBlob(item) {
     return bytes;
   });
   return new Blob(byteArrays, { type: item.mimeType || 'application/octet-stream' });
-}
-
-async function downloadDocument(item) {
-  const blob = await buildDocumentBlob(item);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = item.fileName || 'document';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function fileIcon(mimeType) {
