@@ -488,14 +488,22 @@ function renderDocuments(filterText) {
     btn.addEventListener('click', async () => {
       if (!confirm('Delete this document? This cannot be undone.')) return;
       const item = allDocuments.find(d => d.id === btn.dataset.id);
-      const deletes = [deleteDoc(doc(db, 'personalDocuments', btn.dataset.id))];
-      if (item) {
-        for (let i = 0; i < (item.chunkCount || 1); i++) {
-          deletes.push(deleteDoc(doc(db, 'personalDocumentChunks', `${item.id}_${i}`)));
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+      try {
+        const deletes = [deleteDoc(doc(db, 'personalDocuments', btn.dataset.id))];
+        if (item) {
+          for (let i = 0; i < (item.chunkCount || 1); i++) {
+            deletes.push(deleteDoc(doc(db, 'personalDocumentChunks', `${item.id}_${i}`)));
+          }
         }
+        await Promise.all(deletes);
+        await loadDocuments();
+      } catch (e) {
+        alert('Delete failed: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Delete';
       }
-      await Promise.all(deletes);
-      await loadDocuments();
     });
   });
 }
