@@ -87,14 +87,28 @@
   }
   .viewer-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+    border-bottom: 1px solid var(--line); flex-shrink: 0; background: #f5f7f9;
   }
-  .viewer-header .name { font-weight: 600; font-size: 0.92rem; color: var(--navy); }
+  .viewer-tabs {
+    display: flex; overflow-x: auto; flex: 1; min-width: 0;
+  }
+  .viewer-tab {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    border-right: 1px solid var(--line); cursor: pointer; white-space: nowrap;
+    font-size: 0.82rem; color: var(--muted); flex-shrink: 0; max-width: 220px;
+  }
+  .viewer-tab .tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .viewer-tab.active { background: #fff; color: var(--navy); font-weight: 600; }
+  .viewer-tab-close {
+    background: none; border: none; cursor: pointer; color: inherit; font-size: 0.9rem;
+    padding: 0; margin: 0; line-height: 1; opacity: 0.6;
+  }
+  .viewer-tab-close:hover { opacity: 1; }
   .viewer-close {
-    background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--muted);
-    margin-top: 0; padding: 2px 8px; line-height: 1;
+    background: none; border: none; font-size: 0.8rem; cursor: pointer; color: var(--muted);
+    margin-top: 0; padding: 10px 16px; white-space: nowrap; flex-shrink: 0;
   }
-  .viewer-close:hover { color: var(--text); }
+  .viewer-close:hover { color: var(--danger); }
   .viewer-frame { flex: 1; border: none; width: 100%; background: #525659; }
   .card-num {
     width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: var(--gold-light);
@@ -238,8 +252,8 @@
 <div id="viewerOverlay" class="viewer-overlay">
   <div class="viewer-box">
     <div class="viewer-header">
-      <span class="name" id="viewerName"></span>
-      <button type="button" class="viewer-close" id="viewerClose">✕</button>
+      <div class="viewer-tabs" id="viewerTabs"></div>
+      <button type="button" class="viewer-close" id="viewerCloseAll">Close all ✕</button>
     </div>
     <iframe id="viewerFrame" class="viewer-frame"></iframe>
   </div>
@@ -494,7 +508,7 @@ function renderDocuments(filterText) {
       try {
         const blob = await buildDocumentBlob(item);
         const url = URL.createObjectURL(blob);
-        showViewer(item.fileName || 'Document', url);
+        showViewer(item.id, item.fileName || 'Document', url);
       } catch (e) {
         alert('Open failed: ' + e.message);
       } finally {
@@ -522,30 +536,76 @@ function renderDocuments(filterText) {
 
 const viewerOverlay = document.getElementById('viewerOverlay');
 const viewerFrame = document.getElementById('viewerFrame');
-const viewerName = document.getElementById('viewerName');
-const viewerClose = document.getElementById('viewerClose');
-let viewerCurrentUrl = null;
+const viewerTabs = document.getElementById('viewerTabs');
+const viewerCloseAll = document.getElementById('viewerCloseAll');
 
-function showViewer(name, url) {
-  viewerName.textContent = name;
-  viewerFrame.src = url;
-  viewerCurrentUrl = url;
+let openTabs = []; // [{id, name, url}]
+let activeTabId = null;
+
+function showViewer(id, name, url) {
+  const existing = openTabs.find(t => t.id === id);
+  if (existing) {
+    // Already open in a tab - just switch to it, and use the fresh blob/url
+    // in case the file changed, releasing the old one.
+    URL.revokeObjectURL(existing.url);
+    existing.url = url;
+  } else {
+    openTabs.push({ id, name, url });
+  }
+  activeTabId = id;
+  renderTabs();
   viewerOverlay.classList.add('open');
+}
+
+function renderTabs() {
+  viewerTabs.innerHTML = openTabs.map(t => `
+    <div class="viewer-tab${t.id === activeTabId ? ' active' : ''}" data-id="${t.id}">
+      <span class="tab-name">${escapeHtml(t.name)}</span>
+      <button type="button" class="viewer-tab-close" data-id="${t.id}">✕</button>
+    </div>
+  `).join('');
+
+  viewerTabs.querySelectorAll('.viewer-tab').forEach(tabEl => {
+    tabEl.addEventListener('click', (e) => {
+      if (e.target.closest('.viewer-tab-close')) return;
+      switchTab(tabEl.dataset.id);
+    });
+  });
+  viewerTabs.querySelectorAll('.viewer-tab-close').forEach(btn => {
+    btn.addEventListener('click', () => closeTab(btn.dataset.id));
+  });
+
+  const active = openTabs.find(t => t.id === activeTabId);
+  viewerFrame.src = active ? active.url : '';
+}
+
+function switchTab(id) {
+  activeTabId = id;
+  renderTabs();
+}
+
+function closeTab(id) {
+  const idx = openTabs.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  URL.revokeObjectURL(openTabs[idx].url);
+  openTabs.splice(idx, 1);
+  if (openTabs.length === 0) {
+    closeViewer();
+  } else {
+    if (activeTabId === id) activeTabId = openTabs[openTabs.length - 1].id;
+    renderTabs();
+  }
 }
 
 function closeViewer() {
   viewerOverlay.classList.remove('open');
   viewerFrame.src = '';
-  if (viewerCurrentUrl) {
-    URL.revokeObjectURL(viewerCurrentUrl);
-    viewerCurrentUrl = null;
-  }
+  openTabs.forEach(t => URL.revokeObjectURL(t.url));
+  openTabs = [];
+  activeTabId = null;
 }
 
-viewerClose.addEventListener('click', closeViewer);
-viewerOverlay.addEventListener('click', (e) => {
-  if (e.target === viewerOverlay) closeViewer();
-});
+viewerCloseAll.addEventListener('click', closeViewer);
 
 async function buildDocumentBlob(item) {
   const chunkCount = item.chunkCount || 1;
