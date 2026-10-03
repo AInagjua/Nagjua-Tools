@@ -74,6 +74,28 @@
     font-family: inherit; margin-top: 0; transition: background .15s ease, color .15s ease;
   }
   .toggle-btn:hover { background: var(--navy); color: #fff; }
+
+  .viewer-overlay {
+    position: fixed; inset: 0; background: rgba(13,23,38,.85);
+    display: none; align-items: center; justify-content: center; z-index: 10000;
+    padding: 24px;
+  }
+  .viewer-overlay.open { display: flex; }
+  .viewer-box {
+    background: #fff; border-radius: 12px; width: 100%; max-width: 900px; height: 90vh;
+    display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .viewer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .viewer-header .name { font-weight: 600; font-size: 0.92rem; color: var(--navy); }
+  .viewer-close {
+    background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--muted);
+    margin-top: 0; padding: 2px 8px; line-height: 1;
+  }
+  .viewer-close:hover { color: var(--text); }
+  .viewer-frame { flex: 1; border: none; width: 100%; background: #525659; }
   .card-num {
     width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: var(--gold-light);
     display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0;
@@ -212,6 +234,16 @@
   </div>
 </main>
 
+</div>
+
+<div id="viewerOverlay" class="viewer-overlay">
+  <div class="viewer-box">
+    <div class="viewer-header">
+      <span class="name" id="viewerName"></span>
+      <button type="button" class="viewer-close" id="viewerClose">✕</button>
+    </div>
+    <iframe id="viewerFrame" class="viewer-frame"></iframe>
+  </div>
 </div>
 
 <script type="module">
@@ -458,23 +490,14 @@ function renderDocuments(filterText) {
       const item = allDocuments.find(d => d.id === btn.dataset.id);
       if (!item) return;
       if (!checkPassword(item)) return;
-      // Open the tab right now, synchronously, before any waiting - a tab
-      // opened after an await gets silently blocked by the browser's popup
-      // blocker. We fill in its content once the file is ready.
-      const newTab = window.open('', '_blank');
       const original = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Opening…';
       try {
         const blob = await buildDocumentBlob(item);
         const url = URL.createObjectURL(blob);
-        if (newTab) {
-          newTab.location.href = url;
-        } else {
-          alert('Please allow popups for this site to open documents.');
-        }
+        showViewer(item.fileName || 'Document', url);
       } catch (e) {
-        if (newTab) newTab.close();
         alert('Open failed: ' + e.message);
       } finally {
         btn.disabled = false;
@@ -517,6 +540,33 @@ function renderDocuments(filterText) {
     });
   });
 }
+
+const viewerOverlay = document.getElementById('viewerOverlay');
+const viewerFrame = document.getElementById('viewerFrame');
+const viewerName = document.getElementById('viewerName');
+const viewerClose = document.getElementById('viewerClose');
+let viewerCurrentUrl = null;
+
+function showViewer(name, url) {
+  viewerName.textContent = name;
+  viewerFrame.src = url;
+  viewerCurrentUrl = url;
+  viewerOverlay.classList.add('open');
+}
+
+function closeViewer() {
+  viewerOverlay.classList.remove('open');
+  viewerFrame.src = '';
+  if (viewerCurrentUrl) {
+    URL.revokeObjectURL(viewerCurrentUrl);
+    viewerCurrentUrl = null;
+  }
+}
+
+viewerClose.addEventListener('click', closeViewer);
+viewerOverlay.addEventListener('click', (e) => {
+  if (e.target === viewerOverlay) closeViewer();
+});
 
 async function buildDocumentBlob(item) {
   const chunkCount = item.chunkCount || 1;
