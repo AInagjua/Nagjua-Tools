@@ -977,7 +977,8 @@ function calculateInterest(letters, payments, interestLetterDate, annualRatePct)
       // inclusively when it happens to be dated the same as the Interest
       // Letter itself (i.e. it IS today, the day this is being drafted).
       // A genuine earlier letter stays exclusive, per rule 4.
-      const closingOnDraftDay = (ev.date === interestLetterDate);
+      // Reminder date is counted (inclusive). Demand date is not.
+      const closingOnDraftDay = (ev.letterType === "reminder");
       // Close out any interest accruing on the previous outstanding up to this letter's date.
       if(graceEndDate && outstanding > 0){
         if(graceBroken && interestAccrualStart){
