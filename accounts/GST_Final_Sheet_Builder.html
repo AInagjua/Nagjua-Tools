@@ -144,6 +144,7 @@ const sIdx=new Map();for(const r of sm.rows.slice(sm.h)){const a=g(sm,r,'Applica
  const lk=(col,x)=>`INDEX(${rng(sm,'Sales Mis',col)},MATCH($B${x},${rng(sm,'Sales Mis','Application No')},0))`;
  const RA=rng(rr,'Receipt Register','Application No'),RD=rng(rr,'Receipt Register','Money Receipt No'),PA=rng(pt,'PTC','Application No'),PD=rng(pt,'PTC','Document No');
  const SB=rng(sm,'Sales Mis','Booking No');
+  const ucCol=(()=>{const r1=sm.rows[sm.h-3]||[],r2=sm.rows[sm.h-2]||[];for(let i=0;i<r2.length;i++)if(/unit cost/i.test(String(r2[i]||''))&&/^basic$/i.test(String(r1[i]||'').trim()))return i+1;return 0})();
  const first=4,last=first+items.length-1,NF='#,##0;\\(#,##0\\);\\-';
  items.forEach((it,i)=>{const x=first+i,f=(c,fm)=>ws.getCell(c+x).value={formula:fm};
   if(it.fb)ws.getCell('B'+x).value=it.app;else f('B',`IFERROR(INDEX(${RA},MATCH($G${x},${RD},0)),INDEX(${PA},MATCH($G${x},${PD},0)))`);
@@ -152,8 +153,7 @@ const sIdx=new Map();for(const r of sm.rows.slice(sm.h)){const a=g(sm,r,'Applica
   f('J',lk('Level3',x));f('K',cbm?`IF($J${x}="BLUE BELL","",${lk('Level4',x)})`:lk('Level4',x));ws.getCell('L'+x).value=it.dr;ws.getCell('M'+x).value=it.cr;
   f('N',`L${x}-M${x}`);f('O',cbm?`TRIM(J${x}&" "&K${x})`:`J${x}`);f('P',`TEXT(H${x},"MMM-YY")`);
   f('Q',`IF(MONTH(H${x})>=4,YEAR(H${x})&"-"&RIGHT(YEAR(H${x})+1,2),(YEAR(H${x})-1)&"-"&RIGHT(YEAR(H${x}),2))`);
-  ws.getCell('R'+x).value=it.rt;f('S',`SUMIFS(${rng(sm,'Sales Mis','Total Basic')},${SB},$C${x})`);
-  f('T',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$C${x})`);f('U',`IF(T${x}=0,"EXMPTED","TAXABLE")`);
+ws.getCell('R'+x).value=it.rt;f('S',(()=>{const tb=`SUMIFS(${rng(sm,'Sales Mis','Total Basic')},${SB},$C${x})`;if(!sm.c['Business Unit']||!ucCol)return tb;const cr=`'Sales Mis'!$${L(ucCol)}$${sm.h+1}:$${L(ucCol)}$${sm.n}`,uc=`SUMIFS(${cr},${SB},$C${x})`,bu=`INDEX(${rng(sm,'Sales Mis','Business Unit')},MATCH($B${x},${rng(sm,'Sales Mis','Application No')},0))`,k=`SUBSTITUTE($K${x}," ","")`;return `IF(ISNUMBER(SEARCH("TROPICAL GREENS",${bu})),${uc}+IF(${uc}>0,IF(${k}="2BHK",25000,IF(${k}="3BHK",37500,IF(${k}="4BHK",50000,0))),0),${tb})`})());  f('T',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$C${x})`);f('U',`IF(T${x}=0,"EXMPTED","TAXABLE")`);
   ws.getCell('V'+x).value=it.nar;if(hasTds)f('W',`IF(LEFT(I${x},3)="TDS",N${x},0)`)});
  ws.getCell('K2').value='Total';for(const c of hasTds?'LMNW':'LMN')ws.getCell(c+'2').value={formula:`SUBTOTAL(9,${c}${first}:${c}${last})`};
  const thin={style:'thin'},med={style:'medium'};
