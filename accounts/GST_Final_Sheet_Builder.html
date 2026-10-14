@@ -153,7 +153,7 @@ const sIdx=new Map();for(const r of sm.rows.slice(sm.h)){const a=g(sm,r,'Applica
   f('N',`L${x}-M${x}`);f('O',cbm?`TRIM(J${x}&" "&K${x})`:`J${x}`);f('P',`TEXT(H${x},"MMM-YY")`);
   f('Q',`IF(MONTH(H${x})>=4,YEAR(H${x})&"-"&RIGHT(YEAR(H${x})+1,2),(YEAR(H${x})-1)&"-"&RIGHT(YEAR(H${x}),2))`);
   ws.getCell('R'+x).value=it.rt;f('S',`SUMIFS(${rng(sm,'Sales Mis','Total Basic')},${SB},$C${x})`);
-  f('T',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$C${x})`);f('U',`IF(T${x}>0,"TAXABLE","EXMPTED")`);
+  f('T',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$C${x})`);f('U',`IF(T${x}>0,"EXMPTED","TAXABLE")`);
   ws.getCell('V'+x).value=it.nar;if(hasTds)f('W',`IF(LEFT(I${x},3)="TDS",N${x},0)`)});
  ws.getCell('K2').value='Total';for(const c of hasTds?'LMNW':'LMN')ws.getCell(c+'2').value={formula:`SUBTOTAL(9,${c}${first}:${c}${last})`};
  const thin={style:'thin'},med={style:'medium'};
