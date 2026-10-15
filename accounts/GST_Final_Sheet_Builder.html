@@ -152,16 +152,13 @@ const sIdx=new Map();for(const r of sm.rows.slice(sm.h)){const a=g(sm,r,'Applica
   (w.model.merges||[]).forEach(m=>{try{s.mergeCells(m)}catch(e){}});
   if(w.views&&w.views.length)s.views=JSON.parse(JSON.stringify(w.views));
   if(w.autoFilter)s.autoFilter=w.autoFilter}
- const H=['Status','Application No','Booking No','Customer Name','Flat No.','ENTRY TYPE','DOCUMENTNO','DOCUMENTDATE','CASHANDBANK','Level3','Level4','Sum of DEBIT','Sum of CREDIT','NET AMOUNT','BUIDING NAME','MONTH','F Y YEAR','RECEIPT TYPE','SALE DEED VALUE','GST','FLAT GST STATUS','NARRATION','TDS'];
- H.slice(0,LC).forEach((h,i)=>ws.getCell(3,i+1).value=h);
- const lk=(col,x)=>`INDEX(${rng(sm,'Sales Mis',col)},MATCH($B${x},${rng(sm,'Sales Mis','Application No')},0))`;
- const RA=rng(rr,'Receipt Register','Application No'),RD=rng(rr,'Receipt Register','Money Receipt No'),PA=rng(pt,'PTC','Application No'),PD=rng(pt,'PTC','Document No');
+const H=['Business Unit','Status','Application No','Booking No','Customer Name','Flat No.','ENTRY TYPE','DOCUMENTNO','DOCUMENTDATE','CASHANDBANK','Level3','Level4','Sum of DEBIT','Sum of CREDIT','NET AMOUNT','BUIDING NAME','MONTH','F Y YEAR','RECEIPT TYPE','SALE DEED VALUE','GST','FLAT GST STATUS','NARRATION','TDS']; H.slice(0,LC).forEach((h,i)=>ws.getCell(3,i+1).value=h);
+const lk=(col,x)=>`INDEX(${rng(sm,'Sales Mis',col)},MATCH($C${x},${rng(sm,'Sales Mis','Application No')},0))`; const RA=rng(rr,'Receipt Register','Application No'),RD=rng(rr,'Receipt Register','Money Receipt No'),PA=rng(pt,'PTC','Application No'),PD=rng(pt,'PTC','Document No');
  const SB=rng(sm,'Sales Mis','Booking No');
   const ucCol=(()=>{const r1=sm.rows[sm.h-3]||[],r2=sm.rows[sm.h-2]||[];for(let i=0;i<r2.length;i++)if(/unit cost/i.test(String(r2[i]||''))&&/^basic$/i.test(String(r1[i]||'').trim()))return i+1;return 0})();
  const first=4,last=first+items.length-1,NF='#,##0;\\(#,##0\\);\\-';
  items.forEach((it,i)=>{const x=first+i,f=(c,fm)=>ws.getCell(c+x).value={formula:fm};
-  if(it.fb)ws.getCell('B'+x).value=it.app;else f('B',`IFERROR(INDEX(${RA},MATCH($G${x},${RD},0)),INDEX(${PA},MATCH($G${x},${PD},0)))`);
-  f('A',lk('Business Unit',x));f('B',lk('Status',x));f('C',lk('Booking No',x));f('D',lk('Customer Name',x));f('E',cbm?`IF($J${x}="BLUE BELL","K "&${lk('Unit Code',x)},${lk('Unit Code',x)})`:lk('Unit Code',x));
+if(it.fb)ws.getCell('C'+x).value=it.app;else f('C',`IFERROR(INDEX(${RA},MATCH($H${x},${RD},0)),INDEX(${PA},MATCH($H${x},${PD},0)))`);  f('A',lk('Business Unit',x));f('B',lk('Status',x));f('C',lk('Booking No',x));f('D',lk('Customer Name',x));f('E',cbm?`IF($J${x}="BLUE BELL","K "&${lk('Unit Code',x)},${lk('Unit Code',x)})`:lk('Unit Code',x));
   ws.getCell('F'+x).value=it.et;ws.getCell('G'+x).value=it.doc;ws.getCell('H'+x).value=it.d;ws.getCell('I'+x).value=it.bank;
   f('J',lk('Level3',x));f('K',cbm?`IF($J${x}="BLUE BELL","",${lk('Level4',x)})`:lk('Level4',x));ws.getCell('L'+x).value=it.dr;ws.getCell('M'+x).value=it.cr;
   f('N',`L${x}-M${x}`);f('O',cbm?`IF(ISNUMBER(SEARCH("TROPICAL GREENS",${lk('Business Unit',x)})),J${x},TRIM(J${x}&" "&K${x}))`:`J${x}`);
