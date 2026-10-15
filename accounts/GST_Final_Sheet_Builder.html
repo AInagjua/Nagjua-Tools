@@ -56,7 +56,7 @@ function mergeSales(list){const b=list[0];if(list.length===1)return b;
  for(const t of list.slice(1)){const d=t.rows.slice(t.h);parts.push({ws:t.ws,srcFrom:t.h+1,dest:rows.length+1});rows.push(...d)}
  return{rows,h:b.h,n:rows.length,c:b.c,need:b.need,name:b.name,ws:b.ws,parts}}
 async function read(file,must){
-Workboo const wb=new ExcelJS.k();await wb.xlsx.load(await fixFonts(await file.arrayBuffer()));const ws=wb.worksheets[0];
+ const wb=new ExcelJS.Workbook();await wb.xlsx.load(await fixFonts(await file.arrayBuffer()));const ws=wb.worksheets[0];
  const rows=[];ws.eachRow({includeEmpty:true},(r,n)=>{rows[n-1]=r.values.slice(1).map(val)});
  for(let i=0;i<ws.rowCount;i++)if(!rows[i])rows[i]=[];
  const h=rows.findIndex(r=>must.every(m=>r.includes(m)));
