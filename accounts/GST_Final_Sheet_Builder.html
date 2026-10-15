@@ -140,40 +140,86 @@ const sIdx=new Map();for(const r of sm.rows.slice(sm.h)){const a=g(sm,r,'Applica
  const okRow=it=>{const r=sIdx.get(it.app??app.get(it.doc));return !!r&&!!(g(sm,r,'Customer Name')||g(sm,r,'Unit Code'))};
  const dropped=items.filter(it=>!okRow(it));items=items.filter(okRow);
  const tc={};items.forEach(i=>tc[i.rt]=(tc[i.rt]||0)+1);const typeSummary=Object.entries(tc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ');
- const hasTds=items.some(i=>/^TDS/i.test(i.bank)&&i.dr!==0),LC=hasTds?23:22,LCL=L(LC);
- const wb=new ExcelJS.Workbook();wb.calcProperties.fullCalcOnLoad=true;
- const ws=wb.addWorksheet('Final Sheet');
- for(const[n,t]of sheets){const s=wb.addWorksheet(n),w=t.ws;
-  for(const pt of (t.parts||[{ws:w,srcFrom:1,dest:1}]))pt.ws.eachRow({includeEmpty:false},(row,rn0)=>{if(rn0<pt.srcFrom)return;const rn=rn0-pt.srcFrom+pt.dest,nr=s.getRow(rn);if(row.height)nr.height=row.height;
-   row.eachCell({includeEmpty:true},(c,cn)=>{const nc=nr.getCell(cn),v=val(c.value);if(v!=null)nc.value=v;
-    if(c.style&&Object.keys(c.style).length)nc.style=JSON.parse(JSON.stringify(c.style));
-    if(v instanceof Date&&!nc.numFmt)nc.numFmt='dd/mm/yyyy'})});
-  for(let i=1;i<=w.columnCount;i++){const cw=w.getColumn(i);if(cw.width)s.getColumn(i).width=cw.width;if(cw.hidden)s.getColumn(i).hidden=true}
-  (w.model.merges||[]).forEach(m=>{try{s.mergeCells(m)}catch(e){}});
-  if(w.views&&w.views.length)s.views=JSON.parse(JSON.stringify(w.views));
-  if(w.autoFilter)s.autoFilter=w.autoFilter}
-const H=['Business Unit','Status','Application No','Booking No','Customer Name','Flat No.','ENTRY TYPE','DOCUMENTNO','DOCUMENTDATE','CASHANDBANK','Level3','Level4','Sum of DEBIT','Sum of CREDIT','NET AMOUNT','BUIDING NAME','MONTH','F Y YEAR','RECEIPT TYPE','SALE DEED VALUE','GST','FLAT GST STATUS','NARRATION','TDS']; H.slice(0,LC).forEach((h,i)=>ws.getCell(3,i+1).value=h);
-const lk=(col,x)=>`INDEX(${rng(sm,'Sales Mis',col)},MATCH($C${x},${rng(sm,'Sales Mis','Application No')},0))`; const RA=rng(rr,'Receipt Register','Application No'),RD=rng(rr,'Receipt Register','Money Receipt No'),PA=rng(pt,'PTC','Application No'),PD=rng(pt,'PTC','Document No');
- const SB=rng(sm,'Sales Mis','Booking No');
-  const ucCol=(()=>{const r1=sm.rows[sm.h-3]||[],r2=sm.rows[sm.h-2]||[];for(let i=0;i<r2.length;i++)if(/unit cost/i.test(String(r2[i]||''))&&/^basic$/i.test(String(r1[i]||'').trim()))return i+1;return 0})();
- const first=4,last=first+items.length-1,NF='#,##0;\\(#,##0\\);\\-';
- items.forEach((it,i)=>{const x=first+i,f=(c,fm)=>ws.getCell(c+x).value={formula:fm};
-if(it.fb)ws.getCell('C'+x).value=it.app;else f('C',`IFERROR(INDEX(${RA},MATCH($H${x},${RD},0)),INDEX(${PA},MATCH($H${x},${PD},0)))`);  f('A',lk('Business Unit',x));f('B',lk('Status',x));f('C',lk('Booking No',x));f('D',lk('Customer Name',x));f('E',cbm?`IF($J${x}="BLUE BELL","K "&${lk('Unit Code',x)},${lk('Unit Code',x)})`:lk('Unit Code',x));
-  ws.getCell('F'+x).value=it.et;ws.getCell('G'+x).value=it.doc;ws.getCell('H'+x).value=it.d;ws.getCell('I'+x).value=it.bank;
-  f('J',lk('Level3',x));f('K',cbm?`IF($J${x}="BLUE BELL","",${lk('Level4',x)})`:lk('Level4',x));ws.getCell('L'+x).value=it.dr;ws.getCell('M'+x).value=it.cr;
-  f('N',`L${x}-M${x}`);f('O',cbm?`IF(ISNUMBER(SEARCH("TROPICAL GREENS",${lk('Business Unit',x)})),J${x},TRIM(J${x}&" "&K${x}))`:`J${x}`);
-  f('Q',`TEXT(I${x},"mmmm")`);ws.getCell('R'+x).value=it.rt;f('S',(()=>{const tb=`SUMIFS(${rng(sm,'Sales Mis','Total Basic')},${SB},$C${x})`;if(!sm.c['Business Unit']||!ucCol)return tb;const cr=`'Sales Mis'!$${L(ucCol)}$${sm.h+1}:$${L(ucCol)}$${sm.n}`,uc=`SUMIFS(${cr},${SB},$C${x})`,bu=`INDEX(${rng(sm,'Sales Mis','Business Unit')},MATCH($B${x},${rng(sm,'Sales Mis','Application No')},0))`,k=`LEFT(SUBSTITUTE($K${x}," ",""),4)`;return `IF(ISNUMBER(SEARCH("TROPICAL GREENS",${bu})),${uc}+IF(${uc}>0,IF(${k}="2BHK",25000,IF(${k}="3BHK",37500,IF(${k}="4BHK",50000,0))),0),${tb})`})());  f('T',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$C${x})`);f('U',`IF(T${x}=0,"EXMPTED","TAXABLE")`);
-  ws.getCell('V'+x).value=it.nar;if(hasTds)f('W',`IF(LEFT(I${x},3)="TDS",N${x},0)`)});
- ws.getCell('K2').value='Total';for(const c of hasTds?'LMNW':'LMN')ws.getCell(c+'2').value={formula:`SUBTOTAL(9,${c}${first}:${c}${last})`};
- const thin={style:'thin'},med={style:'medium'};
- for(let r=2;r<=last+1;r++){ws.getRow(r).height=25.5;
-  for(let c=1;c<=LC;c++){const cell=ws.getCell(r,c);if(r===2){cell.font={name:'Calibri',size:11,bold:true};if('LMNW'.includes(L(c)))cell.numFmt=NF;continue}
-   cell.font={name:'Calibri',size:11,bold:r===3};cell.alignment={horizontal:'center',vertical:'middle'};
-   cell.border={left:c===1?med:thin,right:c===LC?med:thin,top:r===3?med:thin,bottom:(r===3||r===last+1)?med:thin};
-   if('LMNSTW'.includes(L(c))&&r>3)cell.numFmt=NF;if(c===8&&r>3)cell.numFmt='dd-mm-yyyy'}}
- const W=[9,19,22,32,10,16,19,13,44,13,8,13,13,13,13,9,9,22,13,11,16,60,12];W.slice(0,LC).forEach((w,i)=>ws.getColumn(i+1).width=w);
- ws.views=[{state:'frozen',xSplit:0,ySplit:3,topLeftCell:'A4',activeCell:'A4'}];ws.autoFilter=`A3:${LCL}${last}`;
- wbOut=wb;
+const hasTds=items.some(i=>/^TDS/i.test(i.bank)&&i.dr!==0),LC=hasTds?24:23,LCL=L(LC);
+const wb=new ExcelJS.Workbook();wb.calcProperties.fullCalcOnLoad=true;
+const ws=wb.addWorksheet('Final Sheet');
+for(const[n,t]of sheets){const s=wb.addWorksheet(n),w=t.ws;
+ for(const pt of (t.parts||[{ws:w,srcFrom:1,dest:1}]))pt.ws.eachRow({includeEmpty:false},(row,rn0)=>{if(rn0<pt.srcFrom)return;const rn=rn0-pt.srcFrom+pt.dest,nr=s.getRow(rn);if(row.height)nr.height=row.height;
+  row.eachCell({includeEmpty:true},(c,cn)=>{const nc=nr.getCell(cn),v=val(c.value);if(v!=null)nc.value=v;
+   if(c.style&&Object.keys(c.style).length)nc.style=JSON.parse(JSON.stringify(c.style));
+   if(v instanceof Date&&!nc.numFmt)nc.numFmt='dd/mm/yyyy'})});
+ for(let i=1;i<=w.columnCount;i++){const cw=w.getColumn(i);if(cw.width)s.getColumn(i).width=cw.width;if(cw.hidden)s.getColumn(i).hidden=true}
+ (w.model.merges||[]).forEach(m=>{try{s.mergeCells(m)}catch(e){}});
+ if(w.views&&w.views.length)s.views=JSON.parse(JSON.stringify(w.views));
+ if(w.autoFilter)s.autoFilter=w.autoFilter}
+
+const H=['Business Unit','Status','Application No','Booking No','Customer Name','Flat No.','ENTRY TYPE','DOCUMENTNO','DOCUMENTDATE','CASHANDBANK','Level3','Level4','Sum of DEBIT','Sum of CREDIT','NET AMOUNT','BUIDING NAME','MONTH','F Y YEAR','RECEIPT TYPE','SALE DEED VALUE','GST','FLAT GST STATUS','NARRATION','TDS'];
+H.slice(0,LC).forEach((h,i)=>ws.getCell(3,i+1).value=h);
+
+const lk=(col,x)=>`INDEX(${rng(sm,'Sales Mis',col)},MATCH($C${x},${rng(sm,'Sales Mis','Application No')},0))`;
+const RA=rng(rr,'Receipt Register','Application No'),RD=rng(rr,'Receipt Register','Money Receipt No'),PA=rng(pt,'PTC','Application No'),PD=rng(pt,'PTC','Document No');
+const SB=rng(sm,'Sales Mis','Booking No');
+const ucCol=(()=>{const r1=sm.rows[sm.h-3]||[],r2=sm.rows[sm.h-2]||[];for(let i=0;i<r2.length;i++)if(/unit cost/i.test(String(r2[i]||''))&&/^basic$/i.test(String(r1[i]||'').trim()))return i+1;return 0})();
+const first=4,last=first+items.length-1,NF='#,##0;\\(#,##0\\);\\-';
+
+items.forEach((it,i)=>{
+ const x=first+i,f=(c,fm)=>ws.getCell(c+x).value={formula:fm};
+
+ if(it.fb)ws.getCell('C'+x).value=it.app;
+ else f('C',`IFERROR(INDEX(${RA},MATCH($H${x},${RD},0)),INDEX(${PA},MATCH($H${x},${PD},0)))`);
+
+ f('A',lk('Business Unit',x));
+ f('B',lk('Status',x));
+ f('D',lk('Booking No',x));
+ f('E',lk('Customer Name',x));
+ f('F',cbm?`IF($K${x}="BLUE BELL","K "&${lk('Unit Code',x)},${lk('Unit Code',x)})`:lk('Unit Code',x));
+
+ ws.getCell('G'+x).value=it.et;
+ ws.getCell('H'+x).value=it.doc;
+ ws.getCell('I'+x).value=it.d;
+ ws.getCell('J'+x).value=it.bank;
+
+ f('K',lk('Level3',x));
+ f('L',cbm?`IF($K${x}="BLUE BELL","",${lk('Level4',x)})`:lk('Level4',x));
+
+ ws.getCell('M'+x).value=it.dr;
+ ws.getCell('N'+x).value=it.cr;
+ f('O',`M${x}-N${x}`);
+
+ f('P',cbm?`IF(ISNUMBER(SEARCH("TROPICAL GREENS",${lk('Business Unit',x)})),K${x},TRIM(K${x}&" "&L${x}))`:`K${x}`);
+ f('Q',`TEXT(I${x},"mmmm")`);
+ f('R',`IF(MONTH(I${x})>=4,YEAR(I${x})&"-"&RIGHT(YEAR(I${x})+1,2),(YEAR(I${x})-1)&"-"&RIGHT(YEAR(I${x}),2))`);
+
+ ws.getCell('S'+x).value=it.rt;
+
+ f('T',(()=>{const tb=`SUMIFS(${rng(sm,'Sales Mis','Total Basic')},${SB},$D${x})`;if(!sm.c['Business Unit']||!ucCol)return tb;const cr=`'Sales Mis'!$${L(ucCol)}$${sm.h+1}:$${L(ucCol)}$${sm.n}`,uc=`SUMIFS(${cr},${SB},$D${x})`,bu=`INDEX(${rng(sm,'Sales Mis','Business Unit')},MATCH($C${x},${rng(sm,'Sales Mis','Application No')},0))`,k=`LEFT(SUBSTITUTE($L${x}," ",""),4)`;return `IF(ISNUMBER(SEARCH("TROPICAL GREENS",${bu})),${uc}+IF(${uc}>0,IF(${k}="2BHK",25000,IF(${k}="3BHK",37500,IF(${k}="4BHK",50000,0))),0),${tb})`})());
+
+ f('U',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$D${x})`);
+ f('V',`IF(U${x}=0,"EXMPTED","TAXABLE")`);
+ ws.getCell('W'+x).value=it.nar;
+ if(hasTds)f('X',`IF(LEFT(J${x},3)="TDS",O${x},0)`);
+});
+
+ws.getCell('K2').value='Total';
+for(const c of (hasTds?'MNOX':'MNO'))ws.getCell(c+'2').value={formula:`SUBTOTAL(9,${c}${first}:${c}${last})`};
+
+const thin={style:'thin'},med={style:'medium'};
+for(let r=2;r<=last+1;r++){
+ ws.getRow(r).height=25.5;
+ for(let c=1;c<=LC;c++){
+  const cell=ws.getCell(r,c);
+  if(r===2){cell.font={name:'Calibri',size:11,bold:true};if('MNOX'.includes(L(c)))cell.numFmt=NF;continue}
+  cell.font={name:'Calibri',size:11,bold:r===3};
+  cell.alignment={horizontal:'center',vertical:'middle'};
+  cell.border={left:c===1?med:thin,right:c===LC?med:thin,top:r===3?med:thin,bottom:(r===3||r===last+1)?med:thin};
+  if('MNOTUX'.includes(L(c))&&r>3)cell.numFmt=NF;
+  if(c===9&&r>3)cell.numFmt='dd-mm-yyyy';
+ }
+}
+const W=[9,19,22,22,32,10,16,19,13,44,13,8,13,13,13,13,9,9,22,13,11,16,60,12];
+W.slice(0,LC).forEach((w,i)=>ws.getColumn(i+1).width=w);
+ws.views=[{state:'frozen',xSplit:0,ySplit:3,topLeftCell:'A4',activeCell:'A4'}];
+ws.autoFilter=`A3:${LCL}${last}`;
  const _a=sm.rows.slice(sm.h).map(r=>g(sm,r,'Application No')).filter(Boolean),dup=_a.length-new Set(_a).size;
  const s=k=>items.reduce((a,b)=>a+k(b),0),fm=n=>Math.round(n).toLocaleString('en-IN');
  out.innerHTML=`<div class="ch"><div class="n">&#10003;</div><div><h2>Final Sheet ready</h2><p>Check the totals, then download.</p></div></div><div class="cb"><table><tr><td>Rows</td><td>${items.length}</td></tr><tr><td>Total debit</td><td>${fm(s(i=>i.dr))}</td></tr><tr><td>Total credit</td><td>${fm(s(i=>i.cr))}</td></tr>${hasTds?`<tr><td>TDS</td><td>${fm(s(i=>/^TDS/i.test(i.bank)?i.dr:0))}</td></tr>`:''}</table><p style="color:#64748b;font-size:13px;margin:10px 0 0">Receipt types: ${typeSummary}</p>`+
