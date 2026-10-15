@@ -105,7 +105,20 @@ document.getElementById('go').onclick=async()=>{
  const rr=await read(F.rr,['Money Receipt No']),pt=await read(F.ptc,['Document No']),sm=mergeSales(await Promise.all(F.sm.map(f=>read(f,['Application No','Booking No']))));
  const cb=F.cb?await read(F.cb,['DOCUMENTNO','ENTRY TYPE','PARENTACCOUNTHEAD']):null,cbm=!!cb;
  const sheets=[['PTC',pt],['Receipt Register',rr],['Sales Mis',sm]];if(cb)sheets.push(['CashBank',cb]);
- const typ=h=>!h?'ON ACCOUNT':/^unit cost$/i.test(h)?'UNITCOST':/essential/i.test(h)?'EMS':/maint/i.test(h)?'Society Maintenance':/gas/i.test(h)?'GAS CHARGES':h;
+
+const typ=h=>{
+  if(!h) return 'ON ACCOUNT';
+  const v=String(h).trim().toUpperCase();
+
+  if(/\bGST\b/.test(v)) return 'GST AMOUNT';
+  if(/ESSENTIAL|\bEMS\b/.test(v)) return 'EMS';
+  if(/\bGAS\b/.test(v)) return 'GAS CHARGES';
+  if(/MAINT/.test(v)) return 'Society Maintenance';
+  if(/SOCIETY.*DEP/.test(v)) return 'Society Deposit';
+  if(/^UNIT COST$/.test(v)) return 'UNITCOST';
+
+  return h;
+};
  const grp=new Map(),app=new Map();
  for(const r of rr.rows.slice(rr.h)){const doc=g(rr,r,'Money Receipt No');if(!doc)continue;
   const bank=g(rr,r,'Deposit Bank/Debit Ledger')||'',rt=typ(g(rr,r,'Revenue Head')),k=[doc,bank,rt].join('|');
@@ -148,12 +161,11 @@ const sIdx=new Map();for(const r of sm.rows.slice(sm.h)){const a=g(sm,r,'Applica
  const first=4,last=first+items.length-1,NF='#,##0;\\(#,##0\\);\\-';
  items.forEach((it,i)=>{const x=first+i,f=(c,fm)=>ws.getCell(c+x).value={formula:fm};
   if(it.fb)ws.getCell('B'+x).value=it.app;else f('B',`IFERROR(INDEX(${RA},MATCH($G${x},${RD},0)),INDEX(${PA},MATCH($G${x},${PD},0)))`);
-  f('A',lk('Status',x));f('C',lk('Booking No',x));f('D',lk('Customer Name',x));f('E',cbm?`IF($J${x}="BLUE BELL","K "&${lk('Unit Code',x)},${lk('Unit Code',x)})`:lk('Unit Code',x));
+  f('A',lk('Business Unit',x));f('B',lk('Status',x));f('C',lk('Booking No',x));f('D',lk('Customer Name',x));f('E',cbm?`IF($J${x}="BLUE BELL","K "&${lk('Unit Code',x)},${lk('Unit Code',x)})`:lk('Unit Code',x));
   ws.getCell('F'+x).value=it.et;ws.getCell('G'+x).value=it.doc;ws.getCell('H'+x).value=it.d;ws.getCell('I'+x).value=it.bank;
   f('J',lk('Level3',x));f('K',cbm?`IF($J${x}="BLUE BELL","",${lk('Level4',x)})`:lk('Level4',x));ws.getCell('L'+x).value=it.dr;ws.getCell('M'+x).value=it.cr;
   f('N',`L${x}-M${x}`);f('O',cbm?`IF(ISNUMBER(SEARCH("TROPICAL GREENS",${lk('Business Unit',x)})),J${x},TRIM(J${x}&" "&K${x}))`:`J${x}`);
-  f('Q',`IF(MONTH(H${x})>=4,YEAR(H${x})&"-"&RIGHT(YEAR(H${x})+1,2),(YEAR(H${x})-1)&"-"&RIGHT(YEAR(H${x}),2))`);
-ws.getCell('R'+x).value=it.rt;f('S',(()=>{const tb=`SUMIFS(${rng(sm,'Sales Mis','Total Basic')},${SB},$C${x})`;if(!sm.c['Business Unit']||!ucCol)return tb;const cr=`'Sales Mis'!$${L(ucCol)}$${sm.h+1}:$${L(ucCol)}$${sm.n}`,uc=`SUMIFS(${cr},${SB},$C${x})`,bu=`INDEX(${rng(sm,'Sales Mis','Business Unit')},MATCH($B${x},${rng(sm,'Sales Mis','Application No')},0))`,k=`LEFT(SUBSTITUTE($K${x}," ",""),4)`;return `IF(ISNUMBER(SEARCH("TROPICAL GREENS",${bu})),${uc}+IF(${uc}>0,IF(${k}="2BHK",25000,IF(${k}="3BHK",37500,IF(${k}="4BHK",50000,0))),0),${tb})`})());  f('T',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$C${x})`);f('U',`IF(T${x}=0,"EXMPTED","TAXABLE")`);
+  f('Q',`TEXT(I${x},"mmmm")`);ws.getCell('R'+x).value=it.rt;f('S',(()=>{const tb=`SUMIFS(${rng(sm,'Sales Mis','Total Basic')},${SB},$C${x})`;if(!sm.c['Business Unit']||!ucCol)return tb;const cr=`'Sales Mis'!$${L(ucCol)}$${sm.h+1}:$${L(ucCol)}$${sm.n}`,uc=`SUMIFS(${cr},${SB},$C${x})`,bu=`INDEX(${rng(sm,'Sales Mis','Business Unit')},MATCH($B${x},${rng(sm,'Sales Mis','Application No')},0))`,k=`LEFT(SUBSTITUTE($K${x}," ",""),4)`;return `IF(ISNUMBER(SEARCH("TROPICAL GREENS",${bu})),${uc}+IF(${uc}>0,IF(${k}="2BHK",25000,IF(${k}="3BHK",37500,IF(${k}="4BHK",50000,0))),0),${tb})`})());  f('T',`SUMIFS(${rng(sm,'Sales Mis','Total Tax')},${SB},$C${x})`);f('U',`IF(T${x}=0,"EXMPTED","TAXABLE")`);
   ws.getCell('V'+x).value=it.nar;if(hasTds)f('W',`IF(LEFT(I${x},3)="TDS",N${x},0)`)});
  ws.getCell('K2').value='Total';for(const c of hasTds?'LMNW':'LMN')ws.getCell(c+'2').value={formula:`SUBTOTAL(9,${c}${first}:${c}${last})`};
  const thin={style:'thin'},med={style:'medium'};
