@@ -106,19 +106,29 @@ document.getElementById('go').onclick=async()=>{
  const cb=F.cb?await read(F.cb,['DOCUMENTNO','ENTRY TYPE','PARENTACCOUNTHEAD']):null,cbm=!!cb;
  const sheets=[['PTC',pt],['Receipt Register',rr],['Sales Mis',sm]];if(cb)sheets.push(['CashBank',cb]);
 
-const typ=h=>{
-  if(!h) return 'ON ACCOUNT';
-  const v=String(h).trim().toUpperCase();
 
-  if(/\bGST\b/.test(v)) return 'GST AMOUNT';
-  if(/ESSENTIAL|\bEMS\b/.test(v)) return 'EMS';
-  if(/\bGAS\b/.test(v)) return 'GAS CHARGES';
-  if(/MAINT/.test(v)) return 'Society Maintenance';
-  if(/SOCIETY.*DEP/.test(v)) return 'Society Deposit';
-  if(/^UNIT COST$/.test(v)) return 'UNITCOST';
+const typ = h => {
+  if (h == null || String(h).trim() === '') return 'ON ACCOUNT';
 
-  return h;
+  const v = String(h).trim().toUpperCase();
+
+  // Unit cost categories
+  if (/\bMCOLL\b/.test(v)) return 'UNITCOST';
+  if (/\bUNIT\s*COST\b/.test(v)) return 'UNITCOST';
+  if (/\bCLUB\s*HOUSE\b/.test(v)) return 'UNITCOST';
+  if (/\bCLUB\s*3BHK\b/.test(v)) return 'UNITCOST';
+
+  // Other receipt categories
+  if (/\bGST\b/.test(v)) return 'GST AMOUNT';
+  if (/ESSENTIAL|\bEMS\b/.test(v)) return 'EMS';
+  if (/\bGAS\b/.test(v)) return 'GAS CHARGES';
+  if (/MAINT/.test(v)) return 'Society Maintenance';
+  if (/SOCIETY.*DEP/.test(v)) return 'Society Deposit';
+
+  // Keep any other revenue head as it appears in the source
+  return String(h).trim();
 };
+
  const grp=new Map(),app=new Map();
  for(const r of rr.rows.slice(rr.h)){const doc=g(rr,r,'Money Receipt No');if(!doc)continue;
   const bank=g(rr,r,'Deposit Bank/Debit Ledger')||'',rt=typ(g(rr,r,'Revenue Head')),k=[doc,bank,rt].join('|');
