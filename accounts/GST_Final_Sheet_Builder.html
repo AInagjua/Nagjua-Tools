@@ -224,8 +224,23 @@ ws.autoFilter=`A3:${LCL}${last}`;
  const s=k=>items.reduce((a,b)=>a+k(b),0),fm=n=>Math.round(n).toLocaleString('en-IN');
  out.innerHTML=`<div class="ch"><div class="n">&#10003;</div><div><h2>Final Sheet ready</h2><p>Check the totals, then download.</p></div></div><div class="cb"><table><tr><td>Rows</td><td>${items.length}</td></tr><tr><td>Total debit</td><td>${fm(s(i=>i.dr))}</td></tr><tr><td>Total credit</td><td>${fm(s(i=>i.cr))}</td></tr>${hasTds?`<tr><td>TDS</td><td>${fm(s(i=>/^TDS/i.test(i.bank)?i.dr:0))}</td></tr>`:''}</table><p style="color:#64748b;font-size:13px;margin:10px 0 0">Receipt types: ${typeSummary}</p>`+
   (dropped.length?`<p class="err">${dropped.length} rows were left out because they have no customer name or flat number in Sales Details (debit ${fm(dropped.reduce((a,b)=>a+b.dr,0))}, credit ${fm(dropped.reduce((a,b)=>a+b.cr,0))}). If a business unit's Sales Details file is missing, add it and generate again.</p>`:'')+(dup?`<p class="err">${dup} Application Nos appear more than once across the Sales Details files.</p>`:'')+(!hasTds?`<p class="err" style="color:#64748b">No TDS found, so the TDS column was left out. No receipt was booked to a ledger starting with "TDS". TDS is read from the Deposit Bank / Debit Ledger column of the Receipt Register (for example "TDS (Immovable Property-194[IA]) Received").</p>`:'')+`<button id="dl" class="go dark">Download GST_Final.xlsx</button></div>`;
- document.getElementById('dl').onclick=async()=>{const buf=await wbOut.xlsx.writeBuffer();
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-  a.download='GST_Final.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+document.getElementById('dl').onclick = async () => {
+  try {
+    const buf = await wbOut.xlsx.writeBuffer();
+    const blob = new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'GST_Final.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    out.innerHTML = `<div class="cb"><p class="err" style="margin:0">Download failed: ${e.message}</p></div>`;
+  }
+};
  }catch(e){out.innerHTML=`<div class="cb"><p class="err" style="margin:0">${e.message}</p></div>`}};
 </script></body></html>
