@@ -141,7 +141,7 @@ const sIdx=new Map();for(const r of sm.rows.slice(sm.h)){const a=g(sm,r,'Applica
  const dropped=items.filter(it=>!okRow(it));items=items.filter(okRow);
  const tc={};items.forEach(i=>tc[i.rt]=(tc[i.rt]||0)+1);const typeSummary=Object.entries(tc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ');
 const hasTds=items.some(i=>/^TDS/i.test(i.bank)&&i.dr!==0),LC=hasTds?24:23,LCL=L(LC);
-const wb=new ExcelJS.Workbook();wb.calcProperties.fullCalcOnLoad=true;
+const wb=wbOut=new ExcelJS.Workbook();wb.calcProperties.fullCalcOnLoad=true;
 const ws=wb.addWorksheet('Final Sheet');
 for(const[n,t]of sheets){const s=wb.addWorksheet(n),w=t.ws;
  for(const pt of (t.parts||[{ws:w,srcFrom:1,dest:1}]))pt.ws.eachRow({includeEmpty:false},(row,rn0)=>{if(rn0<pt.srcFrom)return;const rn=rn0-pt.srcFrom+pt.dest,nr=s.getRow(rn);if(row.height)nr.height=row.height;
