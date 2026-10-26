@@ -1835,7 +1835,7 @@ setMode('flat');
   async function fetchRetry(url, opts){
     for(let i = 0; i < 5; i++){
       const res = await fetch(url, opts);
-      if(![429, 500, 503].includes(res.status) || i === 4) return res;
+      if(![500, 503].includes(res.status) || i === 4) return res;
       await new Promise(r => setTimeout(r, 4000 * (i + 1)));
     }
   }
