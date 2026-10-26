@@ -1769,5 +1769,184 @@ if(restoredTowers && restoredTowers.length){ towers = restoredTowers; }
 renderTowers();
 setMode('flat');
 </script>
+
+ <script>
+(function(){
+  // 1) PDF support: PDFs are converted to one image per page, then handled like photos
+  const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  let pdfReady = null;
+  function ensurePdfJs(){
+    if(!pdfReady){
+      pdfReady = new Promise((res, rej)=>{
+        const s = document.createElement('script');
+        s.src = PDFJS;
+        s.onload = ()=>{ pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; res(); };
+        s.onerror = ()=>rej(new Error('Could not load the PDF reader'));
+        document.head.appendChild(s);
+      });
+    }
+    return pdfReady;
+  }
+  async function pdfToImageFiles(file){
+    await ensurePdfJs();
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const out = [];
+    for(let p = 1; p <= pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const vp = page.getViewport({ scale: 2 });
+      const c = document.createElement('canvas');
+      c.width = vp.width; c.height = vp.height;
+      await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+      out.push(new File([blob], file.name.replace(/\.pdf$/i, '') + ' p' + p + '.jpg', { type: 'image/jpeg' }));
+    }
+    return out;
+  }
+  document.getElementById('ai-photo-input').setAttribute('accept', 'image/*,.pdf,application/pdf,.zip,application/zip');
+  const origExpand = window.expandFilesWithZips;
+  window.expandFilesWithZips = async function(files){
+    const pre = [], errors = [];
+    for(const f of files){
+      if(f.type === 'application/pdf' || /\.pdf$/i.test(f.name)){
+        try{ pre.push(...await pdfToImageFiles(f)); }
+        catch(err){ errors.push({ __zipError: true, name: f.name, message: err.message }); }
+      } else pre.push(f);
+    }
+    return (await origExpand(pre)).concat(errors);
+  };
+
+  // 2) Auto-split: if one read is cut off, read the top and bottom halves and join them
+  const origCall = window.callGemini;
+  const rowKey = r => [r.section, r.particulars, r.nos, r.length, r.breadth, r.unitType, r.deduction].join('|');
+  async function splitBase64Image(base64, mime){
+    const img = new Image();
+    img.src = 'data:' + mime + ';base64,' + base64;
+    await img.decode();
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const cut = Math.round(h / 2), ov = Math.round(h * 0.04);
+    const out = [];
+    for(const [y0, y1] of [[0, cut + ov], [cut - ov, h]]){
+      const c = document.createElement('canvas');
+      c.width = w; c.height = y1 - y0;
+      c.getContext('2d').drawImage(img, 0, y0, w, y1 - y0, 0, 0, w, y1 - y0);
+      out.push(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
+    }
+    return out;
+  }
+  window.callGemini = async function(base64, mime, key, depth){
+    depth = depth || 0;
+    try{
+      return await origCall(base64, mime, key);
+    }catch(err){
+      if(!err.truncated || depth >= 2) throw err;
+      const [top, bottom] = await splitBase64Image(base64, mime);
+      const ja = parseGeminiJson(await window.callGemini(top, 'image/jpeg', key, depth + 1));
+      const jb = parseGeminiJson(await window.callGemini(bottom, 'image/jpeg', key, depth + 1));
+      const ra = Array.isArray(ja.rows) ? ja.rows : [];
+      let rb = Array.isArray(jb.rows) ? jb.rows : [];
+      for(let k = Math.min(4, ra.length, rb.length); k > 0; k--){
+        if(ra.slice(-k).map(rowKey).join('#') === rb.slice(0, k).map(rowKey).join('#')){ rb = rb.slice(k); break; }
+      }
+      const hdr = Object.assign({}, jb.header || {});
+      Object.entries(ja.header || {}).forEach(([k, v]) => { if(v) hdr[k] = v; });
+      return JSON.stringify({ format: ja.format || jb.format, header: hdr, rows: ra.concat(rb) });
+    }
+  };
+
+  // 3) Sections and header carry over between pages (no more one-row sections)
+  let lastFlatId = null;
+  window.mergeExtractedFlatPage = function(header, rows, counts){
+    const tower = (header.tower || '').trim(), flatNo = (header.flatNo || '').trim(), series = (header.series || '').trim();
+    let flat = (tower || flatNo)
+      ? flats.find(f => f.tower.trim() === tower && f.flatNo.trim() === flatNo)
+      : flats.find(f => f.id === lastFlatId);
+    if(!flat){
+      flat = newFlat();
+      flat.tower = tower; flat.flatNo = flatNo; flat.series = series;
+      flat.nameOfWork = correctSpelling((header.nameOfWork || '').trim());
+      flat.billNo = (header.billNo || '').trim();
+      flats.push(flat);
+      counts.addedFlats++;
+    } else {
+      if(!flat.series && series) flat.series = series;
+      if(!flat.nameOfWork && header.nameOfWork) flat.nameOfWork = correctSpelling(header.nameOfWork.trim());
+      if(!flat.billNo && header.billNo) flat.billNo = header.billNo.trim();
+    }
+    lastFlatId = flat.id;
+    let current = flat.sections.length ? flat.sections[flat.sections.length - 1].name : '';
+    rows.forEach(it => {
+      let name = correctSpelling((it.section || '').trim());
+      if(name) current = name; else name = current;
+      let section = name ? flat.sections.find(s => s.name.trim() === name) : flat.sections.find(s => !s.name.trim());
+      if(!section){ section = newSection(); section.name = name; flat.sections.push(section); counts.addedSections++; }
+      section.rows.push({
+        id: 'row_' + (idCounter++), particulars: correctSpelling(it.particulars || ''),
+        nos: Number(it.nos) || 1, length: it.length || '', breadth: it.breadth || '',
+        unitType: it.unitType === 'RF' ? 'RF' : 'SF', deduction: !!it.deduction, remark: ''
+      });
+      counts.addedRows++;
+    });
+  };
+  window.mergeExtractedTowerPage = function(header, rows, counts){
+    const towerName = (header.tower || '').trim();
+    const nameOfWork = correctSpelling((header.nameOfWork || '').trim());
+    let tower = towerName ? towers.find(t => t.tower.trim() === towerName) : (towers.find(t => t.id === lastAutoTowerId) || null);
+    if(!tower){
+      tower = newTower();
+      tower.tower = towerName; tower.nameOfWork = nameOfWork;
+      tower.item = (header.item || '').trim(); tower.billNo = (header.billNo || '').trim();
+      towers.push(tower);
+      counts.addedTowers++;
+    } else {
+      if(!tower.tower && towerName) tower.tower = towerName;
+      if(!tower.nameOfWork && nameOfWork) tower.nameOfWork = nameOfWork;
+      if(!tower.item && header.item) tower.item = header.item.trim();
+      if(!tower.billNo && header.billNo) tower.billNo = header.billNo.trim();
+    }
+    lastAutoTowerId = tower.id;
+    let current = tower.sections.length ? tower.sections[tower.sections.length - 1].name : '';
+    rows.forEach(it => {
+      let name = correctSpelling((it.section || '').trim());
+      if(name) current = name; else name = current;
+      let section = name ? tower.sections.find(s => s.name.trim() === name) : tower.sections.find(s => !s.name.trim());
+      if(!section){ section = newTowerSection(); section.name = name; tower.sections.push(section); counts.addedSections++; }
+      const unitType = ['SFT', 'RFT', 'NOS'].includes(it.unitType) ? it.unitType : (it.unitType === 'RF' ? 'RFT' : 'SFT');
+      section.rows.push({
+        id: 'trow_' + (idCounter++), particulars: correctSpelling(it.particulars || ''),
+        nos: Number(it.nos) || 1, length: unitType === 'NOS' ? '' : (it.length || ''),
+        breadth: unitType === 'NOS' ? '' : (it.breadth || ''), unitType: unitType,
+        deduction: !!it.deduction, remark: ''
+      });
+      counts.addedRows++;
+    });
+  };
+
+  // 4) Excel totals: Total Work and Total Deduction both in rupees, so Net Total is correct
+  function fixTotals(ws, from, to){
+    const workTerms = [], deductTerms = [];
+    let workRow = 0, deductRow = 0;
+    for(let rr = from; rr < to; rr++){
+      if(ws.getCell(rr, 6).value === 'Total'){
+        const v = ws.getCell(rr, 7).value;
+        const m = v && v.formula && v.formula.match(/^(SUM\([^)]*\)|0)-(SUM\([^)]*\)|0)$/);
+        if(m){
+          const rate = 'G' + (rr + 1);
+          workTerms.push('(' + m[1] + ')*' + rate);
+          deductTerms.push('(' + m[2] + ')*' + rate);
+        }
+      }
+      if(ws.getCell(rr, 4).value === 'Total Work') workRow = rr;
+      if(ws.getCell(rr, 4).value === 'Total Deduction') deductRow = rr;
+    }
+    if(workRow) ws.getCell(workRow, 7).value = workTerms.length ? { formula: workTerms.join('+') } : 0;
+    if(deductRow) ws.getCell(deductRow, 7).value = deductTerms.length ? { formula: deductTerms.join('+') } : 0;
+  }
+  const origFlatTable = window.writeFlatTable;
+  window.writeFlatTable = function(ws, start, flat){ const end = origFlatTable(ws, start, flat); fixTotals(ws, start, end); return end; };
+  const origTowerTable = window.writeTowerTable;
+  window.writeTowerTable = function(ws, start, tower){ const end = origTowerTable(ws, start, tower); fixTotals(ws, start, end); return end; };
+})();
+</script> 
 </body>
 </html>
