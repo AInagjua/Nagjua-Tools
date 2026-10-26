@@ -1520,7 +1520,7 @@ async function callGemini(base64Image, mimeType, apiKey){
         { inline_data: { mime_type: mimeType, data: base64Image } }
       ]
     }],
-    generationConfig: { temperature: 0, maxOutputTokens: 32768, thinkingConfig: { thinkingLevel: 'low' } }
+    generationConfig: { temperature: 0, maxOutputTokens: 32768 }
   };
   const res = await fetch(url, {
     method: 'POST',
@@ -1532,8 +1532,6 @@ async function callGemini(base64Image, mimeType, apiKey){
     throw new Error('Gemini API error ' + res.status + ': ' + errText.slice(0,300));
   }
   const data = await res.json();
-  const candidate = (data.candidates && data.candidates[0]) || {};
-   const data = await res.json();
   const candidate = (data.candidates && data.candidates[0]) || {};
   if(candidate.finishReason === 'MAX_TOKENS'){
     const e = new Error('Response was cut off (too much handwriting on this page for one read).');
