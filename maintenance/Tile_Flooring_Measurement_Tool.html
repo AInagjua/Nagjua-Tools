@@ -1520,7 +1520,7 @@ async function callGemini(base64Image, mimeType, apiKey){
         { inline_data: { mime_type: mimeType, data: base64Image } }
       ]
     }],
-    generationConfig: { temperature: 0, maxOutputTokens: 8192 }
+    generationConfig: { temperature: 0, maxOutputTokens: 32768, thinkingConfig: { thinkingLevel: 'low' } }
   };
   const res = await fetch(url, {
     method: 'POST',
@@ -1533,8 +1533,12 @@ async function callGemini(base64Image, mimeType, apiKey){
   }
   const data = await res.json();
   const candidate = (data.candidates && data.candidates[0]) || {};
+   const data = await res.json();
+  const candidate = (data.candidates && data.candidates[0]) || {};
   if(candidate.finishReason === 'MAX_TOKENS'){
-    throw new Error('Response was cut off (too much handwriting on this page for one read) - please retake this photo as 2 closer-up photos (e.g. top half and bottom half) and upload both.');
+    const e = new Error('Response was cut off (too much handwriting on this page for one read).');
+    e.truncated = true;
+    throw e;
   }
   const parts = (candidate.content && candidate.content.parts) || [];
   const text = parts.map(p => p.text || '').join('');
